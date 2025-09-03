@@ -100,4 +100,46 @@
   flex: 1;
   padding: 28px 36px;
   min-width: 0;
+  background: var(--mantine-color-gray-0);
+}
+
+/* Card hover effects */
+.mantine-Card-root {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mantine-Card-root:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+/* Hero section styling */
+.mantine-Paper-root {
+  background: linear-gradient(135deg, rgba(34, 139, 34, 0.1) 0%, rgba(0, 123, 255, 0.1) 100%);
+}
+
+/* Stats cards color coding */
+.mantine-SimpleGrid-root .mantine-Card-root:nth-child(1) {
+  border-left: 4px solid #228be6;
+}
+
+.mantine-SimpleGrid-root .mantine-Card-root:nth-child(2) {
+  border-left: 4px solid #51cf66;
+}
+
+.mantine-SimpleGrid-root .mantine-Card-root:nth-child(3) {
+  border-left: 4px solid #ffd43b;
+}
+
+.mantine-SimpleGrid-root .mantine-Card-root:nth-child(4) {
+  border-left: 4px solid #ff922b;
+}
+
+/* Dark mode adjustments */
+:root[data-mantine-color-scheme='dark'] .page-content {
+  background: var(--mantine-color-dark-7);
+}
+
+:root[data-mantine-color-scheme='dark'] .mantine-Paper-root {
+  background: linear-gradient(135deg, rgba(34, 139, 34, 0.2) 0%, rgba(0, 123, 255, 0.2) 100%);
 }

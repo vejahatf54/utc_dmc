@@ -8,22 +8,22 @@
 }
 
 #sidebar {
-  --collapsed-width: 68px;
-  --expanded-width: 210px;
+  --collapsed-width: 56px;
+  --expanded-width: 250px;
   width: var(--collapsed-width);
-  /* Deep purple to indigo gradient */
-  background: linear-gradient(165deg, #1f0e3a 0%, #311b5b 45%, #2d3a8c 100%);
+  /* Modern gradient similar to LDUTC */
+  background: linear-gradient(to bottom, #4b006e 0%, #2563eb 40%, #1e293b 100%);
   color: white;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 14px 12px 18px 12px;
-  gap: 12px;
+  padding: 20px 0 18px 0;
+  gap: 16px;
   position: sticky;
   top: 0;
-  transition: width 160ms ease;
+  transition: width 200ms ease;
   overflow: hidden;
-  box-shadow: 2px 0 6px rgba(0,0,0,0.25);
+  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
   border-right: 1px solid rgba(255,255,255,0.08);
   z-index: 100;
 }
@@ -32,21 +32,63 @@
   width: var(--expanded-width);
 }
 
+/* Ensure nav area has no side padding so links center perfectly */
+#sidebar #sidebar-nav { 
+  padding-left: 0 !important; 
+  padding-right: 0 !important; 
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-grow: 1;
+}
+
+/* Labels hidden by default, shown on hover */
+#sidebar .sb-label { 
+  display: none; 
+}
+
+#sidebar:hover .sb-label { 
+  display: inline-block; 
+}
+
+/* Brand section */
+.sidebar-brand {
+  padding: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 12px;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+#sidebar:hover .sidebar-brand {
+  opacity: 1;
+}
+
 #sidebar .nav-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 8px;
-  border-radius: 6px;
+  justify-content: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 8px;
   text-decoration: none;
-  color: rgba(255,255,255,0.8);
-  transition: background 100ms ease, color 100ms ease;
-  margin: 2px 0;
+  color: rgba(255,255,255,0.85);
+  transition: all 200ms ease;
+  margin: 3px 12px;
+  font-weight: 500;
+  position: relative;
 }
 
-#sidebar .nav-link:hover {
-  background: rgba(255,255,255,0.15);
-  color: white;
+/* When expanded, align left and add proper spacing */
+#sidebar:hover .nav-link {
+  justify-content: flex-start;
+  padding: 12px 16px;
+}
+
+#sidebar .nav-link:hover,
+#sidebar .nav-link.active {
+  background: rgba(255,255,255,0.12);
+  color: #ffffff;
 }
 
 #sidebar .nav-icon {
@@ -70,6 +112,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex-grow: 1;
+  margin-top: 8px;
 }
 
 #sidebar .sidebar-bottom {
@@ -98,37 +142,64 @@
 
 .page-content {
   flex: 1;
-  padding: 28px 36px;
+  padding: 32px 40px;
   min-width: 0;
   background: var(--mantine-color-gray-0);
+  min-height: calc(100vh - 48px);
 }
 
-/* Card hover effects */
+/* Enhanced card hover effects */
 .mantine-Card-root {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid var(--mantine-color-gray-2);
 }
 
 .mantine-Card-root:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12);
 }
 
-/* Hero section styling */
-.mantine-Paper-root {
-  background: linear-gradient(135deg, rgba(34, 139, 34, 0.1) 0%, rgba(0, 123, 255, 0.1) 100%);
+/* Home page specific styling */
+.home-hero-card {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+  backdrop-filter: blur(10px);
 }
 
-/* Stats cards color coding */
+/* Feature cards color coding */
 .mantine-SimpleGrid-root .mantine-Card-root:nth-child(1) {
-  border-left: 4px solid #228be6;
+  border-left: 4px solid #3b82f6;
 }
 
 .mantine-SimpleGrid-root .mantine-Card-root:nth-child(2) {
-  border-left: 4px solid #51cf66;
+  border-left: 4px solid #10b981;
 }
 
 .mantine-SimpleGrid-root .mantine-Card-root:nth-child(3) {
-  border-left: 4px solid #ffd43b;
+  border-left: 4px solid #f59e0b;
+}
+
+/* Button enhancements */
+.mantine-Button-root {
+  transition: all 0.2s ease;
+}
+
+.mantine-Button-root:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Dark mode adjustments */
+[data-mantine-color-scheme="dark"] .page-content {
+  background: var(--mantine-color-dark-8);
+}
+
+[data-mantine-color-scheme="dark"] .mantine-Card-root {
+  background: var(--mantine-color-dark-6);
+  border-color: var(--mantine-color-dark-4);
+}
+
+[data-mantine-color-scheme="dark"] .home-hero-card {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
 }
 
 .mantine-SimpleGrid-root .mantine-Card-root:nth-child(4) {

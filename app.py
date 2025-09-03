@@ -2,6 +2,7 @@ import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 from dash import Dash, Input, Output, dcc, html, clientside_callback
 from components.sidebar import build_sidebar
+from components.home_page import create_home_page
 
 app = Dash(__name__)
 
@@ -58,19 +59,25 @@ clientside_callback(
 @app.callback(Output("page-content", "children"), Input("url", "pathname"))
 def render_page(pathname: str):
     if pathname in ("/", ""):
-        return dmc.Stack([
-            dmc.Title("Home", order=2),
-            dmc.Text("Welcome to the Home page."),
-        ], gap="md")
-    if pathname == "/settings":
-        return dmc.Stack([
-            dmc.Title("Settings", order=2),
-            dmc.Text("Adjust your preferences here."),
-        ], gap="md")
-    return dmc.Stack([
-        dmc.Title("404", order=2),
-        dmc.Text(f"Page '{pathname}' not found."),
-    ], gap="md")
+        return create_home_page()
+    elif pathname == "/settings":
+        return dmc.Container([
+            dmc.Title("Settings", order=2, mb="md"),
+            dmc.Text("Adjust your preferences here.", mb="lg"),
+            dmc.Card([
+                dmc.Title("Theme Settings", order=4),
+                dmc.Text("Customize your dashboard preferences",
+                         c="dimmed", mb="md"),
+                dmc.Switch(
+                    label="Dark Mode",
+                    description="Toggle between light and dark themes"
+                )
+            ], withBorder=True, shadow="sm", radius="md", p="lg")
+        ], size="xl")
+    return dmc.Container([
+        dmc.Title("404 - Page Not Found", order=2),
+        dmc.Text(f"The page '{pathname}' could not be found.", c="dimmed"),
+    ], size="xl")
 
 
 if __name__ == "__main__":

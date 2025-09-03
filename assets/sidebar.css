@@ -161,8 +161,27 @@
 
 /* Home page specific styling */
 .home-hero-card {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+  background: linear-gradient(to bottom, #4b006e 0%, #2563eb 40%, #1e293b 100%) !important;
   backdrop-filter: blur(10px);
+  color: white !important;
+}
+
+.home-hero-card .mantine-Text-root {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.home-hero-card .mantine-Title-root {
+  color: white !important;
+}
+
+.home-hero-card .mantine-Divider-root {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Override any dimmed colors */
+.home-hero-card [data-dimmed="true"],
+.home-hero-card .mantine-Text-root[data-dimmed] {
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 
 /* Feature cards color coding */
@@ -199,7 +218,7 @@
 }
 
 [data-mantine-color-scheme="dark"] .home-hero-card {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+  background: linear-gradient(to bottom, #4b006e 0%, #2563eb 40%, #1e293b 100%);
 }
 
 .mantine-SimpleGrid-root .mantine-Card-root:nth-child(4) {

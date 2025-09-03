@@ -37,27 +37,30 @@ def create_home_page():
                                     "Welcome to UTC Dashboard,",
                                     order=2,
                                     fw=700,
-                                    mb="md"
+                                    mb="md",
+                                    c="white"
                                 ),
 
                                 dmc.Text(
                                     "This platform provides a suite of tools designed to assist with data analysis and visualization.",
                                     size="lg",
-                                    mb="sm"
+                                    mb="sm",
+                                    c="rgba(255, 255, 255, 0.9)"
                                 ),
 
                                 dmc.Text(
                                     "Use the sidebar to access available utilities such as data processing, visualization, and reporting features.",
                                     size="lg",
-                                    mb="md"
+                                    mb="md",
+                                    c="rgba(255, 255, 255, 0.9)"
                                 ),
 
-                                dmc.Divider(size="sm"),
+                                dmc.Divider(size="sm", color="rgba(255, 255, 255, 0.2)"),
 
                                 dmc.Text(
                                     "Built with Dash Mantine Components",
                                     size="sm",
-                                    c="dimmed",
+                                    c="rgba(255, 255, 255, 0.7)",
                                     mb=0
                                 ),
                             ],

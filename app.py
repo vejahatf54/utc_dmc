@@ -1,22 +1,12 @@
+import json
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
-from dash import Dash, Input, Output, dcc, html, clientside_callback
+from dash import Dash, Input, Output, State, callback, dcc, html, clientside_callback
 from components.sidebar import build_sidebar
 from components.home_page import create_home_page
+from components.custom_theme import theme_controls, color_picker_value_mapping, theme_name_mapping, size_name_mapping
 
 app = Dash(__name__)
-
-# Theme toggle switch (kept) - we'll place it near bottom above Settings link
-theme_toggle = dmc.Switch(
-    offLabel=DashIconify(icon="radix-icons:sun", width=15,
-                         color=dmc.DEFAULT_THEME["colors"]["yellow"][8]),
-    onLabel=DashIconify(icon="radix-icons:moon", width=15,
-                        color=dmc.DEFAULT_THEME["colors"]["yellow"][6]),
-    id="color-scheme-switch",
-    persistence=True,
-    color="gray",
-    size="md",
-)
 
 sidebar = build_sidebar()
 
@@ -31,27 +21,52 @@ app.layout = dmc.MantineProvider(
             sidebar,
             html.Div(
                 [
-                    html.Div(theme_toggle, className="theme-toggle-topright"),
+                    html.Div(theme_controls,
+                             className="theme-controls-topright"),
                     content
                 ],
                 className="main-content-shell"
             )
         ],
         className="app-shell",
-    )
+    ),
+    theme={
+        "primaryColor": "green",
+        "defaultRadius": "sm",
+        "components": {"Card": {"defaultProps": {"shadow": "sm"}}},
+    },
+    forceColorScheme="light",
+    id="mantine-provider",
 )
 
-# Client-side callback for color scheme switching
-clientside_callback(
-    """
-    (switchOn) => {
-       document.documentElement.setAttribute('data-mantine-color-scheme', switchOn ? 'dark' : 'light');
-       return window.dash_clientside.no_update
-    }
-    """,
-    Output("color-scheme-switch", "id"),
-    Input("color-scheme-switch", "checked"),
+# Callbacks for theme customization
+
+
+@callback(
+    Output("mantine-provider", "theme"),
+    Input("color-picker", "value"),
+    Input("radius", "value"),
+    Input("shadow", "value"),
+    State("mantine-provider", "theme"),
 )
+def update_theme(color, radius, shadow, theme):
+    """Update the theme based on user selections."""
+    theme["primaryColor"] = theme_name_mapping[color]
+    theme["defaultRadius"] = size_name_mapping[radius]
+    theme["components"]["Card"]["defaultProps"]["shadow"] = size_name_mapping[shadow]
+    return theme
+
+
+@callback(
+    Output("modal-customize", "opened"),
+    Input("modal-demo-button", "n_clicks"),
+    State("modal-customize", "opened"),
+    prevent_initial_call=True,
+)
+def toggle_customize_modal(n, opened):
+    """Toggle the customize theme modal."""
+    return not opened
+
 
 # Server side callback for routing
 

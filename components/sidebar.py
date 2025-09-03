@@ -16,7 +16,7 @@ def build_sidebar():
                         className="sidebar-top",
                         children=[
                             html.A([
-                                DashIconify(icon="tabler:home", width=24,
+                                DashIconify(icon="noto:house", width=24,
                                             height=24, className="nav-icon"),
                                 html.Span(
                                     "Home", className="nav-label sb-label"),
@@ -29,7 +29,7 @@ def build_sidebar():
                         className="sidebar-bottom",
                         children=[
                             html.A([
-                                DashIconify(icon="tabler:settings", width=24,
+                                DashIconify(icon="noto:gear", width=24,
                                             height=24, className="nav-icon"),
                                 html.Span(
                                     "Settings", className="nav-label sb-label"),

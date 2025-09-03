@@ -42,23 +42,24 @@ def create_home_page():
                                 ),
 
                                 dmc.Text(
-                                    "This platform provides a suite of tools designed to assist with data analysis and visualization.",
+                                    "his platform provides a suite of tools designed to assist with leak detection and survey data analysis.",
                                     size="lg",
                                     mb="sm",
                                     c="rgba(255, 255, 255, 0.9)"
                                 ),
 
                                 dmc.Text(
-                                    "Use the sidebar to access available utilities such as data processing, visualization, and reporting features.",
+                                    "Use the sidebar to access available utilities such as survey point reduction, data visualization, and reporting features.",
                                     size="lg",
                                     mb="md",
                                     c="rgba(255, 255, 255, 0.9)"
                                 ),
 
-                                dmc.Divider(size="sm", color="rgba(255, 255, 255, 0.2)"),
+                                dmc.Divider(
+                                    size="sm", color="rgba(255, 255, 255, 0.2)"),
 
                                 dmc.Text(
-                                    "Built with Dash Mantine Components",
+                                    "Developed by: Frank Vejahati, PhD, P.Eng.",
                                     size="sm",
                                     c="rgba(255, 255, 255, 0.7)",
                                     mb=0

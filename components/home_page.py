@@ -30,38 +30,34 @@ def create_home_page():
                             py="md"
                         ),
 
-                        # Card Content - matching LDUTC exactly
+                        # Card Content - using default theme colors
                         dmc.Stack(
                             [
                                 dmc.Title(
                                     "Welcome to UTC Dashboard,",
                                     order=2,
                                     fw=700,
-                                    mb="md",
-                                    c="white"
+                                    mb="md"
                                 ),
 
                                 dmc.Text(
                                     "his platform provides a suite of tools designed to assist with leak detection and survey data analysis.",
                                     size="lg",
-                                    mb="sm",
-                                    c="rgba(255, 255, 255, 0.9)"
+                                    mb="sm"
                                 ),
 
                                 dmc.Text(
                                     "Use the sidebar to access available utilities such as survey point reduction, data visualization, and reporting features.",
                                     size="lg",
-                                    mb="md",
-                                    c="rgba(255, 255, 255, 0.9)"
+                                    mb="md"
                                 ),
 
-                                dmc.Divider(
-                                    size="sm", color="rgba(255, 255, 255, 0.2)"),
+                                dmc.Divider(size="sm"),
 
                                 dmc.Text(
                                     "Developed by: Frank Vejahati, PhD, P.Eng.",
                                     size="sm",
-                                    c="rgba(255, 255, 255, 0.7)",
+                                    c="dimmed",
                                     mb=0
                                 ),
                             ],
@@ -75,9 +71,9 @@ def create_home_page():
                     className="home-hero-card",
                     style={"maxWidth": "900px", "width": "100%"}
                 ),
-                style={"minHeight": "80vh", "paddingTop": "2rem"}
+                style={"minHeight": "70vh", "paddingTop": "1rem"}
             )
         ],
-        size="xl",
+        size="lg",
         px="md"
     )

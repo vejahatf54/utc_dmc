@@ -22,7 +22,7 @@ def create_fluid_id_page():
                 ], gap="xs")
             ]),
 
-            dmc.Space(h="xl"),
+            dmc.Space(h="lg"),
 
             # Main Conversion Section
             dmc.Grid([
@@ -57,7 +57,7 @@ def create_fluid_id_page():
                                 dmc.Text("Base-37 numeric system",
                                          ta="center", c="dimmed", size="xs")
                             ], gap="md")
-                        ], gap="lg", p="xl")
+                        ], gap="lg", p="lg")
                     ], shadow="sm", radius="md", withBorder=True, style={"minHeight": "280px"})
                 ], span=5),
 
@@ -109,12 +109,12 @@ def create_fluid_id_page():
                                 dmc.Text("Characters: 0-9, A-Z, space",
                                          ta="center", c="dimmed", size="xs")
                             ], gap="md")
-                        ], gap="lg", p="xl")
+                        ], gap="lg", p="lg")
                     ], shadow="sm", radius="md", withBorder=True, style={"minHeight": "280px"})
                 ], span=5)
-            ], justify="center", gutter="xl"),
+            ], justify="center", gutter="lg"),
 
-            dmc.Space(h="xl"),
+            dmc.Space(h="lg"),
 
             # Status/Message Section
             dmc.Center([
@@ -163,11 +163,11 @@ def create_fluid_id_page():
                             ])
                         ], span=6)
                     ])
-                ], gap="md", p="xl")
+                ], gap="md", p="lg")
             ], shadow="xs", radius="md", withBorder=True)
 
-        ], gap="xl")
-    ], size="xl", p="xl")
+        ], gap="lg")
+    ], size="lg", p="md")
 
 
 # Initialize the fluid ID service

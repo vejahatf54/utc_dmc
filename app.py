@@ -5,7 +5,9 @@ from dash import Dash, Input, Output, State, callback, dcc, html, clientside_cal
 from components.sidebar import build_sidebar
 from components.home_page import create_home_page
 from components.fluid_id_page import create_fluid_id_page
+from components.csv_to_rtu_page import create_csv_to_rtu_page
 from components.custom_theme import theme_controls, color_picker_value_mapping, theme_name_mapping, size_name_mapping
+from components.settings_modal import create_settings_modal
 
 app = Dash(__name__, suppress_callback_exceptions=True)
 
@@ -22,8 +24,10 @@ app.layout = dmc.MantineProvider(
             sidebar,
             html.Div(
                 [
-                    html.Div(theme_controls,
-                             className="theme-controls-topright"),
+                    html.Div([
+                        create_settings_modal(),
+                        theme_controls
+                    ], className="theme-controls-topright"),
                     content
                 ],
                 className="main-content-shell"
@@ -78,20 +82,11 @@ def render_page(pathname: str):
         return create_home_page()
     elif pathname == "/fluid-id-converter":
         return create_fluid_id_page()
+    elif pathname == "/csv-to-rtu":
+        return create_csv_to_rtu_page()
     elif pathname == "/settings":
-        return dmc.Container([
-            dmc.Title("Settings", order=2, mb="md"),
-            dmc.Text("Adjust your preferences here.", mb="lg"),
-            dmc.Card([
-                dmc.Title("Theme Settings", order=4),
-                dmc.Text("Customize your dashboard preferences",
-                         c="dimmed", mb="md"),
-                dmc.Switch(
-                    label="Dark Mode",
-                    description="Toggle between light and dark themes"
-                )
-            ], withBorder=True, shadow="sm", radius="md", p="lg")
-        ], size="xl")
+        # Redirect settings to home page since we use a modal now
+        return create_home_page()
     return dmc.Container([
         dmc.Title("404 - Page Not Found", order=2),
         dmc.Text(f"The page '{pathname}' could not be found.", c="dimmed"),

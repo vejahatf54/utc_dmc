@@ -136,18 +136,19 @@
   display: flex;
   justify-content: flex-end;
   align-items: flex-start;
-  padding: 18px 32px 0 0;
-  min-height: 48px;
+  padding: 8px 20px 0 0;
+  min-height: 32px;
   z-index: 10;
   gap: 8px;
 }
 
 .page-content {
   flex: 1;
-  padding: 32px 40px;
+  padding: 12px 20px;
   min-width: 0;
   background: var(--mantine-color-gray-0);
-  min-height: calc(100vh - 48px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
 }
 
 /* Enhanced card hover effects */
@@ -161,29 +162,29 @@
   box-shadow: 0 8px 30px rgba(0,0,0,0.12);
 }
 
-/* Home page specific styling */
+/* Home page specific styling - use default theme colors */
 .home-hero-card {
-  background: linear-gradient(to bottom, #4b006e 0%, #2563eb 40%, #1e293b 100%) !important;
-  backdrop-filter: blur(10px);
-  color: white !important;
+  background: var(--mantine-color-white) !important;
+  border: 1px solid var(--mantine-color-gray-2) !important;
+  color: var(--mantine-color-dark-9) !important;
 }
 
 .home-hero-card .mantine-Text-root {
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: var(--mantine-color-dimmed) !important;
 }
 
 .home-hero-card .mantine-Title-root {
-  color: white !important;
+  color: var(--mantine-color-dark-9) !important;
 }
 
 .home-hero-card .mantine-Divider-root {
-  border-color: rgba(255, 255, 255, 0.2) !important;
+  border-color: var(--mantine-color-gray-3) !important;
 }
 
 /* Override any dimmed colors */
 .home-hero-card [data-dimmed="true"],
 .home-hero-card .mantine-Text-root[data-dimmed] {
-  color: rgba(255, 255, 255, 0.7) !important;
+  color: var(--mantine-color-dimmed) !important;
 }
 
 /* Feature cards color coding */
@@ -220,7 +221,26 @@
 }
 
 [data-mantine-color-scheme="dark"] .home-hero-card {
-  background: linear-gradient(to bottom, #4b006e 0%, #2563eb 40%, #1e293b 100%);
+  background: var(--mantine-color-dark-6) !important;
+  border-color: var(--mantine-color-dark-4) !important;
+  color: var(--mantine-color-white) !important;
+}
+
+[data-mantine-color-scheme="dark"] .home-hero-card .mantine-Text-root {
+  color: var(--mantine-color-dark-0) !important;
+}
+
+[data-mantine-color-scheme="dark"] .home-hero-card .mantine-Title-root {
+  color: var(--mantine-color-white) !important;
+}
+
+[data-mantine-color-scheme="dark"] .home-hero-card .mantine-Divider-root {
+  border-color: var(--mantine-color-dark-4) !important;
+}
+
+[data-mantine-color-scheme="dark"] .home-hero-card [data-dimmed="true"],
+[data-mantine-color-scheme="dark"] .home-hero-card .mantine-Text-root[data-dimmed] {
+  color: var(--mantine-color-dark-2) !important;
 }
 
 .mantine-SimpleGrid-root .mantine-Card-root:nth-child(4) {
@@ -232,6 +252,8 @@
   background: var(--mantine-color-dark-7);
 }
 
+/* Remove gradient from Paper components - use default dark theme colors */
 :root[data-mantine-color-scheme='dark'] .mantine-Paper-root {
-  background: linear-gradient(135deg, rgba(34, 139, 34, 0.2) 0%, rgba(0, 123, 255, 0.2) 100%);
+  background: var(--mantine-color-dark-6);
+  border-color: var(--mantine-color-dark-4);
 }

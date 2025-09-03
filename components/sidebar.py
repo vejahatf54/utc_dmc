@@ -22,24 +22,25 @@ def build_sidebar():
                                     "Home", className="nav-label sb-label"),
                             ], href="/", className="nav-link"),
                             html.A([
-                                DashIconify(icon="tabler:arrows-exchange", width=24,
+                                DashIconify(icon="noto:gear", width=24,
                                             height=24, className="nav-icon"),
                                 html.Span(
                                     "Fluid ID Converter", className="nav-label sb-label"),
                             ], href="/fluid-id-converter", className="nav-link"),
+                            html.A([
+                                DashIconify(icon="noto:page-with-curl", width=24,
+                                            height=24, className="nav-icon"),
+                                html.Span(
+                                    "CSV to RTU", className="nav-label sb-label"),
+                            ], href="/csv-to-rtu", className="nav-link"),
                         ],
                     ),
 
-                    # Bottom section for Settings
+                    # Bottom section - can be used for other items if needed
                     html.Div(
                         className="sidebar-bottom",
                         children=[
-                            html.A([
-                                DashIconify(icon="noto:gear", width=24,
-                                            height=24, className="nav-icon"),
-                                html.Span(
-                                    "Settings", className="nav-label sb-label"),
-                            ], href="/settings", className="nav-link"),
+                            # Settings removed - now accessible via modal in top-right
                         ],
                     ),
                 ]

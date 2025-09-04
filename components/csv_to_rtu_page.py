@@ -258,12 +258,7 @@ def handle_csv_upload(contents, filenames, stored_files):
             ], p="md", radius="md", withBorder=True, className="mb-2")
             for file_info in new_files
         ]
-        status_message = dmc.Alert(
-            title="Files Ready",
-            children=f"Successfully loaded {len(new_files)} CSV file{'s' if len(new_files) != 1 else ''}",
-            icon=DashIconify(icon="tabler:check"),
-            color="green"
-        )
+        status_message = ""
     else:
         file_components = []
         status_message = ""
@@ -328,12 +323,7 @@ def remove_csv_file(n_clicks, stored_files):
             ], p="md", radius="md", withBorder=True, className="mb-2")
             for file_info in updated_files
         ]
-        status = dmc.Alert(
-            title="Files Ready",
-            children=f"Successfully loaded {len(updated_files)} CSV file{'s' if len(updated_files) != 1 else ''}",
-            icon=DashIconify(icon="tabler:check"),
-            color="green"
-        )
+        status = ""
     else:
         file_components = []
         status = ""
@@ -411,15 +401,7 @@ def handle_directory_selection(browse_clicks, reset_clicks):
             root.destroy()
 
             if directory:
-                status = dmc.Alert(
-                    title="Success",
-                    children=f"Directory selected: {os.path.basename(directory)}",
-                    icon=DashIconify(icon="tabler:check"),
-                    color="green",
-                    withCloseButton=False
-                )
-
-                return directory, status, {'path': directory}
+                return directory, "", {'path': directory}
             else:
                 return "", "", {'path': ''}
 
@@ -441,7 +423,8 @@ def handle_directory_selection(browse_clicks, reset_clicks):
 @callback(
     [Output('csv-processing-store', 'data'),
      Output('rtu-processing-status', 'children'),
-     Output('write-rtu-content', 'children')],
+     Output('write-rtu-content', 'children'),
+     Output('notification-container', 'sendNotifications', allow_duplicate=True)],
     Input('write-rtu-btn', 'n_clicks'),
     [State('csv-files-store', 'data'),
      State('directory-store-csv-rtu-output', 'data')],
@@ -456,7 +439,7 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
             "Write RTU Data"
         ], id='write-rtu-btn', size="lg", disabled=len(csv_files or []) == 0, className="px-4", variant="filled")
         
-        return {'status': 'idle'}, "", idle_button
+        return {'status': 'idle'}, "", idle_button, no_update
 
     # Get output directory with fallback
     output_dir = output_dir_data.get('path', '') if output_dir_data else ''
@@ -467,16 +450,13 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
     try:
         os.makedirs(output_dir, exist_ok=True)
     except Exception as e:
-        error_status = dmc.Alert(
-            title="Output Directory Error",
-            children=[
-                f"Could not create output directory '{output_dir}': {str(e)}",
-                html.Br(),
-                "Please check the directory path and permissions."
-            ],
-            icon=DashIconify(icon="tabler:alert-circle"),
-            color="red"
-        )
+        error_notification = [{
+            "title": "Output Directory Error",
+            "message": f"Could not create output directory '{output_dir}': {str(e)}. Please check the directory path and permissions.",
+            "color": "red",
+            "autoClose": 5000,
+            "action": "show"
+        }]
         
         # Error button state
         error_button = dmc.Button([
@@ -484,34 +464,12 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
             "Write RTU Data"
         ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
         
-        return {'status': 'error', 'message': str(e)}, error_status, error_button
+        return {'status': 'error', 'message': str(e)}, "", error_button, error_notification
 
-    # Show processing status with loading button
-    processing_status = dmc.Alert(
-        title="Processing",
-        children=f"Converting {len(csv_files)} CSV files to RTU format...",
-        icon=DashIconify(icon="tabler:loader"),
-        color="blue"
-    )
-    
-    # Processing button state
-    processing_button = dmc.Button([
-        DashIconify(icon="tabler:loader", width=20),
-        "Processing..."
-    ], id='write-rtu-btn', size="lg", disabled=True, className="px-4", loading=True, variant="filled")
-
-    # First return processing state immediately
-    # Note: This approach shows loading but doesn't actually process yet
-    # We need to use a different pattern for true async processing
-    
     # Initialize temp files list for cleanup
     temp_files = []
     
     try:
-        # Brief delay to show processing state
-        import time
-        time.sleep(0.1)  # Small delay to ensure UI updates
-        
         # Create temp directory for uploaded files
         import tempfile
         import shutil
@@ -541,12 +499,13 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
         if not csv_file_paths:
             # Cleanup
             shutil.rmtree(temp_dir, ignore_errors=True)
-            error_status = dmc.Alert(
-                title="Error",
-                children="No valid CSV files found to convert",
-                icon=DashIconify(icon="tabler:alert-circle"),
-                color="red"
-            )
+            error_notification = [{
+                "title": "Error",
+                "message": "No valid CSV files found to convert",
+                "color": "red",
+                "autoClose": 5000,
+                "action": "show"
+            }]
             
             # Error button state
             error_button = dmc.Button([
@@ -554,7 +513,7 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
                 "Write RTU Data"
             ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
             
-            return {'status': 'error'}, error_status, error_button
+            return {'status': 'error'}, "", error_button, error_notification
         
         # Convert files using the service
         result = csv_rtu_service.convert_to_rtu(csv_file_paths, output_dir)
@@ -563,16 +522,13 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
         shutil.rmtree(temp_dir, ignore_errors=True)
         
         if result['success']:
-            success_status = dmc.Alert(
-                title="Conversion Complete",
-                children=[
-                    f"Successfully converted {result['successful_conversions']} of {result['total_files']} files",
-                    html.Br(),
-                    f"Output directory: {output_dir}"
-                ],
-                icon=DashIconify(icon="tabler:check"),
-                color="green"
-            )
+            success_notification = [{
+                "title": "Conversion Complete",
+                "message": f"Successfully converted {result['successful_conversions']} of {result['total_files']} files. Output directory: {output_dir}",
+                "color": "green",
+                "autoClose": 7000,
+                "action": "show"
+            }]
             
             # Success button state - reset to normal
             success_button = dmc.Button([
@@ -580,14 +536,15 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
                 "Write RTU Data"
             ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
             
-            return {'status': 'completed', 'result': result}, success_status, success_button
+            return {'status': 'completed', 'result': result}, "", success_button, success_notification
         else:
-            error_status = dmc.Alert(
-                title="Conversion Failed",
-                children=result.get('error', 'An error occurred during conversion'),
-                icon=DashIconify(icon="tabler:alert-circle"),
-                color="red"
-            )
+            error_notification = [{
+                "title": "Conversion Failed",
+                "message": result.get('error', 'An error occurred during conversion'),
+                "color": "red",
+                "autoClose": 5000,
+                "action": "show"
+            }]
             
             # Error button state
             error_button = dmc.Button([
@@ -595,7 +552,7 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
                 "Write RTU Data"
             ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
             
-            return {'status': 'error', 'result': result}, error_status, error_button
+            return {'status': 'error', 'result': result}, "", error_button, error_notification
 
     except Exception as e:
         # Cleanup temp files
@@ -606,12 +563,13 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
             except Exception:
                 pass
                 
-        error_status = dmc.Alert(
-            title="Unexpected Error",
-            children=f"An unexpected error occurred: {str(e)}",
-            icon=DashIconify(icon="tabler:alert-circle"),
-            color="red"
-        )
+        error_notification = [{
+            "title": "Unexpected Error",
+            "message": f"An unexpected error occurred: {str(e)}",
+            "color": "red",
+            "autoClose": 5000,
+            "action": "show"
+        }]
         
         # Error button state
         error_button = dmc.Button([
@@ -619,4 +577,4 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
             "Write RTU Data"
         ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
         
-        return {'status': 'error', 'error': str(e)}, error_status, error_button
+        return {'status': 'error', 'error': str(e)}, "", error_button, error_notification

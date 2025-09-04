@@ -20,6 +20,7 @@ app.layout = dmc.MantineProvider(
         id="app-shell",
         children=[
             dcc.Location(id="url"),
+            dmc.NotificationContainer(position="top-center", id="notification-container"),
             sidebar,
             html.Div(
                 [

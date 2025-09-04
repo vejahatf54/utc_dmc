@@ -1,6 +1,6 @@
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
 from dash import html
+from components.bootstrap_icon import BootstrapIcon
 
 
 def build_sidebar():
@@ -16,19 +16,19 @@ def build_sidebar():
                         className="sidebar-top",
                         children=[
                             html.A([
-                                DashIconify(icon="noto:house", width=24,
+                                BootstrapIcon(icon="house", width=24,
                                             height=24, className="nav-icon"),
                                 html.Span(
                                     "Home", className="nav-label sb-label"),
                             ], href="/", className="nav-link"),
                             html.A([
-                                DashIconify(icon="noto:repeat-button", width=24,
+                                BootstrapIcon(icon="arrow-repeat", width=24,
                                             height=24, className="nav-icon"),
                                 html.Span(
                                     "Fluid ID Converter", className="nav-label sb-label"),
                             ], href="/fluid-id-converter", className="nav-link"),
                             html.A([
-                                DashIconify(icon="noto:page-with-curl", width=24,
+                                BootstrapIcon(icon="file-text", width=24,
                                             height=24, className="nav-icon"),
                                 html.Span(
                                     "CSV to RTU", className="nav-label sb-label"),

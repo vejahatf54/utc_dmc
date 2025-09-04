@@ -1,6 +1,6 @@
 import json
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
+from components.bootstrap_icon import BootstrapIcon
 from components.theme_switch import theme_toggle
 
 # Color mappings
@@ -60,7 +60,7 @@ def make_slider(title, id):
 customize_theme = dmc.Box(
     [
         dmc.ActionIcon(
-            DashIconify(icon="emojione:artist-palette", width=24),
+            BootstrapIcon(icon="palette", width=24),
             id="modal-demo-button",
             variant="light",
             size="xl",
@@ -70,7 +70,7 @@ customize_theme = dmc.Box(
             id="modal-customize",
             size="sm",
             title=dmc.Group([
-                DashIconify(icon="emojione:artist-palette", width=20),
+                BootstrapIcon(icon="palette", width=20),
                 dmc.Text("Customize Theme", fw=600)
             ]),
             children=[

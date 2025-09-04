@@ -4,8 +4,8 @@ Reusable directory selection component with browse and reset functionality.
 """
 
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
 from dash import html, Input, Output, callback, callback_context
+from components.bootstrap_icon import BootstrapIcon
 import os
 
 
@@ -42,7 +42,7 @@ def create_directory_selector(
         dmc.Stack([
             # Header
             dmc.Group([
-                DashIconify(icon="tabler:folder", width=20),
+                BootstrapIcon(icon="folder", width=20),
                 dmc.Text(title, fw=500, size="lg")
             ], gap="xs"),
 
@@ -54,14 +54,14 @@ def create_directory_selector(
                 placeholder=placeholder,
                 value='',
                 readOnly=True,
-                leftSection=DashIconify(icon="tabler:folder-open", width=16),
+                leftSection=BootstrapIcon(icon="folder-open", width=16),
                 size="md"
             ),
 
             # Button row
             dmc.Group([
                 dmc.Button([
-                    DashIconify(icon="tabler:folder-search",
+                    BootstrapIcon(icon="search",
                                 width=16, className="me-2"),
                     browse_button_text
                 ],
@@ -72,7 +72,7 @@ def create_directory_selector(
                     flex=1
                 ),
                 dmc.Button([
-                    DashIconify(icon="tabler:refresh",
+                    BootstrapIcon(icon="arrow-clockwise",
                                 width=16, className="me-2"),
                     reset_button_text
                 ],
@@ -153,7 +153,7 @@ def create_directory_selector_callback(store_ids: dict, dialog_title: str = "Sel
                     status = dmc.Alert(
                         title="Success",
                         children=f"Directory selected: {os.path.basename(directory)}",
-                        icon=DashIconify(icon="tabler:check"),
+                        icon=BootstrapIcon(icon="check"),
                         color="green",
                         withCloseButton=False
                     )
@@ -166,7 +166,7 @@ def create_directory_selector_callback(store_ids: dict, dialog_title: str = "Sel
                 status = dmc.Alert(
                     title="Error",
                     children=f"Error selecting directory: {str(e)}",
-                    icon=DashIconify(icon="tabler:alert-circle"),
+                    icon=BootstrapIcon(icon="exclamation-circle"),
                     color="red",
                     withCloseButton=False
                 )

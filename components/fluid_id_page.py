@@ -4,8 +4,8 @@ Uses pure DMC components with default theme styling.
 """
 
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
 from dash import html, Input, Output, callback, callback_context
+from components.bootstrap_icon import BootstrapIcon
 from services.fluid_id_service import FluidIdConverterService
 
 
@@ -32,7 +32,7 @@ def create_fluid_id_page():
                         dmc.Stack([
                             # Header with icon
                             dmc.Group([
-                                DashIconify(icon="tabler:hash", width=24),
+                                BootstrapIcon(icon="hash", width=24),
                                 dmc.Text("SCADA FID", fw=500, size="lg")
                             ], justify="center", gap="xs"),
 
@@ -65,8 +65,8 @@ def create_fluid_id_page():
                 dmc.GridCol([
                     dmc.Center([
                         dmc.Stack([
-                            DashIconify(
-                                icon="tabler:arrows-left-right",
+                            BootstrapIcon(
+                                icon="arrow-left-right",
                                 width=50,
                                 style={
                                     "filter": "drop-shadow(0 2px 4px rgba(0,0,0,0.1))"}
@@ -83,8 +83,8 @@ def create_fluid_id_page():
                         dmc.Stack([
                             # Header with icon
                             dmc.Group([
-                                DashIconify(
-                                    icon="tabler:typography", width=24),
+                                BootstrapIcon(
+                                    icon="type", width=24),
                                 dmc.Text("Fluid Name", fw=500, size="lg")
                             ], justify="center", gap="xs"),
 
@@ -132,8 +132,8 @@ def create_fluid_id_page():
                         dmc.GridCol([
                             dmc.Stack([
                                 dmc.Group([
-                                    DashIconify(
-                                        icon="tabler:info-circle", width=20),
+                                    BootstrapIcon(
+                                        icon="info-circle", width=20),
                                     dmc.Text("Conversion Logic", fw=500)
                                 ], gap="xs"),
                                 dmc.Text([
@@ -146,8 +146,8 @@ def create_fluid_id_page():
                         dmc.GridCol([
                             dmc.Stack([
                                 dmc.Group([
-                                    DashIconify(
-                                        icon="tabler:lightbulb", width=20),
+                                    BootstrapIcon(
+                                        icon="lightbulb", width=20),
                                     dmc.Text("Usage Tips", fw=500)
                                 ], gap="xs"),
                                 dmc.List([
@@ -205,7 +205,7 @@ def handle_automatic_conversion(fid_value, fluid_name_value):
                 title="Conversion Successful",
                 children=f"Converted: {fid_value} → {result['fluid_name']}",
                 color="green",
-                icon=DashIconify(icon="tabler:check")
+                icon=BootstrapIcon(icon="check")
             )
             return result["fluid_name"], fid_value, message
         else:
@@ -213,7 +213,7 @@ def handle_automatic_conversion(fid_value, fluid_name_value):
                 title="Conversion Error",
                 children=result['error'],
                 color="red",
-                icon=DashIconify(icon="tabler:alert-circle")
+                icon=BootstrapIcon(icon="exclamation-circle")
             )
             return "", fid_value, message
 
@@ -230,7 +230,7 @@ def handle_automatic_conversion(fid_value, fluid_name_value):
                 title="Conversion Successful",
                 children=f"Converted: {fluid_name_value} → {result['fid']}",
                 color="green",
-                icon=DashIconify(icon="tabler:check")
+                icon=BootstrapIcon(icon="check")
             )
             return fluid_name_value, result["fid"], message
         else:
@@ -238,7 +238,7 @@ def handle_automatic_conversion(fid_value, fluid_name_value):
                 title="Conversion Error",
                 children=result['error'],
                 color="red",
-                icon=DashIconify(icon="tabler:alert-circle")
+                icon=BootstrapIcon(icon="exclamation-circle")
             )
             return fluid_name_value, "", message
 

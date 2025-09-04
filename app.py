@@ -1,6 +1,5 @@
 import json
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
 from dash import Dash, Input, Output, State, callback, dcc, html, clientside_callback, callback_context
 from components.sidebar import build_sidebar
 from components.home_page import create_home_page

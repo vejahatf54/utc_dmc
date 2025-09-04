@@ -4,8 +4,8 @@ Uses DMC components for file upload, directory selection, and conversion.
 """
 
 import dash_mantine_components as dmc
-from dash_iconify import DashIconify
 from dash import html, Input, Output, State, callback, callback_context, dcc, ALL, no_update
+from components.bootstrap_icon import BootstrapIcon
 import base64
 import io
 import pandas as pd
@@ -40,7 +40,7 @@ def create_csv_to_rtu_page():
                     dmc.Group([
                         dmc.Title("CSV to RTU Converter", order=2, ta="center"),
                         dmc.ActionIcon(
-                            DashIconify(icon="tabler:help", width=20, color="var(--mantine-color-blue-6)"),
+                            BootstrapIcon(icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
                             id="help-modal-btn",
                             variant="light",
                             color="blue",
@@ -61,7 +61,7 @@ def create_csv_to_rtu_page():
                         dmc.GridCol([
                             dmc.Stack([
                                 dmc.Group([
-                                    DashIconify(icon="tabler:info-circle", width=20),
+                                    BootstrapIcon(icon="info-circle", width=20),
                                     dmc.Text("Requirements", fw=500)
                                 ], gap="xs"),
                                 dmc.List([
@@ -75,7 +75,7 @@ def create_csv_to_rtu_page():
                         dmc.GridCol([
                             dmc.Stack([
                                 dmc.Group([
-                                    DashIconify(icon="tabler:lightbulb", width=20),
+                                    BootstrapIcon(icon="lightbulb", width=20),
                                     dmc.Text("Process", fw=500)
                                 ], gap="xs"),
                                 dmc.List([
@@ -101,7 +101,7 @@ def create_csv_to_rtu_page():
                     dmc.Stack([
                         # Header with icon
                         dmc.Group([
-                            DashIconify(icon="tabler:file-upload", width=20),
+                            BootstrapIcon(icon="upload", width=20),
                             dmc.Text("CSV File Upload", fw=500, size="md")
                         ], gap="xs"),
 
@@ -113,7 +113,7 @@ def create_csv_to_rtu_page():
                                 id='csv-upload',
                                 children=dmc.Stack([
                                     dmc.Center([
-                                        DashIconify(icon="tabler:cloud-upload", width=48, height=48, color="var(--mantine-color-blue-6)")
+                                        BootstrapIcon(icon="cloud-upload", width=48, height=48, color="var(--mantine-color-blue-6)")
                                     ]),
                                     dmc.Text('Drag and Drop CSV Files', size="md", fw=500, ta="center"),
                                     dmc.Text('or click to browse', size="sm", c="dimmed", ta="center")
@@ -158,7 +158,7 @@ def create_csv_to_rtu_page():
                 dmc.Paper([
                     dmc.Stack([
                         dmc.Group([
-                            DashIconify(icon="tabler:transform", width=20),
+                            BootstrapIcon(icon="arrow-repeat", width=20),
                             dmc.Text("RTU Conversion", fw=500, size="md")
                         ], gap="xs", justify="center"),
 
@@ -171,7 +171,7 @@ def create_csv_to_rtu_page():
                                 type='default',
                                 children=html.Div([
                                     dmc.Button([
-                                        DashIconify(icon="tabler:file-export", width=20),
+                                        BootstrapIcon(icon="download", width=20),
                                         "Write RTU Data"
                                     ], id='write-rtu-btn', size="lg", disabled=True, className="px-4", variant="filled")
                                 ], id='write-rtu-content')
@@ -240,7 +240,7 @@ def handle_csv_upload(contents, filenames, stored_files):
         file_components = [
             dmc.Paper([
                 dmc.Group([
-                    DashIconify(icon="tabler:file-spreadsheet", width=24, color="green"),
+                    BootstrapIcon(icon="file-earmark-spreadsheet", width=24, color="green"),
                     dmc.Stack([
                         dmc.Text(file_info['name'], fw=500, size="sm"),
                         dmc.Group([
@@ -250,7 +250,7 @@ def handle_csv_upload(contents, filenames, stored_files):
                         ], gap="xs")
                     ], gap="xs", flex=1),
                     dmc.ActionIcon(
-                        DashIconify(icon="tabler:x", width=16),
+                        BootstrapIcon(icon="x", width=16),
                         id={'type': 'remove-file-btn', 'index': file_info['name']},
                         color='red', variant="light", size="sm"
                     )
@@ -305,7 +305,7 @@ def remove_csv_file(n_clicks, stored_files):
         file_components = [
             dmc.Paper([
                 dmc.Group([
-                    DashIconify(icon="tabler:file-spreadsheet", width=24, color="green"),
+                    BootstrapIcon(icon="file-earmark-spreadsheet", width=24, color="green"),
                     dmc.Stack([
                         dmc.Text(file_info['name'], fw=500, size="sm"),
                         dmc.Group([
@@ -315,7 +315,7 @@ def remove_csv_file(n_clicks, stored_files):
                         ], gap="xs")
                     ], gap="xs", flex=1),
                     dmc.ActionIcon(
-                        DashIconify(icon="tabler:x", width=16),
+                        BootstrapIcon(icon="x", width=16),
                         id={'type': 'remove-file-btn', 'index': file_info['name']},
                         color='red', variant="light", size="sm"
                     )
@@ -332,7 +332,7 @@ def remove_csv_file(n_clicks, stored_files):
     new_upload = dcc.Upload(
         id='csv-upload',
         children=dmc.Stack([
-            dmc.Center([DashIconify(icon="tabler:cloud-upload", width=48, height=48, color="var(--mantine-color-blue-6)")]),
+            dmc.Center([BootstrapIcon(icon="cloud-upload", width=48, height=48, color="var(--mantine-color-blue-6)")]),
             dmc.Text('Drag and Drop CSV Files', size="md", fw=500, ta="center"),
             dmc.Text('or click to browse', size="sm", c="dimmed", ta="center")
         ], gap="sm", p="md", align="center"),
@@ -409,7 +409,7 @@ def handle_directory_selection(browse_clicks, reset_clicks):
             status = dmc.Alert(
                 title="Error",
                 children=f"Error selecting directory: {str(e)}",
-                icon=DashIconify(icon="tabler:alert-circle"),
+                icon=BootstrapIcon(icon="exclamation-circle"),
                 color="red",
                 withCloseButton=False
             )
@@ -435,7 +435,7 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
     if not n_clicks or not csv_files:
         # Initial state - idle button
         idle_button = dmc.Button([
-            DashIconify(icon="tabler:file-export", width=20),
+            BootstrapIcon(icon="download", width=20),
             "Write RTU Data"
         ], id='write-rtu-btn', size="lg", disabled=len(csv_files or []) == 0, className="px-4", variant="filled")
         
@@ -460,7 +460,7 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
         
         # Error button state
         error_button = dmc.Button([
-            DashIconify(icon="tabler:file-export", width=20),
+            BootstrapIcon(icon="download", width=20),
             "Write RTU Data"
         ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
         
@@ -509,7 +509,7 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
             
             # Error button state
             error_button = dmc.Button([
-                DashIconify(icon="tabler:file-export", width=20),
+                BootstrapIcon(icon="download", width=20),
                 "Write RTU Data"
             ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
             
@@ -532,7 +532,7 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
             
             # Success button state - reset to normal
             success_button = dmc.Button([
-                DashIconify(icon="tabler:file-export", width=20),
+                BootstrapIcon(icon="download", width=20),
                 "Write RTU Data"
             ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
             
@@ -548,7 +548,7 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
             
             # Error button state
             error_button = dmc.Button([
-                DashIconify(icon="tabler:file-export", width=20),
+                BootstrapIcon(icon="download", width=20),
                 "Write RTU Data"
             ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
             
@@ -573,7 +573,7 @@ def write_rtu_data(n_clicks, csv_files, output_dir_data):
         
         # Error button state
         error_button = dmc.Button([
-            DashIconify(icon="tabler:file-export", width=20),
+            BootstrapIcon(icon="download", width=20),
             "Write RTU Data"
         ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
         

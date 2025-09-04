@@ -4,6 +4,7 @@ from components.sidebar import build_sidebar
 from components.home_page import create_home_page
 from components.fluid_id_page import create_fluid_id_page
 from components.csv_to_rtu_page import create_csv_to_rtu_page
+from components.fetch_archive_page import layout as fetch_archive_layout
 from components.custom_theme import theme_controls, theme_name_mapping, size_name_mapping
 
 app = Dash(__name__, suppress_callback_exceptions=True)
@@ -18,7 +19,8 @@ app.layout = dmc.MantineProvider(
         id="app-shell",
         children=[
             dcc.Location(id="url"),
-            dmc.NotificationContainer(position="top-center", id="notification-container"),
+            dmc.NotificationContainer(
+                position="top-center", id="notification-container"),
             sidebar,
             html.Div(
                 [
@@ -71,7 +73,7 @@ def toggle_customize_modal(n, opened):
 
 # Server side callback for routing
 @app.callback(
-    Output("page-content", "children"), 
+    Output("page-content", "children"),
     Input("url", "pathname")
 )
 def render_page(pathname: str):
@@ -81,6 +83,8 @@ def render_page(pathname: str):
         return create_fluid_id_page()
     elif pathname == "/csv-to-rtu":
         return create_csv_to_rtu_page()
+    elif pathname == "/fetch-archive":
+        return fetch_archive_layout
     elif pathname == "/settings":
         # Redirect settings to home page since we use a modal now
         return create_home_page()

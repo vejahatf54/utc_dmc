@@ -17,22 +17,28 @@ def build_sidebar():
                         children=[
                             html.A([
                                 BootstrapIcon(icon="house", width=24,
-                                            height=24, className="nav-icon"),
+                                              height=24, className="nav-icon"),
                                 html.Span(
                                     "Home", className="nav-label sb-label"),
                             ], href="/", className="nav-link"),
                             html.A([
                                 BootstrapIcon(icon="arrow-repeat", width=24,
-                                            height=24, className="nav-icon"),
+                                              height=24, className="nav-icon"),
                                 html.Span(
                                     "Fluid ID Converter", className="nav-label sb-label"),
                             ], href="/fluid-id-converter", className="nav-link"),
                             html.A([
                                 BootstrapIcon(icon="file-text", width=24,
-                                            height=24, className="nav-icon"),
+                                              height=24, className="nav-icon"),
                                 html.Span(
                                     "CSV to RTU", className="nav-label sb-label"),
                             ], href="/csv-to-rtu", className="nav-link"),
+                            html.A([
+                                BootstrapIcon(icon="cloud-download", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "Fetch Archive", className="nav-label sb-label"),
+                            ], href="/fetch-archive", className="nav-link"),
                         ],
                     ),
 

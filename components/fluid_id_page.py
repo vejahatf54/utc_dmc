@@ -6,7 +6,7 @@ Uses pure DMC components with default theme styling.
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 from dash import html, Input, Output, callback, callback_context
-from components.fluid_id_service import FluidIdConverterService
+from services.fluid_id_service import FluidIdConverterService
 
 
 def create_fluid_id_page():

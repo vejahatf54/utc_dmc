@@ -12,7 +12,7 @@ import pandas as pd
 import os
 from typing import List, Dict, Any
 from components.directory_selector import create_directory_selector, create_directory_selector_callback
-from components.csv_to_rtu_service import CsvToRtuService
+from services.csv_to_rtu_service import CsvToRtuService
 
 
 def create_csv_to_rtu_page():

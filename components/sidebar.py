@@ -22,7 +22,7 @@ def build_sidebar():
                                     "Home", className="nav-label sb-label"),
                             ], href="/", className="nav-link"),
                             html.A([
-                                DashIconify(icon="noto:gear", width=24,
+                                DashIconify(icon="noto:repeat-button", width=24,
                                             height=24, className="nav-icon"),
                                 html.Span(
                                     "Fluid ID Converter", className="nav-label sb-label"),

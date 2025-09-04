@@ -1,0 +1,13 @@
+{
+  "theme": {
+    "colorScheme": "light",
+    "primaryColor": "#339af0",
+    "defaultRadius": 4,
+    "shadow": 4
+  },
+  "app": {
+    "name": "DMC Dashboard",
+    "version": "1.0.0",
+    "debug": true
+  }
+}

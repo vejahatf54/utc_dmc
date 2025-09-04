@@ -59,10 +59,6 @@ def update_theme(color, radius, shadow, theme):
     return theme
 
 
-
-
-
-
 @callback(
     Output("modal-customize", "opened"),
     Input("modal-demo-button", "n_clicks"),
@@ -75,9 +71,10 @@ def toggle_customize_modal(n, opened):
 
 
 # Server side callback for routing
-
-
-@app.callback(Output("page-content", "children"), Input("url", "pathname"))
+@app.callback(
+    Output("page-content", "children"), 
+    Input("url", "pathname")
+)
 def render_page(pathname: str):
     if pathname in ("/", ""):
         return create_home_page()

@@ -6,6 +6,7 @@ Provides centralized configuration loading and hot reload capabilities.
 import json
 import logging
 import os
+import sys
 import threading
 import time
 from pathlib import Path
@@ -46,14 +47,22 @@ class ConfigManager:
             config_file_path: Path to the configuration file. Defaults to config.json in app root.
         """
         if config_file_path is None:
-            # Default to config.json in the application root directory
-            app_root = Path(__file__).parent.parent
-            config_file_path = app_root / "config.json"
+            # When running as a PyInstaller executable, look for config.json next to the .exe file
+            if hasattr(sys, '_MEIPASS'):
+                # Running as a PyInstaller bundle
+                executable_dir = Path(sys.executable).parent
+                config_file_path = executable_dir / "config.json"
+                logger.info(f"Running as packaged app, looking for config at: {config_file_path}")
+            else:
+                # Running in development mode
+                app_root = Path(__file__).parent.parent
+                config_file_path = app_root / "config.json"
+                logger.info(f"Running in development mode, looking for config at: {config_file_path}")
         
         self.config_file_path = Path(config_file_path)
         self._config: Dict[str, Any] = {}
         self._lock = threading.RLock()
-        self._observers: Observer = None
+        self._observers = None
         self._reload_callbacks: list[Callable] = []
         self._last_modified = None
         

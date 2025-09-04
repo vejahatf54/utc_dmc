@@ -7,6 +7,9 @@ import dash_mantine_components as dmc
 from dash import html, Input, Output, callback, callback_context
 from components.bootstrap_icon import BootstrapIcon
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def create_directory_selector(
@@ -150,28 +153,13 @@ def create_directory_selector_callback(store_ids: dict, dialog_title: str = "Sel
                 root.destroy()
 
                 if directory:
-                    status = dmc.Alert(
-                        title="Success",
-                        children=f"Directory selected: {os.path.basename(directory)}",
-                        icon=BootstrapIcon(icon="check"),
-                        color="green",
-                        withCloseButton=False
-                    )
-
-                    return directory, status, {'path': directory}
+                    return directory, "", {'path': directory}
                 else:
                     return "", "", {'path': ''}
 
             except Exception as e:
-                status = dmc.Alert(
-                    title="Error",
-                    children=f"Error selecting directory: {str(e)}",
-                    icon=BootstrapIcon(icon="exclamation-circle"),
-                    color="red",
-                    withCloseButton=False
-                )
-
-                return "", status, {'path': ''}
+                logger.error(f"Error selecting directory: {str(e)}")
+                return "", "", {'path': ''}
 
         return "", "", {'path': ''}
 

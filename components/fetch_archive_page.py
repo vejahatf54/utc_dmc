@@ -5,10 +5,8 @@ Allows users to select dates, pipeline lines, and output directories to fetch hi
 
 import dash
 from dash import html, dcc, Input, Output, State, callback, no_update
-import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 from datetime import datetime, date
-from typing import List, Dict, Any
 import logging
 
 from components.bootstrap_icon import BootstrapIcon
@@ -22,15 +20,6 @@ logger = logging.getLogger(__name__)
 fetch_archive_service = FetchArchiveService()
 
 # Create directory selector component
-directory_component, directory_ids = create_directory_selector(
-    component_id='fetch-archive-output',
-    title="Output Directory for Archive Files",
-    placeholder="Select directory for extracted archive files...",
-    browse_button_text="Browse",
-    reset_button_text="Reset"
-)
-
-# Layout
 directory_component, directory_ids = create_directory_selector(
     component_id='fetch-archive-output',
     title="Output Directory for Archive Files",
@@ -180,18 +169,19 @@ layout = dmc.Container([
                                 id="lines-loading-fetch",
                                 type="default",
                                 children=[
-                                    dbc.Checklist(
+                                    dmc.CheckboxGroup(
                                         id="lines-checklist-fetch",
-                                        options=[],
                                         value=[],
+                                        children=[],
                                         style={
                                             "columnCount": "2",
-                                            "columnGap": "8px",
-                                            "lineHeight": "1.2",
+                                            "columnGap": "16px",
+                                            "lineHeight": "1.6",
                                             "fontSize": "0.85rem"
                                         },
-                                        inline=False,
-                                        className="compact-checklist"
+                                        styles={
+                                            "root": {"gap": "8px"}
+                                        }
                                     )
                                 ]
                             ),
@@ -199,15 +189,20 @@ layout = dmc.Container([
                             # Select All section
                             dmc.Divider(size="xs"),
                             dmc.Center([
-                                dbc.Checklist(
+                                dmc.CheckboxGroup(
                                     id="select-all-lines-checkbox-fetch",
-                                    options=[
-                                        {"label": "Select All Lines",
-                                            "value": "select_all"}
-                                    ],
-                                    # Default to selected
-                                    value=["select_all"],
-                                    className="fw-medium"
+                                    value=[],  # Start unchecked
+                                    children=[
+                                        dmc.Checkbox(
+                                            label="Select All Lines",
+                                            value="select_all",
+                                            styles={
+                                                "input": {"border-radius": "4px"},
+                                                "body": {"align-items": "flex-start"},
+                                                "labelWrapper": {"margin-left": "8px"}
+                                            }
+                                        )
+                                    ]
                                 )
                             ])
 
@@ -254,10 +249,7 @@ layout = dmc.Container([
 
         ], grow=True, gap="lg", align="stretch", wrap="wrap")
 
-    ], gap="md"),
-
-    # Notification container
-    dmc.NotificationProvider()
+    ], gap="md")
 
 ], size="lg", p="sm")
 
@@ -292,7 +284,7 @@ def toggle_help_modal(n, opened):
 # Callback to load available lines on page startup
 @callback(
     [Output('available-lines-store-fetch', 'data'),
-     Output('lines-checklist-fetch', 'options'),
+     Output('lines-checklist-fetch', 'children'),
      Output('lines-error-message-fetch', 'children')],
     [Input('available-lines-store-fetch', 'id')]  # Triggers on page load
 )
@@ -304,7 +296,18 @@ def load_available_lines(_):
 
         if result['success']:
             lines = result['lines']
-            return lines, lines, ""
+            checkbox_children = [
+                dmc.Checkbox(
+                    label=line['label'], 
+                    value=line['value'],
+                    styles={
+                        "input": {"border-radius": "4px"},
+                        "body": {"align-items": "flex-start"},
+                        "labelWrapper": {"margin-left": "8px"}
+                    }
+                ) for line in lines
+            ]
+            return lines, checkbox_children, ""
         else:
             # Return empty options with error message
             error_msg = dmc.Alert(
@@ -341,27 +344,16 @@ def load_available_lines(_):
 # Callback for select all functionality
 @callback(
     Output('lines-checklist-fetch', 'value'),
-    [Input('select-all-lines-checkbox-fetch', 'value'),
-     # Also trigger when lines are loaded
-     Input('available-lines-store-fetch', 'data')],
-    [State('lines-checklist-fetch', 'value')],
-    prevent_initial_call=False
+    [Input('select-all-lines-checkbox-fetch', 'value')],
+    [State('available-lines-store-fetch', 'data'),
+     State('lines-checklist-fetch', 'value')],
+    prevent_initial_call=True
 )
 def toggle_select_all_lines(select_all_value, available_lines, current_selection):
-    """Toggle select all lines functionality and auto-select all on page load."""
-    ctx = dash.callback_context
-
-    # Check if this is triggered by the available lines being loaded (page load)
-    if ctx.triggered and ctx.triggered[0]['prop_id'] == 'available-lines-store-fetch.data':
-        if available_lines:
-            # Auto-select all lines on page load
-            return [line['value'] for line in available_lines]
-        else:
-            return []
-
+    """Toggle select all lines functionality - only responds to user clicks."""
     # Handle select all checkbox
     if select_all_value and 'select_all' in select_all_value:
-        # Select all lines
+        # Select all lines - extract values from line objects
         return [line['value'] for line in available_lines] if available_lines else []
     else:
         # Deselect all lines
@@ -373,12 +365,19 @@ def toggle_select_all_lines(select_all_value, available_lines, current_selection
     Output('fetch-archive-btn', 'disabled'),
     [Input('archive-date-picker', 'value'),
      Input('lines-checklist-fetch', 'value'),
-     Input(directory_ids['input'], 'value')]
+     Input(directory_ids['input'], 'value'),
+     Input('fetch-status-store', 'data')]
 )
-def validate_fetch_form(selected_date, selected_lines, output_directory):
-    """Enable fetch button only when all required fields are filled."""
+def validate_fetch_form(selected_date, selected_lines, output_directory, fetch_status):
+    """Enable fetch button only when all required fields are filled and not processing."""
+    # Disable if currently processing
+    if fetch_status and fetch_status.get('status') == 'processing':
+        return True
+    
+    # Disable if any required field is missing
     if not selected_date or not selected_lines or not output_directory:
         return True
+    
     return False
 
 
@@ -386,21 +385,30 @@ def validate_fetch_form(selected_date, selected_lines, output_directory):
 @callback(
     [Output('fetch-processing-status', 'children'),
      Output('fetch-status-store', 'data'),
+     Output('fetch-archive-btn', 'disabled', allow_duplicate=True),
      Output('notification-container', 'sendNotifications', allow_duplicate=True)],
     [Input('fetch-archive-btn', 'n_clicks')],
     [State('archive-date-picker', 'value'),
      State('lines-checklist-fetch', 'value'),
-     State(directory_ids['input'], 'value')],
+     State(directory_ids['input'], 'value'),
+     State('fetch-status-store', 'data')],
     prevent_initial_call=True
 )
-def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory):
+def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory, current_status):
     """Fetch archive data using FetchArchiveService with notifications."""
     if not n_clicks:
-        return "", {'status': 'idle'}, no_update
+        return "", {'status': 'idle'}, False, no_update
+
+    # Prevent re-running if already processing
+    if current_status.get('status') == 'processing':
+        return no_update, no_update, no_update, no_update
 
     try:
         logger.info(
             f"Starting fetch for {len(selected_lines)} lines on {selected_date}")
+
+        # Show simple processing message
+        processing_status = "Processing archive data..."
 
         # Parse date - DatePicker returns a date object
         if isinstance(selected_date, str):
@@ -409,7 +417,7 @@ def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory
             # selected_date is already a date object
             archive_date = datetime.combine(selected_date, datetime.min.time())
 
-        # Call fetch service
+        # Call fetch service (this runs in background)
         result = fetch_archive_service.fetch_archive_data(
             archive_date=archive_date,
             line_ids=selected_lines,
@@ -419,52 +427,37 @@ def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory
         if result['success']:
             files_count = len(result['files'])
             failed_count = len(result.get('failed_lines', []))
+            processed_lines = len(selected_lines) - failed_count
 
             if failed_count == 0:
-                # Complete success
-                notification = [{
-                    "title": "Fetch Complete!",
-                    "message": f"Successfully extracted {files_count} archive file(s) to {output_directory}",
-                    "color": "green",
-                    "autoClose": 7000,
-                    "action": "show"
-                }]
-
-                status_content = dmc.Alert(
-                    children=[
-                        dmc.Group([
-                            BootstrapIcon(icon="check-circle", width=16),
-                            dmc.Text(
-                                f"Success! Extracted {files_count} archive file(s)", size="sm")
-                        ], gap="xs")
-                    ],
-                    color="green",
-                    variant="light"
-                )
+                # Complete success - focus on lines processed
+                if processed_lines == 1:
+                    notification = [{
+                        "title": "Fetch Complete!",
+                        "message": f"Successfully processed 1 line ({files_count} file(s) extracted) to {output_directory}",
+                        "color": "green",
+                        "autoClose": 7000,
+                        "action": "show"
+                    }]
+                else:
+                    notification = [{
+                        "title": "Fetch Complete!",
+                        "message": f"Successfully processed {processed_lines} lines ({files_count} file(s) extracted) to {output_directory}",
+                        "color": "green",
+                        "autoClose": 7000,
+                        "action": "show"
+                    }]
             else:
                 # Partial success
                 notification = [{
                     "title": "Partial Success",
-                    "message": f"Extracted {files_count} file(s), {failed_count} failed. Check logs for details.",
+                    "message": f"Processed {processed_lines} line(s), {failed_count} failed ({files_count} file(s) extracted). Check logs for details.",
                     "color": "yellow",
                     "autoClose": 7000,
                     "action": "show"
                 }]
 
-                status_content = dmc.Alert(
-                    children=[
-                        dmc.Group([
-                            BootstrapIcon(
-                                icon="exclamation-triangle", width=16),
-                            dmc.Text(
-                                f"Partial Success: {files_count} files extracted, {failed_count} failed", size="sm")
-                        ], gap="xs")
-                    ],
-                    color="yellow",
-                    variant="light"
-                )
-
-            return status_content, {'status': 'completed'}, notification
+            return "", {'status': 'completed'}, False, notification
         else:
             # Complete failure
             notification = [{
@@ -475,18 +468,7 @@ def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory
                 "action": "show"
             }]
 
-            status_content = dmc.Alert(
-                children=[
-                    dmc.Group([
-                        BootstrapIcon(icon="x-circle", width=16),
-                        dmc.Text(f"Error: {result['message']}", size="sm")
-                    ], gap="xs")
-                ],
-                color="red",
-                variant="light"
-            )
-
-            return status_content, {'status': 'error'}, notification
+            return "", {'status': 'error'}, False, notification
 
     except Exception as e:
         logger.error(f"Unexpected error during archive fetch: {e}")
@@ -499,18 +481,7 @@ def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory
             "action": "show"
         }]
 
-        status_content = dmc.Alert(
-            children=[
-                dmc.Group([
-                    BootstrapIcon(icon="x-circle", width=16),
-                    dmc.Text(f"Unexpected Error: {str(e)}", size="sm")
-                ], gap="xs")
-            ],
-            color="red",
-            variant="light"
-        )
-
-        return status_content, {'status': 'error'}, notification
+        return "", {'status': 'error'}, False, notification
 
 
 # Callback to show date selection feedback

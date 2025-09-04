@@ -1,11 +1,20 @@
 import dash_mantine_components as dmc
+import sys
 from dash import Dash, Input, Output, State, callback, dcc, html
 from components.sidebar import build_sidebar
 from components.home_page import create_home_page
 from components.fluid_id_page import create_fluid_id_page
 from components.csv_to_rtu_page import create_csv_to_rtu_page
-from components.fetch_archive_page import layout as fetch_archive_layout
+import components.fetch_archive_page as fetch_archive_page
 from components.custom_theme import theme_controls, theme_name_mapping, size_name_mapping
+from services.config_manager import initialize_config_manager
+
+# Initialize configuration manager on application startup
+config_manager = initialize_config_manager()
+
+# Initialize app with appropriate debug mode
+# When packaged with PyInstaller, disable debug mode for production
+debug_mode = not hasattr(sys, '_MEIPASS')
 
 app = Dash(__name__, suppress_callback_exceptions=True)
 
@@ -84,7 +93,7 @@ def render_page(pathname: str):
     elif pathname == "/csv-to-rtu":
         return create_csv_to_rtu_page()
     elif pathname == "/fetch-archive":
-        return fetch_archive_layout
+        return fetch_archive_page.layout
     elif pathname == "/settings":
         # Redirect settings to home page since we use a modal now
         return create_home_page()
@@ -95,4 +104,5 @@ def render_page(pathname: str):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Use debug mode only in development (not when packaged)
+    app.run(debug=debug_mode, host="127.0.0.1", port=8050)

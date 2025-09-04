@@ -8,8 +8,6 @@ clr_loader==0.2.7.post0
 colorama==0.4.6
 coverage==7.10.6
 dash==3.2.0
-dash-bootstrap-components==2.0.4
-dash-iconify==0.1.2
 dash_ag_grid==32.3.1
 dash_mantine_components==2.2.1
 dependency-injector==4.48.1

@@ -1,0 +1,22 @@
+"""
+PyInstaller hook for services modules
+Ensures all service modules are properly included
+"""
+
+from PyInstaller.utils.hooks import collect_all, collect_submodules
+
+# Collect all submodules from services package
+hiddenimports = collect_submodules('services')
+
+# Collect data files (if any)
+datas, binaries, additional_imports = collect_all('services')
+hiddenimports.extend(additional_imports)
+
+# Add specific service modules to ensure they're included
+service_modules = [
+    'services.config_manager',
+    'services.csv_to_rtu_service', 
+    'services.fetch_archive_service',
+    'services.fluid_id_service',
+]
+hiddenimports.extend(service_modules)

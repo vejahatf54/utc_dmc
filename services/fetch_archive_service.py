@@ -305,10 +305,11 @@ class FetchArchiveService:
 
             # Check if line archive folder exists
             if not os.path.exists(line_archive_path) or not os.path.isdir(line_archive_path):
+                date_str = archive_date.strftime('%Y-%m-%d')
                 return {
                     'success': False,
                     'files': [],
-                    'message': f'Archive folder not found: {line_archive_path}'
+                    'message': f'No archive data found for {line_id} on {date_str}'
                 }
 
             # Find all zip files in the archive folder
@@ -318,10 +319,11 @@ class FetchArchiveService:
                     zip_files.append(os.path.join(line_archive_path, file))
 
             if not zip_files:
+                date_str = archive_date.strftime('%Y-%m-%d')
                 return {
                     'success': False,
                     'files': [],
-                    'message': f'No zip files found in archive folder: {line_archive_path}'
+                    'message': f'No archive files found for {line_id} on {date_str}'
                 }
 
             # Create line-specific output directory
@@ -335,26 +337,47 @@ class FetchArchiveService:
             for zip_file_path in zip_files:
                 try:
                     zip_filename = os.path.basename(zip_file_path)
+                    # Get zip name without extension for renaming
+                    zip_name_base = os.path.splitext(zip_filename)[0]
+                    
                     logger.info(
                         f"Extracting {zip_filename} to {line_output_path}")
 
                     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-                        # Extract all files to the line-specific directory
-                        zip_ref.extractall(line_output_path)
-
-                        # Get list of extracted files
+                        # Extract each file and rename it to match the zip file name
                         for member in zip_ref.namelist():
-                            extracted_file_path = line_output_path / member
-                            if extracted_file_path.is_file():  # Only count actual files, not directories
-                                extracted_files.append({
-                                    'original_zip': zip_filename,
-                                    'extracted_file': str(extracted_file_path),
-                                    'filename': member,
-                                    'size_bytes': extracted_file_path.stat().st_size
-                                })
-                                total_extracted += 1
+                            # Skip directories
+                            if member.endswith('/'):
+                                continue
+                                
+                            # Extract the file to memory first
+                            file_data = zip_ref.read(member)
+                            
+                            # Get the original file extension
+                            original_name = os.path.basename(member)
+                            _, original_ext = os.path.splitext(original_name)
+                            
+                            # Create new filename: zip_name + original_extension
+                            new_filename = f"{zip_name_base}{original_ext}"
+                            new_file_path = line_output_path / new_filename
+                            
+                            # Write the file with the new name
+                            with open(new_file_path, 'wb') as f:
+                                f.write(file_data)
+                            
+                            # Record the extracted file
+                            extracted_files.append({
+                                'original_zip': zip_filename,
+                                'original_filename': original_name,
+                                'extracted_file': str(new_file_path),
+                                'filename': new_filename,
+                                'size_bytes': new_file_path.stat().st_size
+                            })
+                            total_extracted += 1
+                            
+                            logger.debug(f"Renamed {original_name} to {new_filename}")
 
-                    logger.info(f"Successfully extracted {zip_filename}")
+                    logger.info(f"Successfully extracted and renamed files from {zip_filename}")
 
                 except Exception as e:
                     logger.error(f"Error extracting {zip_file_path}: {e}")
@@ -413,6 +436,15 @@ class FetchArchiveService:
         elif success_count > 0 and failure_count == 0:
             return f"Successfully extracted {success_count} archive file(s)"
         elif success_count == 0 and failure_count > 0:
-            return f"Failed to extract any archive files ({failure_count} failures)"
+            # If there's only one failure, show the specific error message
+            if failure_count == 1:
+                error_message = failed_fetches[0]['error']
+                # Check if it's a "no files found" type error
+                if "No archive" in error_message or "not found" in error_message:
+                    return f"{error_message}. Try again with a different date."
+                else:
+                    return error_message
+            else:
+                return f"Failed to extract any archive files ({failure_count} failures)"
         else:
             return f"Extracted {success_count} archive file(s), {failure_count} failed"

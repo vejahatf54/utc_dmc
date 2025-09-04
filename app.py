@@ -1,11 +1,10 @@
-import json
 import dash_mantine_components as dmc
-from dash import Dash, Input, Output, State, callback, dcc, html, clientside_callback, callback_context
+from dash import Dash, Input, Output, State, callback, dcc, html
 from components.sidebar import build_sidebar
 from components.home_page import create_home_page
 from components.fluid_id_page import create_fluid_id_page
 from components.csv_to_rtu_page import create_csv_to_rtu_page
-from components.custom_theme import theme_controls, color_picker_value_mapping, theme_name_mapping, size_name_mapping
+from components.custom_theme import theme_controls, theme_name_mapping, size_name_mapping
 
 app = Dash(__name__, suppress_callback_exceptions=True)
 

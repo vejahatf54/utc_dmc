@@ -94,99 +94,102 @@ def create_csv_to_rtu_page():
 
             dmc.Space(h="md"),
 
-            # Main Content Grid
-            dmc.SimpleGrid([
+            # Main Content - Flexible Side by Side Layout
+            dmc.Group([
                 # File Upload Section
-                dmc.Paper([
-                    dmc.Stack([
-                        # Header with icon
-                        dmc.Group([
-                            BootstrapIcon(icon="upload", width=20),
-                            dmc.Text("CSV File Upload", fw=500, size="md")
-                        ], gap="xs"),
-
-                        dmc.Divider(size="xs"),
-
-                        # Upload area
-                        html.Div([
-                            dcc.Upload(
-                                id='csv-upload',
-                                children=dmc.Stack([
-                                    dmc.Center([
-                                        BootstrapIcon(icon="cloud-upload", width=48, height=48, color="var(--mantine-color-blue-6)")
-                                    ]),
-                                    dmc.Text('Drag and Drop CSV Files', size="md", fw=500, ta="center"),
-                                    dmc.Text('or click to browse', size="sm", c="dimmed", ta="center")
-                                ], gap="sm", p="md", align="center"),
-                                style={
-                                    'width': '100%',
-                                    'height': '150px',
-                                    'borderWidth': '2px',
-                                    'borderStyle': 'dashed',
-                                    'borderRadius': '8px',
-                                    'cursor': 'pointer',
-                                    'display': 'flex',
-                                    'alignItems': 'center',
-                                    'justifyContent': 'center'
-                                },
-                                multiple=True,
-                                accept='.csv'
-                            )
-                        ], id='csv-upload-container'),
-
-                        # File list display
-                        html.Div(
-                            id='csv-file-list',
-                            style={'minHeight': '50px'}
-                        ),
-
-                        # Upload status
-                        html.Div(id='csv-upload-status')
-
-                    ], gap="sm", p="sm")
-                ], shadow="sm", radius="md", withBorder=True),
-
-                # Directory Selection Section
-                directory_component
-
-            ], cols=1, spacing="md"),
-
-            dmc.Space(h="md"),
-
-            # Conversion Section
-            dmc.Center([
-                dmc.Paper([
-                    dmc.Stack([
-                        dmc.Group([
-                            BootstrapIcon(icon="arrow-repeat", width=20),
-                            dmc.Text("RTU Conversion", fw=500, size="md")
-                        ], gap="xs", justify="center"),
-
-                        dmc.Divider(size="xs"),
-
-                        # Conversion button and status
+                dmc.Box([
+                    dmc.Paper([
                         dmc.Stack([
-                            dcc.Loading(
-                                id='write-rtu-loading',
-                                type='default',
-                                children=html.Div([
-                                    dmc.Button([
-                                        BootstrapIcon(icon="download", width=20),
-                                        "Write RTU Data"
-                                    ], id='write-rtu-btn', size="lg", disabled=True, className="px-4", variant="filled")
-                                ], id='write-rtu-content')
+                            # Header with icon
+                            dmc.Group([
+                                BootstrapIcon(icon="upload", width=20),
+                                dmc.Text("CSV File Upload", fw=500, size="md")
+                            ], gap="xs"),
+
+                            dmc.Divider(size="xs"),
+
+                            # Upload area
+                            html.Div([
+                                dcc.Upload(
+                                    id='csv-upload',
+                                    children=dmc.Stack([
+                                        dmc.Center([
+                                            BootstrapIcon(icon="cloud-upload", width=48, height=48, color="var(--mantine-color-blue-6)")
+                                        ]),
+                                        dmc.Text('Drag and Drop CSV Files', size="md", fw=500, ta="center"),
+                                        dmc.Text('or click to browse', size="sm", c="dimmed", ta="center")
+                                    ], gap="sm", p="md", align="center"),
+                                    style={
+                                        'width': '100%',
+                                        'height': '150px',
+                                        'borderWidth': '2px',
+                                        'borderStyle': 'dashed',
+                                        'borderRadius': '8px',
+                                        'cursor': 'pointer',
+                                        'display': 'flex',
+                                        'alignItems': 'center',
+                                        'justifyContent': 'center'
+                                    },
+                                    multiple=True,
+                                    accept='.csv'
+                                )
+                            ], id='csv-upload-container'),
+
+                            # File list display
+                            html.Div(
+                                id='csv-file-list',
+                                style={'minHeight': '50px'}
                             ),
 
-                            html.Div(
-                                id='rtu-processing-status',
-                                style={'minHeight': '20px',
-                                       'textAlign': 'center'}
-                            )
-                        ], align="center", gap="sm")
+                            # Upload status
+                            html.Div(id='csv-upload-status')
 
-                    ], gap="sm", p="sm")
-                ], shadow="sm", radius="md", withBorder=True, style={"width": "400px"})
-            ])
+                        ], gap="sm", p="sm")
+                    ], shadow="sm", radius="md", withBorder=True)
+                ], style={"flex": "1", "minWidth": "350px"}),
+
+                # Output Directory and RTU Conversion - Stacked in one column
+                dmc.Box([
+                    dmc.Stack([
+                        # Directory Selection Section
+                        directory_component,
+                        
+                        # RTU Conversion Section
+                        dmc.Paper([
+                            dmc.Stack([
+                                dmc.Group([
+                                    BootstrapIcon(icon="arrow-repeat", width=20),
+                                    dmc.Text("RTU Conversion", fw=500, size="md")
+                                ], gap="xs", justify="center"),
+
+                                dmc.Divider(size="xs"),
+
+                                # Conversion button and status
+                                dmc.Stack([
+                                    dcc.Loading(
+                                        id='write-rtu-loading',
+                                        type='default',
+                                        children=html.Div([
+                                            dmc.Button([
+                                                BootstrapIcon(icon="download", width=20),
+                                                "Write RTU Data"
+                                            ], id='write-rtu-btn', size="lg", disabled=True, className="px-4", variant="filled")
+                                        ], id='write-rtu-content')
+                                    ),
+
+                                    html.Div(
+                                        id='rtu-processing-status',
+                                        style={'minHeight': '20px',
+                                               'textAlign': 'center'}
+                                    )
+                                ], align="center", gap="sm")
+
+                            ], gap="sm", p="sm")
+                        ], shadow="sm", radius="md", withBorder=True)
+                    ], gap="md")
+                ], style={"flex": "1", "minWidth": "350px"})
+
+            ], grow=True, gap="lg", align="stretch", wrap="wrap")
 
         ], gap="md")
     ], size="lg", p="sm")
@@ -194,6 +197,45 @@ def create_csv_to_rtu_page():
 
 # Initialize the service
 csv_rtu_service = CsvToRtuService()
+
+
+# Helper function to create file display components
+def create_file_components(file_list):
+    """Create file display components with pattern-matching IDs for removal."""
+    if not file_list:
+        return [
+            dmc.Alert([
+                dmc.Group([
+                    BootstrapIcon(icon="info-circle", width=20),
+                    dmc.Text("No files selected. Upload CSV files to get started.", size="sm")
+                ], gap="xs")
+            ], color="blue", variant="light", radius="md")
+        ]
+    
+    components = []
+    for file_info in file_list:
+        component = dmc.Paper([
+            dmc.Group([
+                BootstrapIcon(icon="file-earmark-spreadsheet", width=24, color="green"),
+                dmc.Stack([
+                    dmc.Text(file_info['name'], fw=500, size="sm"),
+                    dmc.Group([
+                        dmc.Badge(f"{file_info['rows']} rows", color="blue", variant="light", size="xs"),
+                        dmc.Badge(f"{file_info['columns']} cols", color="cyan", variant="light", size="xs"),
+                        dmc.Badge(f"{file_info['size']/1024:.1f} KB", color="gray", variant="light", size="xs"),
+                    ], gap="xs")
+                ], gap="xs", flex=1),
+                dmc.ActionIcon(
+                    BootstrapIcon(icon="x", width=16),
+                    id={'type': 'remove-file-btn', 'index': file_info['name']},
+                    color='red', variant="light", size="sm"
+                )
+            ], justify="space-between", align="center")
+        ], p="md", radius="md", withBorder=True, className="mb-2")
+        
+        components.append(component)
+    
+    return components
 
 
 # File upload callback
@@ -209,8 +251,11 @@ csv_rtu_service = CsvToRtuService()
 )
 def handle_csv_upload(contents, filenames, stored_files):
     """Mirror LDUTC: load CSVs, build list, success alert."""
+    # If there's no new upload interaction, keep displaying already stored files
     if not contents:
-        return stored_files or [], [], "", True
+        existing_files = stored_files or []
+        existing_components = create_file_components(existing_files)
+        return existing_files, existing_components, "", len(existing_files) == 0
 
     if not isinstance(contents, list):
         contents = [contents]
@@ -237,35 +282,16 @@ def handle_csv_upload(contents, filenames, stored_files):
                 continue
 
     if new_files:
-        file_components = [
-            dmc.Paper([
-                dmc.Group([
-                    BootstrapIcon(icon="file-earmark-spreadsheet", width=24, color="green"),
-                    dmc.Stack([
-                        dmc.Text(file_info['name'], fw=500, size="sm"),
-                        dmc.Group([
-                            dmc.Badge(f"{file_info['rows']} rows", color="blue", variant="light", size="xs"),
-                            dmc.Badge(f"{file_info['columns']} cols", color="cyan", variant="light", size="xs"),
-                            dmc.Badge(f"{file_info['size']/1024:.1f} KB", color="gray", variant="light", size="xs"),
-                        ], gap="xs")
-                    ], gap="xs", flex=1),
-                    dmc.ActionIcon(
-                        BootstrapIcon(icon="x", width=16),
-                        id={'type': 'remove-file-btn', 'index': file_info['name']},
-                        color='red', variant="light", size="sm"
-                    )
-                ], justify="space-between", align="center")
-            ], p="md", radius="md", withBorder=True, className="mb-2")
-            for file_info in new_files
-        ]
+        file_components = create_file_components(new_files)
         status_message = ""
     else:
-        file_components = []
+        file_components = create_file_components([])
         status_message = ""
 
     return new_files, file_components, status_message, len(new_files) == 0
 
 
+# Pattern-matching callback for file removal using proper Dash syntax
 @callback(
     [
         Output('csv-files-store', 'data', allow_duplicate=True),
@@ -279,56 +305,48 @@ def handle_csv_upload(contents, filenames, stored_files):
     prevent_initial_call=True
 )
 def remove_csv_file(n_clicks, stored_files):
+    """Remove a specific CSV file using pattern-matching callbacks."""
+    
+    print(f"DEBUG: remove_csv_file called with n_clicks={n_clicks}, stored_files count={len(stored_files) if stored_files else 0}")
+    
+    # Check if any button was actually clicked
     if not n_clicks or not any(n_clicks) or not stored_files:
-        return stored_files or [], no_update, no_update, no_update, no_update
+        print("DEBUG: Early return - no clicks or no files")
+        return no_update, no_update, no_update, no_update, no_update
 
+    # Get callback context to identify which button was clicked
     ctx = callback_context
     if not ctx.triggered:
-        return stored_files or [], no_update, no_update, no_update, no_update
+        print("DEBUG: No callback context triggered")
+        return no_update, no_update, no_update, no_update, no_update
 
-    triggered_id = ctx.triggered[0]['prop_id']
-    filename_to_remove = None
+    print(f"DEBUG: ctx.triggered = {ctx.triggered}")
+    
+    # Parse the triggered component ID to get the filename
+    triggered_prop_id = ctx.triggered[0]['prop_id']
+    print(f"DEBUG: triggered_prop_id = {triggered_prop_id}")
+    
+    # Extract the component ID part (before the .n_clicks) - use rsplit to get the last .n_clicks
+    component_id_str = triggered_prop_id.rsplit('.n_clicks', 1)[0]
+    print(f"DEBUG: component_id_str = {component_id_str}")
+    
     try:
         import json
-        comp_id_str = triggered_id.rsplit('.', 1)[0]
-        comp_id = json.loads(comp_id_str)
-        filename_to_remove = comp_id.get('index')
-    except Exception:
-        return stored_files or [], no_update, no_update, no_update, no_update
+        component_id = json.loads(component_id_str)
+        filename_to_remove = component_id['index']
+        print(f"DEBUG: filename_to_remove = {filename_to_remove}")
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f"DEBUG: Error parsing component ID: {e}")
+        return no_update, no_update, no_update, no_update, no_update
 
-    if not filename_to_remove:
-        return stored_files or [], no_update, no_update, no_update, no_update
-
-    updated_files = [f for f in stored_files if f['name'] != filename_to_remove]
-
-    if updated_files:
-        file_components = [
-            dmc.Paper([
-                dmc.Group([
-                    BootstrapIcon(icon="file-earmark-spreadsheet", width=24, color="green"),
-                    dmc.Stack([
-                        dmc.Text(file_info['name'], fw=500, size="sm"),
-                        dmc.Group([
-                            dmc.Badge(f"{file_info['rows']} rows", color="blue", variant="light", size="xs"),
-                            dmc.Badge(f"{file_info['columns']} cols", color="cyan", variant="light", size="xs"),
-                            dmc.Badge(f"{file_info['size']/1024:.1f} KB", color="gray", variant="light", size="xs")
-                        ], gap="xs")
-                    ], gap="xs", flex=1),
-                    dmc.ActionIcon(
-                        BootstrapIcon(icon="x", width=16),
-                        id={'type': 'remove-file-btn', 'index': file_info['name']},
-                        color='red', variant="light", size="sm"
-                    )
-                ], justify="space-between", align="center")
-            ], p="md", radius="md", withBorder=True, className="mb-2")
-            for file_info in updated_files
-        ]
-        status = ""
-    else:
-        file_components = []
-        status = ""
-
-    # Recreate upload to allow re-upload same filename
+    # Filter out the file to remove
+    updated_files = [f for f in stored_files if f.get('name') != filename_to_remove]
+    print(f"DEBUG: updated_files count = {len(updated_files)}")
+    
+    # Create new file components
+    file_components = create_file_components(updated_files)
+    
+    # Recreate upload component to allow re-uploading same filename
     new_upload = dcc.Upload(
         id='csv-upload',
         children=dmc.Stack([
@@ -350,8 +368,9 @@ def remove_csv_file(n_clicks, stored_files):
         multiple=True,
         accept='.csv'
     )
-
-    return updated_files, file_components, status, len(updated_files) == 0, new_upload
+    
+    print(f"DEBUG: Returning updated files and components")
+    return updated_files, file_components, "", len(updated_files) == 0, new_upload
 
 
 # Help modal callback

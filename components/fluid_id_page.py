@@ -4,7 +4,7 @@ Uses pure DMC components with default theme styling.
 """
 
 import dash_mantine_components as dmc
-from dash import html, Input, Output, callback, callback_context
+from dash import html, Input, Output, State, callback, callback_context
 from components.bootstrap_icon import BootstrapIcon
 from services.fluid_id_service import FluidIdConverterService
 
@@ -16,11 +16,59 @@ def create_fluid_id_page():
         dmc.Stack([
             dmc.Center([
                 dmc.Stack([
-                    dmc.Title("Fluid ID Converter", order=1, ta="center"),
+                    dmc.Group([
+                        dmc.Title("Fluid ID Converter", order=1, ta="center"),
+                        dmc.ActionIcon(
+                            BootstrapIcon(icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
+                            id="fluid-help-modal-btn",
+                            variant="light",
+                            color="blue",
+                            size="lg"
+                        )
+                    ], justify="center", align="center", gap="md"),
                     dmc.Text("Real-time bidirectional conversion between SCADA FID and Fluid Names",
                              c="dimmed", ta="center", size="lg")
                 ], gap="xs")
             ]),
+
+            # Help Modal
+            dmc.Modal(
+                title="How It Works",
+                id="fluid-help-modal",
+                children=[
+                    dmc.Grid([
+                        dmc.GridCol([
+                            dmc.Stack([
+                                dmc.Group([
+                                    BootstrapIcon(icon="info-circle", width=20),
+                                    dmc.Text("Conversion Logic", fw=500)
+                                ], gap="xs"),
+                                dmc.Text([
+                                    "The SCADA FID uses a base-37 numbering system where digits 0-9 and letters A-Z ",
+                                    "represent values 0-36. The conversion process translates between this numeric ",
+                                    "representation and human-readable fluid names."
+                                ], size="sm", c="dimmed")
+                            ])
+                        ], span=6),
+                        dmc.GridCol([
+                            dmc.Stack([
+                                dmc.Group([
+                                    BootstrapIcon(icon="lightbulb", width=20),
+                                    dmc.Text("Usage Tips", fw=500)
+                                ], gap="xs"),
+                                dmc.List([
+                                    dmc.ListItem("Enter values in either field for automatic conversion"),
+                                    dmc.ListItem("FID values must be non-negative integers"),
+                                    dmc.ListItem("Fluid names support spaces and alphanumeric characters"),
+                                    dmc.ListItem("Names are automatically padded with spaces if needed")
+                                ], size="sm")
+                            ])
+                        ], span=6)
+                    ])
+                ],
+                opened=False,
+                size="lg"
+            ),
 
             dmc.Space(h="lg"),
 
@@ -114,57 +162,12 @@ def create_fluid_id_page():
                 ], span=5)
             ], justify="center", gutter="lg"),
 
-            dmc.Space(h="lg"),
+            dmc.Space(h="xl"),
 
             # Status/Message Section
             dmc.Center([
                 html.Div(id="conversion-message")
-            ]),
-
-            dmc.Space(h="xl"),
-
-            # Information Section
-            dmc.Paper([
-                dmc.Stack([
-                    dmc.Title("How It Works", order=3, ta="center"),
-                    dmc.Divider(),
-                    dmc.Grid([
-                        dmc.GridCol([
-                            dmc.Stack([
-                                dmc.Group([
-                                    BootstrapIcon(
-                                        icon="info-circle", width=20),
-                                    dmc.Text("Conversion Logic", fw=500)
-                                ], gap="xs"),
-                                dmc.Text([
-                                    "The SCADA FID uses a base-37 numbering system where digits 0-9 and letters A-Z ",
-                                    "represent values 0-36. The conversion process translates between this numeric ",
-                                    "representation and human-readable fluid names."
-                                ], size="sm", c="dimmed")
-                            ])
-                        ], span=6),
-                        dmc.GridCol([
-                            dmc.Stack([
-                                dmc.Group([
-                                    BootstrapIcon(
-                                        icon="lightbulb", width=20),
-                                    dmc.Text("Usage Tips", fw=500)
-                                ], gap="xs"),
-                                dmc.List([
-                                    dmc.ListItem(
-                                        "Enter values in either field for automatic conversion"),
-                                    dmc.ListItem(
-                                        "FID values must be non-negative integers"),
-                                    dmc.ListItem(
-                                        "Fluid names support spaces and alphanumeric characters"),
-                                    dmc.ListItem(
-                                        "Names are automatically padded with spaces if needed")
-                                ], size="sm")
-                            ])
-                        ], span=6)
-                    ])
-                ], gap="md", p="lg")
-            ], shadow="xs", radius="md", withBorder=True)
+            ])
 
         ], gap="lg")
     ], size="lg", p="md")
@@ -244,3 +247,15 @@ def handle_automatic_conversion(fid_value, fluid_name_value):
 
     # Default case
     return "", "", ""
+
+
+# Callback for help modal
+@callback(
+    Output("fluid-help-modal", "opened"),
+    Input("fluid-help-modal-btn", "n_clicks"),
+    State("fluid-help-modal", "opened"),
+    prevent_initial_call=True,
+)
+def toggle_help_modal(n_clicks, opened):
+    """Toggle the help modal."""
+    return not opened

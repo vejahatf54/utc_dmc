@@ -14,6 +14,7 @@ import logging
 from components.bootstrap_icon import BootstrapIcon
 from components.directory_selector import create_directory_selector, create_directory_selector_callback
 from services.fetch_archive_service import FetchArchiveService
+from services.config_manager import get_config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,15 @@ logger = logging.getLogger(__name__)
 fetch_archive_service = FetchArchiveService()
 
 # Create directory selector component
+directory_component, directory_ids = create_directory_selector(
+    component_id='fetch-archive-output',
+    title="Output Directory for Archive Files",
+    placeholder="Select directory for extracted archive files...",
+    browse_button_text="Browse",
+    reset_button_text="Reset"
+)
+
+# Layout
 directory_component, directory_ids = create_directory_selector(
     component_id='fetch-archive-output',
     title="Output Directory for Archive Files",
@@ -70,7 +80,7 @@ layout = dmc.Container([
                             ], gap="xs"),
                             dmc.List([
                                 dmc.ListItem(
-                                    "UNC Path: \\\\lpdev.local\\common\\LD_Data\\MBS\\arkbackup\\production"),
+                                    f"UNC Path: {get_config_manager().get_archive_base_path()}"),
                                 dmc.ListItem(
                                     "Date folders in YYYYMMDD format (e.g., 20231226)"),
                                 dmc.ListItem(

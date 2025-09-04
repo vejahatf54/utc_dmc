@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
+from .config_manager import get_config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,42 @@ class FetchArchiveService:
 
     def __init__(self):
         """Initialize the FetchArchiveService."""
+        # Get configuration manager
+        self.config_manager = get_config_manager()
+        
+        # Register for configuration reload notifications
+        self.config_manager.add_reload_callback(self._on_config_reload)
+        
+        # Load initial configuration
+        self._load_config()
+
+    def _load_config(self):
+        """Load configuration settings from the config manager."""
+        # Get archive configuration
+        archive_config = self.config_manager.get_archive_config()
+        
         # UNC path for archive backup repository
-        self.archive_base_path = r"\\lpdev.local\common\LD_Data\MBS\arkbackup\production"
-        self.timeout = 300  # 5 minutes for large file operations
+        self.archive_base_path = self.config_manager.get_archive_base_path()
+        
+        # Timeout for large file operations
+        self.timeout = self.config_manager.get_archive_timeout()
+        
+        logger.info(f"Archive configuration loaded - Base path: {self.archive_base_path}, Timeout: {self.timeout}s")
+
+    def _on_config_reload(self):
+        """Handle configuration reload events."""
+        logger.info("Configuration reloaded, updating archive service settings")
+        old_path = self.archive_base_path
+        old_timeout = self.timeout
+        
+        # Reload configuration
+        self._load_config()
+        
+        # Log changes
+        if old_path != self.archive_base_path:
+            logger.info(f"Archive base path changed: {old_path} -> {self.archive_base_path}")
+        if old_timeout != self.timeout:
+            logger.info(f"Archive timeout changed: {old_timeout}s -> {self.timeout}s")
 
     def _check_unc_path_accessible(self) -> bool:
         """

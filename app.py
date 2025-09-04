@@ -7,7 +7,6 @@ from components.home_page import create_home_page
 from components.fluid_id_page import create_fluid_id_page
 from components.csv_to_rtu_page import create_csv_to_rtu_page
 from components.custom_theme import theme_controls, color_picker_value_mapping, theme_name_mapping, size_name_mapping
-from components.settings_modal import create_settings_modal
 
 app = Dash(__name__, suppress_callback_exceptions=True)
 
@@ -24,10 +23,8 @@ app.layout = dmc.MantineProvider(
             sidebar,
             html.Div(
                 [
-                    html.Div([
-                        create_settings_modal(),
-                        theme_controls
-                    ], className="theme-controls-topright"),
+                    html.Div(theme_controls,
+                             className="theme-controls-topright"),
                     content
                 ],
                 className="main-content-shell"
@@ -60,6 +57,10 @@ def update_theme(color, radius, shadow, theme):
     theme["defaultRadius"] = size_name_mapping[radius]
     theme["components"]["Card"]["defaultProps"]["shadow"] = size_name_mapping[shadow]
     return theme
+
+
+
+
 
 
 @callback(

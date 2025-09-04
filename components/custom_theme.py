@@ -22,6 +22,8 @@ color_picker = dmc.Stack(
             swatches=list(color_picker_value_mapping.values()),
             swatchesPerRow=7,
             value=color_picker_value_mapping["green"],
+            persistence=True,
+            persistence_type="local",
         ),
     ]
 )
@@ -46,6 +48,8 @@ def make_slider(title, id):
                     {"value": 4, "label": "lg"},
                     {"value": 5, "label": "xl"},
                 ],
+                persistence=True,
+                persistence_type="local",
             ),
         ],
         mt="md",

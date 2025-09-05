@@ -409,7 +409,7 @@ layout = dmc.Container(
                                               width=16, height=16),
                                 html.Span("Load Data", style={
                                           'marginLeft': '8px'})
-                            ], id='load-line-btn', color="blue", variant="outline", fullWidth=True, size="sm"),
+                            ], id='load-line-btn', variant="fill", fullWidth=True, size="sm"),
                         ], gap="xs")
                     ], p="xs")
                 ], shadow="sm", h="100%")
@@ -437,7 +437,7 @@ layout = dmc.Container(
                                     icon="funnel", width=16, height=16),
                                 html.Span("Reduce Points", style={
                                           'marginLeft': '8px'})
-                            ], id='reduce-btn', color="blue", variant="outline", fullWidth=True, size="sm"),
+                            ], id='reduce-btn', variant="fill", fullWidth=True, size="sm"),
                         ], gap="xs")
                     ], p="xs")
                 ], shadow="sm", h="100%")
@@ -462,7 +462,7 @@ layout = dmc.Container(
                                         BootstrapIcon(
                                             icon="folder", width=16, height=16),
                                         id='mbs-browse-btn',
-                                        variant="outline",
+                                        variant="fill",
                                         color="gray"
                                     )
                                 ], gap="xs", style={'width': '100%'})
@@ -482,13 +482,13 @@ layout = dmc.Container(
                                                 icon="upload", width=16, height=16),
                                             html.Span("Load Profile", style={
                                                       'marginLeft': '8px'})
-                                        ], id='load-mbs-btn', color="blue", variant="outline", disabled=True, size="sm", style={'flex': '1'}),
+                                        ], id='load-mbs-btn', variant="fill", disabled=True, size="sm", style={'flex': '1'}),
                                         dmc.Button([
                                             BootstrapIcon(
                                                 icon="x-circle", width=16, height=16),
                                             html.Span("Unload", style={
                                                       'marginLeft': '8px'})
-                                        ], id='unload-mbs-btn', variant="outline", color="gray", disabled=True, size="sm", style={'flex': '1'})
+                                        ], id='unload-mbs-btn', variant="fill", disabled=True, size="sm", style={'flex': '1'})
                                     ], gap="xs", style={'width': '100%'})
                                 ], gap="xs")
                             ),
@@ -509,7 +509,7 @@ layout = dmc.Container(
                                               width=16, height=16),
                                 html.Span("Save Reduced Data", style={
                                           'marginLeft': '8px'})
-                            ], id='save-btn', color="green", variant="filled", fullWidth=True, size="sm"),
+                            ], id='save-btn', variant="fill", fullWidth=True, size="sm"),
                             dcc.Download(id="download-reduced-csv"),
                         ], gap="xs")
                     ], p="xs")
@@ -525,13 +525,13 @@ layout = dmc.Container(
                 dmc.Button(
                     BootstrapIcon(icon="stack", width=16, height=16),
                     id='stack-layout-btn', 
-                    variant='filled', 
+                    variant='outline', 
                     size='sm'
                 ),
                 dmc.Button(
                     BootstrapIcon(icon="columns", width=16, height=16),
                     id='sidebyside-layout-btn', 
-                    variant='filled', 
+                    variant='outline', 
                     size='sm'
                 )
             ]),
@@ -566,7 +566,7 @@ layout = dmc.Container(
                                         icon="plus", width=16, height=16),
                                     html.Span("Add Selected Features to the profile", style={
                                               'marginLeft': '8px'})
-                                ], id='add-valves-btn', color="blue", variant="outline", size="sm")
+                                ], id='add-valves-btn', variant="fill", size="sm")
                             ], gap="sm"),
                             dcc.Loading(
                                 id='results-loading', type='default',
@@ -990,30 +990,6 @@ def toggle_valves(add_clicks, row_data, line_val, current):
 def sync_aggrid_theme(theme_data):
     dark_mode = bool(theme_data.get('dark')) if theme_data else False
     return 'ag-theme-alpine-dark' if dark_mode else 'ag-theme-alpine'
-
-
-# Show right-controls-col only after Load Data button is clicked
-@dash.callback(Output('right-controls-col', 'style', allow_duplicate=True), [Input('load-line-btn', 'n_clicks')], prevent_initial_call=True)
-def toggle_right_controls(load_clicks):
-    if not load_clicks:
-        return {'display': 'none'}
-    return {'display': 'block'}
-
-
-# Show actions-controls-col only after Load Data button is clicked
-@dash.callback(Output('actions-controls-col', 'style', allow_duplicate=True), [Input('load-line-btn', 'n_clicks')], prevent_initial_call=True)
-def toggle_actions_controls(load_clicks):
-    if not load_clicks:
-        return {'display': 'none'}
-    return {'display': 'block'}
-
-
-# Show mbs-controls-col only after Load Data button is clicked
-@dash.callback(Output('mbs-controls-col', 'style', allow_duplicate=True), [Input('load-line-btn', 'n_clicks')], prevent_initial_call=True)
-def toggle_mbs_controls(load_clicks):
-    if not load_clicks:
-        return {'display': 'none'}
-    return {'display': 'block'}
 
 
 # MBS Folder Input Callbacks

@@ -329,34 +329,48 @@ layout = dmc.Container(
                 'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center', 'color': 'white'
             }
         ),
-        # Header viewport
-        dmc.Grid([
-            dmc.GridCol([
-                dmc.Card([
-                    dmc.CardSection([
-                        dmc.Group([
-                            dmc.Title([
-                                dmc.Text("Elevation Point Reduction ", fw=700),
-                                dmc.Text("(Ramer–Douglas–Peucker algorithm)", fw=400)
-                            ], order=4, style={'margin': '6px 0', 'flex': '1'}),
-                            dmc.Group([
-                                dmc.Text("Layout:", size="sm", fw=500, c="white"),
-                                dmc.ButtonGroup([
-                                    dmc.Button([
-                                        BootstrapIcon(icon="stack", width=16, height=16),
-                                        html.Span("Stack", style={'marginLeft': '8px'})
-                                    ], id='stack-layout-btn', variant='filled', color='white', size='sm'),
-                                    dmc.Button([
-                                        BootstrapIcon(icon="columns", width=16, height=16),
-                                        html.Span("Side by Side", style={'marginLeft': '8px'})
-                                    ], id='sidebyside-layout-btn', variant='outline', color='white', size='sm')
-                                ])
-                            ], gap="sm")
-                        ], justify="space-between", align="center", style={'width': '100%'})
-                    ], p="sm", style={'backgroundColor': 'var(--mantine-color-blue-6)', 'borderRadius': '0.75rem', 'color': 'white'})
-                ], shadow="sm", mb="sm")
-            ], span=12)
-        ]),
+        # Header Section
+        dmc.Stack([
+            dmc.Center([
+                dmc.Stack([
+                    dmc.Group([
+                        dmc.Title("Elevation Point Reduction",
+                                  order=2, ta="center"),
+                        dmc.ActionIcon(
+                            BootstrapIcon(
+                                icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
+                            id="elevation-help-modal-btn",
+                            variant="light",
+                            color="blue",
+                            size="lg"
+                        )
+                    ], justify="center", align="center", gap="md"),
+                    dmc.Text("Ramer–Douglas–Peucker algorithm for pipeline elevation data reduction",
+                             c="dimmed", ta="center", size="md")
+                ], gap="xs")
+            ]),
+
+            # Layout toggle section
+            dmc.Center([
+                dmc.Group([
+                    dmc.Text("Layout:", size="sm", fw=500),
+                    dmc.ButtonGroup([
+                        dmc.Button([
+                            BootstrapIcon(icon="stack", width=16, height=16),
+                            html.Span("Stack", style={'marginLeft': '8px'})
+                        ], id='stack-layout-btn', variant='filled', color='blue', size='sm'),
+                        dmc.Button([
+                            BootstrapIcon(icon="columns", width=16, height=16),
+                            html.Span("Side by Side", style={
+                                      'marginLeft': '8px'})
+                        ], id='sidebyside-layout-btn', variant='outline', color='blue', size='sm')
+                    ])
+                ], gap="sm")
+            ]),
+
+            dmc.Space(h="md"),
+        ]),  # Close the dmc.Stack
+
         dmc.Grid([
             # Data selection card (Line & Section)
             dmc.GridCol([
@@ -366,19 +380,23 @@ layout = dmc.Container(
                     ], p="sm", withBorder=True),
                     dmc.CardSection([
                         dmc.Stack([
-                            # Line dropdown
-                            dmc.Select(
-                                id='line-dropdown',
-                                data=LINE_OPTIONS,
-                                placeholder='Select a line…',
-                                clearable=True,
-                                disabled=True,
-                                style={'minWidth': '120px', 'width': '100%'}
-                            ),
-                            # Distance and Elevation unit selectors
+                            # Line, Distance, and Elevation in one row
                             dmc.Group([
-                                dmc.Group([
-                                    dmc.Text("Distance", size="sm"),
+                                dmc.Stack([
+                                    dmc.Text("Line", size="sm", fw=500),
+                                    dmc.Autocomplete(
+                                        id='line-dropdown',
+                                        data=LINE_OPTIONS,
+                                        placeholder='Select line…',
+                                        clearable=True,
+                                        disabled=True,
+                                        selectFirstOptionOnChange=True,
+                                        style={'minWidth': '100px',
+                                               'width': '120px'}
+                                    ),
+                                ], gap="xs"),
+                                dmc.Stack([
+                                    dmc.Text("Distance", size="sm", fw=500),
                                     dmc.Select(
                                         id='distance-unit-dd',
                                         data=[
@@ -387,11 +405,11 @@ layout = dmc.Container(
                                         ],
                                         value='mi',
                                         clearable=False,
-                                        style={'minWidth': '60px', 'width': '80px'}
+                                        style={'width': '70px'}
                                     ),
                                 ], gap="xs"),
-                                dmc.Group([
-                                    dmc.Text("Elevation", size="sm"),
+                                dmc.Stack([
+                                    dmc.Text("Elevation", size="sm", fw=500),
                                     dmc.Select(
                                         id='elevation-unit-dd',
                                         data=[
@@ -400,16 +418,18 @@ layout = dmc.Container(
                                         ],
                                         value='ft',
                                         clearable=False,
-                                        style={'minWidth': '60px', 'width': '80px'}
+                                        style={'width': '70px'}
                                     ),
                                 ], gap="xs"),
-                            ], gap="sm"),
+                            ], align="flex-end", gap="md"),
                             dmc.Button([
-                                BootstrapIcon(icon="cloud-download", width=16, height=16),
-                                html.Span("Load Data", style={'marginLeft': '8px'})
-                            ], id='load-line-btn', color="blue", variant="filled", fullWidth=True, size="sm"),
-                        ], gap="sm")
-                    ], p="sm")
+                                BootstrapIcon(icon="cloud-download",
+                                              width=16, height=16),
+                                html.Span("Load Data", style={
+                                          'marginLeft': '8px'})
+                            ], id='load-line-btn', color="blue", variant="outline", fullWidth=True, size="sm"),
+                        ], gap="xs")
+                    ], p="xs")
                 ], shadow="sm", h="100%")
             ], span=3),
             # Reduction settings card (epsilon + reduce)
@@ -431,11 +451,13 @@ layout = dmc.Container(
                                 ),
                             ], gap="xs"),
                             dmc.Button([
-                                BootstrapIcon(icon="funnel", width=16, height=16),
-                                html.Span("Reduce Points", style={'marginLeft': '8px'})
-                            ], id='reduce-btn', color="blue", variant="filled", fullWidth=True, size="sm"),
-                        ], gap="sm")
-                    ], p="sm")
+                                BootstrapIcon(
+                                    icon="funnel", width=16, height=16),
+                                html.Span("Reduce Points", style={
+                                          'marginLeft': '8px'})
+                            ], id='reduce-btn', color="blue", variant="outline", fullWidth=True, size="sm"),
+                        ], gap="xs")
+                    ], p="xs")
                 ], shadow="sm", h="100%")
             ], id='right-controls-col', span=3, style={'display': 'none'}),
             # MBS File Upload Card
@@ -455,7 +477,8 @@ layout = dmc.Container(
                                         style={'flex': '1'}
                                     ),
                                     dmc.ActionIcon(
-                                        BootstrapIcon(icon="folder", width=16, height=16),
+                                        BootstrapIcon(
+                                            icon="folder", width=16, height=16),
                                         id='mbs-browse-btn',
                                         variant="outline",
                                         color="gray"
@@ -473,18 +496,22 @@ layout = dmc.Container(
                                     ),
                                     dmc.Group([
                                         dmc.Button([
-                                            BootstrapIcon(icon="upload", width=16, height=16),
-                                            html.Span("Load Profile", style={'marginLeft': '8px'})
-                                        ], id='load-mbs-btn', color="cyan", disabled=True, size="sm", style={'flex': '1'}),
+                                            BootstrapIcon(
+                                                icon="upload", width=16, height=16),
+                                            html.Span("Load Profile", style={
+                                                      'marginLeft': '8px'})
+                                        ], id='load-mbs-btn', color="blue", variant="outline", disabled=True, size="sm", style={'flex': '1'}),
                                         dmc.Button([
-                                            BootstrapIcon(icon="x-circle", width=16, height=16),
-                                            html.Span("Unload", style={'marginLeft': '8px'})
+                                            BootstrapIcon(
+                                                icon="x-circle", width=16, height=16),
+                                            html.Span("Unload", style={
+                                                      'marginLeft': '8px'})
                                         ], id='unload-mbs-btn', variant="outline", color="gray", disabled=True, size="sm", style={'flex': '1'})
                                     ], gap="xs", style={'width': '100%'})
                                 ], gap="xs")
                             ),
-                        ], gap="sm")
-                    ], p="sm")
+                        ], gap="xs")
+                    ], p="xs")
                 ], shadow="sm", h="100%")
             ], id='mbs-controls-col', span=3, style={'display': 'none'}),
             # Actions card (Save + Units combined inline)
@@ -496,15 +523,19 @@ layout = dmc.Container(
                     dmc.CardSection([
                         dmc.Stack([
                             dmc.Button([
-                                BootstrapIcon(icon="download", width=16, height=16),
-                                html.Span("Save Reduced Data", style={'marginLeft': '8px'})
+                                BootstrapIcon(icon="download",
+                                              width=16, height=16),
+                                html.Span("Save Reduced Data", style={
+                                          'marginLeft': '8px'})
                             ], id='save-btn', color="green", variant="filled", fullWidth=True, size="sm"),
                             dcc.Download(id="download-reduced-csv"),
-                        ], gap="sm")
-                    ], p="sm")
+                        ], gap="xs")
+                    ], p="xs")
                 ], shadow="sm", h="100%")
             ], id='actions-controls-col', span=3, style={'display': 'none'}),
         ], gutter="md", align="stretch"),
+
+        dmc.Space(h="lg"),
 
         html.Div(id='main-content-container', children=[
             dmc.Accordion([
@@ -517,7 +548,7 @@ layout = dmc.Container(
                                 dmc.Group(
                                     id='graph-stats', style={'padding': '6px 0', 'fontWeight': '600'}),
                                 dmc.Text("💡 Tip: Click on any point in the elevation profile to open its location in ArcGIS.",
-                                       c="dimmed", size="sm", style={'marginBottom': '8px'}),
+                                         c="dimmed", size="sm", style={'marginBottom': '8px'}),
                                 dcc.Graph(id='comparison-graph', config={'responsive': True}, style={
                                     'height': '30vh', 'width': '100%'})
                             ], gap="xs")
@@ -530,9 +561,11 @@ layout = dmc.Container(
                         dmc.Stack([
                             dmc.Group([
                                 dmc.Button([
-                                    BootstrapIcon(icon="plus", width=16, height=16),
-                                    html.Span("Add Selected Features to the profile", style={'marginLeft': '8px'})
-                                ], id='add-valves-btn', color="blue", variant="filled", size="sm")
+                                    BootstrapIcon(
+                                        icon="plus", width=16, height=16),
+                                    html.Span("Add Selected Features to the profile", style={
+                                              'marginLeft': '8px'})
+                                ], id='add-valves-btn', color="blue", variant="outline", size="sm")
                             ], gap="sm"),
                             dcc.Loading(
                                 id='results-loading', type='default',
@@ -578,20 +611,20 @@ def toggle_layout(stack_clicks, sidebyside_clicks, layout_data):
     ctx = dash.callback_context
     if not ctx.triggered:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
-    
+
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     current_mode = layout_data.get('mode', 'stack') if layout_data else 'stack'
-    
+
     if trigger_id == 'stack-layout-btn' and current_mode != 'stack':
-        return 'accordion', {'mode': 'stack'}, 'white', 'filled', 'white', 'outline'
+        return 'accordion', {'mode': 'stack'}, 'blue', 'filled', 'blue', 'outline'
     elif trigger_id == 'sidebyside-layout-btn' and current_mode != 'sidebyside':
-        return 'accordion accordion-sidebyside', {'mode': 'sidebyside'}, 'white', 'outline', 'white', 'filled'
+        return 'accordion accordion-sidebyside', {'mode': 'sidebyside'}, 'blue', 'outline', 'blue', 'filled'
     else:
         # No change needed - return current state
         if current_mode == 'stack':
-            return dash.no_update, dash.no_update, 'white', 'filled', 'white', 'outline'
+            return dash.no_update, dash.no_update, 'blue', 'filled', 'blue', 'outline'
         else:
-            return dash.no_update, dash.no_update, 'white', 'outline', 'white', 'filled'
+            return dash.no_update, dash.no_update, 'blue', 'outline', 'blue', 'filled'
 
 
 @dash.callback(
@@ -605,7 +638,7 @@ def toggle_layout(stack_clicks, sidebyside_clicks, layout_data):
 def initialize_button_styles(layout_data):
     """Initialize button styles based on current layout mode"""
     mode = layout_data.get('mode', 'stack') if layout_data else 'stack'
-    
+
     if mode == 'stack':
         return 'white', 'filled', 'white', 'outline'
     else:
@@ -621,11 +654,11 @@ def initialize_button_styles(layout_data):
 def adjust_panel_heights(active_items, layout_data):
     """Adjust panel heights based on accordion state and layout mode"""
     mode = layout_data.get('mode', 'stack') if layout_data else 'stack'
-    
+
     # For side-by-side mode, use fixed heights that work well with CSS
     if mode == 'sidebyside':
         return {'height': '55vh', 'width': '100%'}, {'height': '55vh', 'width': '100%'}
-    
+
     # For stack mode, use the original dynamic height logic
     # Normalize active items to a set for easy checks
     if isinstance(active_items, (list, tuple, set)):
@@ -669,12 +702,12 @@ def initialize_page(n_intervals, init_data):
     """Initialize the page by loading pipeline lines and hiding splash screen"""
     if init_data and init_data.get('ready'):
         return dash.no_update, dash.no_update, dash.no_update, {'display': 'none'}
-    
+
     try:
         onesource_service = get_onesource_service()
         df = onesource_service.get_pipeline_lines()
-        options = [{"label": str(v), "value": str(v)} 
-                  for v in df['PLIntegrityLineSegmentNumber'].astype(str).tolist()]
+        options = [{"label": str(v), "value": str(v)}
+                   for v in df['PLIntegrityLineSegmentNumber'].astype(str).tolist()]
         return options, False, {'ready': True}, {'display': 'none'}
     except Exception as e:
         print(f"ERROR in initialize_page: {e}")
@@ -715,33 +748,41 @@ def load_elevation_data(load_clicks, line_value, dist_unit, elev_unit):
     """Load elevation data for the selected pipeline line"""
     if not load_clicks or not line_value:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
-    
+
     try:
         onesource_service = get_onesource_service()
         df = onesource_service.get_elevation_profile(line_value)
-        
+
         if df is not None and not df.empty:
             # Prepare data for grid display
             column_defs = [
-                {"headerName": "Girth Weld", "field": "GirthWeldAddress", "sortable": True},
-                {"headerName": "Hydro MP", "field": "HydroMilePost", "type": "numericColumn", "sortable": True},
-                {"headerName": "Corrected MP", "field": "CorrectedMilepost", "type": "numericColumn", "sortable": True},
-                {"headerName": "Elevation (m)", "field": "ILIElevationMeters", "type": "numericColumn", "sortable": True},
-                {"headerName": "Latitude", "field": "ILILatitude", "type": "numericColumn"},
-                {"headerName": "Longitude", "field": "ILILongitude", "type": "numericColumn"},
-                {"headerName": "Wall Thickness (mm)", "field": "NominalWallThicknessMillimeters", "type": "numericColumn"},
-                {"headerName": "Pipe Size (in)", "field": "NominalPipeSizeInches", "type": "numericColumn"},
+                {"headerName": "Girth Weld",
+                    "field": "GirthWeldAddress", "sortable": True},
+                {"headerName": "Hydro MP", "field": "HydroMilePost",
+                    "type": "numericColumn", "sortable": True},
+                {"headerName": "Corrected MP", "field": "CorrectedMilepost",
+                    "type": "numericColumn", "sortable": True},
+                {"headerName": "Elevation (m)", "field": "ILIElevationMeters",
+                 "type": "numericColumn", "sortable": True},
+                {"headerName": "Latitude", "field": "ILILatitude",
+                    "type": "numericColumn"},
+                {"headerName": "Longitude", "field": "ILILongitude",
+                    "type": "numericColumn"},
+                {"headerName": "Wall Thickness (mm)",
+                 "field": "NominalWallThicknessMillimeters", "type": "numericColumn"},
+                {"headerName": "Pipe Size (in)", "field": "NominalPipeSizeInches",
+                 "type": "numericColumn"},
                 {"headerName": "Station", "field": "Station"},
                 {"headerName": "Features", "field": "Features"},
             ]
-            
+
             row_data = df.to_dict('records')
             unit_data = {'dist': dist_unit, 'elev': elev_unit}
-            
+
             return row_data, column_defs, row_data, unit_data
         else:
             return [], [], [], {'dist': dist_unit, 'elev': elev_unit}
-    
+
     except Exception as e:
         print(f"ERROR in load_elevation_data: {e}")
         import traceback
@@ -763,15 +804,17 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
     """Update the elevation graph with original and reduced data"""
     try:
         dark_mode = bool(theme_data.get('dark')) if theme_data else False
-        
+
         # Unit helpers
         dist_unit = ((unit_data or {}).get('dist') or 'mi')
         elev_unit = ((unit_data or {}).get('elev') or 'ft')
-        dist_label = {'m': 'meters', 'km': 'kilometers', 'mi': 'miles'}.get(dist_unit, 'miles')
+        dist_label = {'m': 'meters', 'km': 'kilometers',
+                      'mi': 'miles'}.get(dist_unit, 'miles')
         elev_label = {'m': 'm', 'ft': 'ft'}.get(elev_unit, 'ft')
-        DIST_FACTOR = {'m': 1.0, 'km': 0.001, 'mi': 0.000621371}.get(dist_unit, 0.000621371)
+        DIST_FACTOR = {'m': 1.0, 'km': 0.001,
+                       'mi': 0.000621371}.get(dist_unit, 0.000621371)
         ELEV_FACTOR = {'m': 1.0, 'ft': 3.28084}.get(elev_unit, 3.28084)
-        
+
         # Early exit if no data
         if not cached_rows:
             empty_fig = go.Figure()
@@ -784,7 +827,7 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
                 dmc.Badge("Epsilon: 0", color="yellow", variant="filled"),
             ], gap="sm")
             return empty_fig, stats
-        
+
         # Build dataframe
         df_current = pd.DataFrame(cached_rows)
         if df_current.empty:
@@ -798,16 +841,19 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
                 dmc.Badge("Epsilon: 0", color="yellow", variant="filled"),
             ], gap="sm")
             return empty_fig, stats
-        
+
         # Convert distance and elevation columns using the working field names
         if 'CorrectedMilepost' in df_current.columns:
-            df_current['DistanceMeters'] = pd.to_numeric(df_current['CorrectedMilepost'], errors='coerce') / DIST_FACTOR
+            df_current['DistanceMeters'] = pd.to_numeric(
+                df_current['CorrectedMilepost'], errors='coerce') / DIST_FACTOR
         elif 'HydroMilePost' in df_current.columns:
-            df_current['DistanceMeters'] = pd.to_numeric(df_current['HydroMilePost'], errors='coerce') / DIST_FACTOR
-        
+            df_current['DistanceMeters'] = pd.to_numeric(
+                df_current['HydroMilePost'], errors='coerce') / DIST_FACTOR
+
         if 'ILIElevationMeters' in df_current.columns:
-            df_current['ElevationMeters'] = pd.to_numeric(df_current['ILIElevationMeters'], errors='coerce')
-        
+            df_current['ElevationMeters'] = pd.to_numeric(
+                df_current['ILIElevationMeters'], errors='coerce')
+
         # Clean data
         required_cols = ['DistanceMeters', 'ElevationMeters']
         if not all(col in df_current.columns for col in required_cols):
@@ -816,11 +862,13 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
-                dmc.Badge("Data Error: Missing columns", color="red", variant="filled"),
+                dmc.Badge("Data Error: Missing columns",
+                          color="red", variant="filled"),
             ], gap="sm")
             return empty_fig, stats
-        
-        df_current = df_current.dropna(subset=required_cols).reset_index(drop=True)
+
+        df_current = df_current.dropna(
+            subset=required_cols).reset_index(drop=True)
         if df_current.empty:
             empty_fig = go.Figure()
             template = 'plotly_dark' if dark_mode else 'plotly_white'
@@ -830,53 +878,58 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
                 dmc.Badge("No valid data", color="red", variant="filled"),
             ], gap="sm")
             return empty_fig, stats
-        
+
         # Apply unit conversions for plotting
         df_current['Milepost'] = df_current['DistanceMeters'] * DIST_FACTOR
         df_current['Elevation'] = df_current['ElevationMeters'] * ELEV_FACTOR
-        df_current = df_current.sort_values('DistanceMeters', kind='stable').reset_index(drop=True)
-        
+        df_current = df_current.sort_values(
+            'DistanceMeters', kind='stable').reset_index(drop=True)
+
         # Create figure
         fig = go.Figure()
         template = 'plotly_dark' if dark_mode else 'plotly_white'
         fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                           xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
-        
+
         # Add original data trace
         fig.add_trace(go.Scatter(
-            x=df_current['Milepost'], 
+            x=df_current['Milepost'],
             y=df_current['Elevation'],
-            mode='lines', 
-            name='Original', 
+            mode='lines',
+            name='Original',
             line=dict(width=1)
         ))
-        
+
         # Add reduced data trace if reduce button was clicked
         reduced_points = len(df_current)
         if reduce_clicks and reduce_clicks > 0 and epsilon_value:
             try:
-                reduced_df, flags = simplify_dataframe_rdp(df_current, epsilon_value)
+                reduced_df, flags = simplify_dataframe_rdp(
+                    df_current, epsilon_value)
                 if not reduced_df.empty:
                     fig.add_trace(go.Scatter(
-                        x=reduced_df['Milepost'], 
+                        x=reduced_df['Milepost'],
                         y=reduced_df['Elevation'],
-                        mode='lines', 
-                        name='Reduced', 
+                        mode='lines',
+                        name='Reduced',
                         line=dict(width=2)
                     ))
                     reduced_points = len(reduced_df)
             except Exception as e:
                 print(f"Error in RDP simplification: {e}")
-        
+
         # Update stats
         stats = dmc.Group([
-            dmc.Badge(f"Input Points: {len(df_current)}", color="blue", variant="filled"),
-            dmc.Badge(f"Output Points: {reduced_points}", color="green", variant="filled"),
-            dmc.Badge(f"Epsilon: {epsilon_value or 0.1} {elev_label}", color="yellow", variant="filled"),
+            dmc.Badge(f"Input Points: {len(df_current)}",
+                      color="blue", variant="filled"),
+            dmc.Badge(f"Output Points: {reduced_points}",
+                      color="green", variant="filled"),
+            dmc.Badge(f"Epsilon: {epsilon_value or 0.1} {elev_label}",
+                      color="yellow", variant="filled"),
         ], gap="sm")
-        
+
         return fig, stats
-        
+
     except Exception as e:
         print(f"Error in update_graph: {e}")
         import traceback
@@ -984,7 +1037,8 @@ def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_dat
                 html.I(className="bi bi-info-circle text-secondary me-2"),
                 "MBS Profile unloaded (input cleared)"
             ], style={'color': 'gray'})
-            cleared_data = {'loaded': False, 'data': [], 'folder_path': '', 'ready_to_load': False}
+            cleared_data = {'loaded': False, 'data': [],
+                            'folder_path': '', 'ready_to_load': False}
             return status_msg, True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, cleared_data
         else:
             # No profile was loaded, just reset UI
@@ -1027,7 +1081,8 @@ def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_dat
                 f"Ready to load: {folder_path}"
             ], style={'color': 'green'})
             ready_data = current_data.copy() if current_data else {}
-            ready_data.update({'ready_to_load': True, 'folder_path': folder_path})
+            ready_data.update(
+                {'ready_to_load': True, 'folder_path': folder_path})
             return status_msg, False, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, ready_data
 
         except Exception as e:
@@ -1048,7 +1103,7 @@ def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_dat
 
             # Load elevation data using the service
             df_profile = fetch_elevation_profile(folder_path)
-            
+
             if df_profile is None or df_profile.empty:
                 raise ValueError("No elevation data found in folder")
 
@@ -1058,19 +1113,19 @@ def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_dat
 
             # Store in the expected format
             profile_data = df_profile.to_dict('records')
-            
+
             success_msg = html.Div([
                 html.I(className="bi bi-check-circle text-success me-2"),
                 f"MBS Profile loaded ({len(profile_data)} points)"
             ], style={'color': 'green'})
-            
+
             loaded_data = {
                 'loaded': True,
                 'data': profile_data,
                 'folder_path': folder_path,
                 'ready_to_load': False
             }
-            
+
             return success_msg, True, False, {'display': 'none'}, {'display': 'inline-block', 'width': '100%'}, loaded_data
 
         except Exception as e:
@@ -1086,8 +1141,9 @@ def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_dat
             html.I(className="bi bi-info-circle text-secondary me-2"),
             "MBS Profile unloaded"
         ], style={'color': 'gray'})
-        
-        unloaded_data = {'loaded': False, 'data': [], 'folder_path': '', 'ready_to_load': False}
+
+        unloaded_data = {'loaded': False, 'data': [],
+                         'folder_path': '', 'ready_to_load': False}
         return unload_msg, True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, unloaded_data
 
     # Default fallback
@@ -1141,7 +1197,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
-                dmc.Badge("Input Points: 0", color="blue", 
+                dmc.Badge("Input Points: 0", color="blue",
                           className="mx-1"),
                 dmc.Badge("Output Points: 0", color="green",
                           className="mx-1"),
@@ -1214,7 +1270,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                 nearest_idxs = []  # (idx, type, label)
                 for r in (selected_rows or []):
                     feats = str((r or {}).get('Features', ''))
-                    
+
                     # Try to get user-edited distance value from DistanceMeter column
                     # This represents the potentially edited value in the grid
                     dm = None
@@ -1230,7 +1286,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                                 dm = user_dist
                         except (TypeError, ValueError):
                             dm = None
-                    
+
                     # Fallback to original DistanceMeters if no edited values found
                     if dm is None:
                         dm = r.get('DistanceMeters')
@@ -1238,7 +1294,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                             dm = float(dm)
                         except (TypeError, ValueError):
                             dm = None
-                    
+
                     if dm is None or dists_m.size == 0:
                         continue
                     idx = int(np.nanargmin(np.abs(dists_m - dm)))
@@ -1335,7 +1391,8 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                                         x_mp = float(dist_plot[idx])
                                         y_el = float(elev_plot[idx])
                                         label = str(st_series.iloc[idx])
-                                        station_positions.append((x_mp, y_el, label))
+                                        station_positions.append(
+                                            (x_mp, y_el, label))
                                         mask_valves[idx] = True
                                     except Exception:
                                         pass
@@ -1358,12 +1415,14 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                     mask_valves[0] = True
                     if show_valves:  # Only add to display if valves are being shown
                         x_first = float(dist_plot[0])
-                        y_first = float(elev_plot[0]) 
+                        y_first = float(elev_plot[0])
                         # Check if first point already in station_positions
-                        already_added = any(abs(x - x_first) < 1e-6 for x, y, label in station_positions)
+                        already_added = any(
+                            abs(x - x_first) < 1e-6 for x, y, label in station_positions)
                         if not already_added:
-                            station_positions.append((x_first, y_first, first_station))
-                
+                            station_positions.append(
+                                (x_first, y_first, first_station))
+
                 # Check last point for station
                 if len(st_series_clean) > 1:  # Avoid duplicate if only one point
                     last_station = st_series_clean.iloc[-1].strip()
@@ -1372,10 +1431,12 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                         if show_valves:  # Only add to display if valves are being shown
                             x_last = float(dist_plot[-1])
                             y_last = float(elev_plot[-1])
-                            # Check if last point already in station_positions  
-                            already_added = any(abs(x - x_last) < 1e-6 for x, y, label in station_positions)
+                            # Check if last point already in station_positions
+                            already_added = any(
+                                abs(x - x_last) < 1e-6 for x, y, label in station_positions)
                             if not already_added:
-                                station_positions.append((x_last, y_last, last_station))
+                                station_positions.append(
+                                    (x_last, y_last, last_station))
         except Exception:
             pass
 
@@ -1419,50 +1480,198 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                         mode='lines', name='MBS Profile', line=dict(color='orange', width=2, dash='dash')
                     ))
 
-        # Add valve markers
-        if valve_positions_gate:
-            x_vals, y_vals = zip(*valve_positions_gate)
-            fig.add_trace(go.Scatter(
-                x=x_vals, y=y_vals, mode='markers', name='Gate Valves',
-                marker=dict(size=12, color='red', symbol='square'), hoverinfo='x+y'
-            ))
-        if valve_positions_check:
-            x_vals, y_vals = zip(*valve_positions_check)
-            fig.add_trace(go.Scatter(
-                x=x_vals, y=y_vals, mode='markers', name='Check Valves',
-                marker=dict(size=12, color='blue', symbol='circle'), hoverinfo='x+y'
-            ))
+        # Feature icons (valves + stations + dividers) - using SVG images like LDUTC
+        n_valves = int(len(valve_positions_gate) + len(valve_positions_check))
+        n_stations = int(len(station_positions))
+        n_dividers = int(len(divider_positions))
+        n_features = n_valves + n_stations + n_dividers
+        if n_features > 0:
+            try:
+                # Use current zoom level if available
+                x_range = float(df_current['Milepost'].max(
+                ) - df_current['Milepost'].min() or 1.0)
+                y_range = float(df_current['Elevation'].max(
+                ) - df_current['Elevation'].min() or 1.0)
 
-        # Add station markers
-        if station_positions:
-            x_vals, y_vals, labels = zip(*station_positions)
-            fig.add_trace(go.Scatter(
-                x=x_vals, y=y_vals, mode='markers+text', name='Stations',
-                marker=dict(size=12, color='green', symbol='diamond'),
-                text=labels, textposition='top center', hoverinfo='x+y+text'
-            ))
+                # Determine visual size scale for SVG icons
+                if n_features > 300:
+                    frac_y, frac_x = 0.030, 0.008
+                elif n_features > 150:
+                    frac_y, frac_x = 0.042, 0.011
+                elif n_features > 60:
+                    frac_y, frac_x = 0.054, 0.014
+                else:
+                    frac_y, frac_x = 0.070, 0.018
 
-        # Add divider markers (pipe size changes)
+                _valve_icon_scale = 1.75
+                _station_icon_scale = 2.5  # Make stations larger than valves
+                sizey = max(y_range * frac_y * _valve_icon_scale, 1e-9)
+                sizex = max(x_range * frac_x * _valve_icon_scale, 1e-9)
+                # Station sizing - larger than valve icons
+                station_sizey = max(y_range * frac_y *
+                                    _station_icon_scale, 1e-9)
+                station_sizex = max(x_range * frac_x *
+                                    _station_icon_scale, 1e-9)
+
+                # Build layout images for valves and stations
+                layout_images = list(
+                    fig.layout.images) if fig.layout.images else []
+
+                # Add gate valve SVGs
+                for mp, elev in valve_positions_gate:
+                    layout_images.append(dict(
+                        source='/assets/Gate_valve.svg',
+                        xref='x', yref='y',
+                        x=float(mp), y=float(elev),
+                        sizex=sizex, sizey=sizey,
+                        xanchor='center', yanchor='middle',
+                        sizing='contain', layer='above', opacity=0.95
+                    ))
+
+                # Add check valve SVGs
+                for mp, elev in valve_positions_check:
+                    layout_images.append(dict(
+                        source='/assets/Check_Valve.svg',
+                        xref='x', yref='y',
+                        x=float(mp), y=float(elev),
+                        sizex=sizex, sizey=sizey,
+                        xanchor='center', yanchor='middle',
+                        sizing='contain', layer='above', opacity=0.95
+                    ))
+
+                # Station SVG with theme-based fill color
+                try:
+                    station_svg_path = os.path.join(ASSETS_DIR, 'station.svg')
+                    with open(station_svg_path, 'r', encoding='utf-8') as fsvg:
+                        station_svg_text = fsvg.read()
+                    fill_hex = '#FFFFFF' if dark_mode else '#000000'
+                    # Inject a style to force-fill all shapes
+                    insert_idx = station_svg_text.find('>')
+                    if insert_idx != -1:
+                        style_tag = f"<style><![CDATA[* {{ fill: {fill_hex} !important; }}]]></style>"
+                        if '<style' not in station_svg_text[:insert_idx+1]:
+                            station_svg_text = station_svg_text[:insert_idx +
+                                                                1] + style_tag + station_svg_text[insert_idx+1:]
+                        else:
+                            station_svg_text = station_svg_text[:insert_idx +
+                                                                1] + style_tag + station_svg_text[insert_idx+1:]
+                    station_svg_b64 = base64.b64encode(
+                        station_svg_text.encode('utf-8')).decode('ascii')
+                    station_source = f"data:image/svg+xml;base64,{station_svg_b64}"
+                except Exception:
+                    # Fallback to default asset path if anything goes wrong
+                    station_source = '/assets/station.svg'
+
+                # Add station SVGs
+                for mp, elev, _label in station_positions:
+                    layout_images.append(dict(
+                        source=station_source,
+                        xref='x', yref='y',
+                        x=float(mp), y=float(elev),
+                        sizex=station_sizex, sizey=station_sizey,
+                        xanchor='center', yanchor='middle',
+                        sizing='contain', layer='above', opacity=0.95
+                    ))
+
+                # Add divider SVGs for pipe size changes
+                for mp, elev, prev_size, curr_size, idx in divider_positions:
+                    layout_images.append(dict(
+                        source='/assets/divider.svg',
+                        xref='x', yref='y',
+                        x=float(mp), y=float(elev),
+                        sizex=sizex, sizey=sizey,
+                        xanchor='center', yanchor='middle',
+                        sizing='contain', layer='above', opacity=0.95
+                    ))
+
+                if layout_images:
+                    fig.update_layout(images=layout_images)
+
+                # Add arrows and annotations for valve identification
+                if dark_mode:
+                    arrow_color_gate = 'deepskyblue'
+                    arrow_color_check = 'orange'
+                else:
+                    arrow_color_gate = 'royalblue'
+                    arrow_color_check = 'darkorange'
+
+                if n_features > 300:
+                    arrow_len = 32
+                    arrow_width = 1
+                elif n_features > 150:
+                    arrow_len = 34
+                    arrow_width = 1.2
+                elif n_features > 60:
+                    arrow_len = 36
+                    arrow_width = 1.4
+                else:
+                    arrow_len = 38
+                    arrow_width = 1.6
+
+                annos = list(
+                    fig.layout.annotations) if fig.layout.annotations else []
+
+                # Add arrows for gate valves
+                for mp, elev in valve_positions_gate:
+                    annos.append(dict(
+                        x=float(mp), y=float(elev),
+                        xref='x', yref='y',
+                        text='', showarrow=True,
+                        ax=0, ay=-arrow_len,
+                        arrowhead=3, arrowwidth=arrow_width,
+                        arrowcolor=arrow_color_gate
+                    ))
+
+                # Add arrows for check valves
+                for mp, elev in valve_positions_check:
+                    annos.append(dict(
+                        x=float(mp), y=float(elev),
+                        xref='x', yref='y',
+                        text='', showarrow=True,
+                        ax=0, ay=-arrow_len,
+                        arrowhead=3, arrowwidth=arrow_width,
+                        arrowcolor=arrow_color_check
+                    ))
+
+                # Add station labels
+                label_offset = sizey * 0.8
+                for mp, elev, label in station_positions:
+                    if not label:
+                        continue
+                    annos.append(dict(
+                        x=float(mp), y=float(elev) + float(label_offset),
+                        xref='x', yref='y',
+                        text=str(label),
+                        showarrow=False,
+                        xanchor='center', yanchor='bottom',
+                        font=dict(family='Arial Black', size=12)
+                    ))
+
+                if annos:
+                    fig.update_layout(annotations=annos)
+
+            except Exception:
+                pass
+
+        # Add divider annotations for pipe size changes
         if divider_positions:
-            x_dividers = []
-            y_dividers = []
-            annos = []
+            # Get existing annotations or create new list
+            divider_annos = list(
+                fig.layout.annotations) if fig.layout.annotations else []
+
             for mp, elev, prev_size, curr_size, idx in divider_positions:
-                x_dividers.append(mp)
-                y_dividers.append(elev)
-                
                 # Left side circle for previous pipe size (fixed pixel offset)
                 if not pd.isna(prev_size):
-                    annos.append(dict(
+                    divider_annos.append(dict(
                         x=float(mp),
                         y=float(elev),
                         xref='x', yref='y',
-                        text=f"{prev_size:.1f}\"⭕",
+                        text=f"⭕{prev_size:.1f}\"",
                         showarrow=False,
                         xanchor='right', yanchor='middle',
-                        font=dict(family='Arial', size=10, color='red'),
+                        font=dict(family='Arial', size=10, color='blue'),
                         bgcolor='rgba(255,255,255,0.8)',
-                        bordercolor='red',
+                        bordercolor='blue',
                         borderwidth=1,
                         ax=-25,  # Fixed pixel offset to the left
                         ay=0     # No vertical offset
@@ -1470,7 +1679,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
 
                 # Right side circle for current pipe size (fixed pixel offset)
                 if not pd.isna(curr_size):
-                    annos.append(dict(
+                    divider_annos.append(dict(
                         x=float(mp),
                         y=float(elev),
                         xref='x', yref='y',
@@ -1485,8 +1694,8 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                         ay=0     # No vertical offset
                     ))
 
-            if annos:
-                fig.update_layout(annotations=annos)
+            if divider_annos:
+                fig.update_layout(annotations=divider_annos)
 
         if top_devs:
             kept_idx = np.where(flags != 0)[0]
@@ -1561,9 +1770,11 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                                     dtype=float)
                                 mp_min = mp_vals[0] if len(
                                     mp_vals) > 0 else 0.0
-                                mp_scaled = np.round(mp_vals - mp_min, 5)  # 5 decimal places for milepost
+                                # 5 decimal places for milepost
+                                mp_scaled = np.round(mp_vals - mp_min, 5)
                                 # Format elevation with 3 decimal places
-                                elevation_formatted = np.round(seg_df['Elevation'].to_numpy(dtype=float), 3)
+                                elevation_formatted = np.round(
+                                    seg_df['Elevation'].to_numpy(dtype=float), 3)
                                 export_df = pd.DataFrame(
                                     {'Distance': mp_scaled, 'Elevation': elevation_formatted})
 
@@ -1627,7 +1838,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                 for r in (selected_rows or []):
                     feats = str((r or {}).get('Features', ''))
                     st_name = str((r or {}).get('Station') or '').strip()
-                    
+
                     # Try to get user-edited distance value from DistanceMeter column
                     # This represents the potentially edited value in the grid
                     dm = None
@@ -1643,7 +1854,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                                 dm = user_dist
                         except (TypeError, ValueError):
                             dm = None
-                    
+
                     # Fallback to original DistanceMeters if no edited values found
                     if dm is None:
                         dm = r.get('DistanceMeters')
@@ -1651,7 +1862,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                             dm = float(dm)
                         except (TypeError, ValueError):
                             dm = None
-                    
+
                     if dm is None or dists_m.size == 0:
                         continue
                     is_valve = ("GATE" in feats.upper()) or (
@@ -1744,9 +1955,11 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                                     dtype=float)
                                 mp_min = mp_vals[0] if len(
                                     mp_vals) > 0 else 0.0
-                                mp_scaled = np.round(mp_vals - mp_min, 5)  # 5 decimal places for milepost  
+                                # 5 decimal places for milepost
+                                mp_scaled = np.round(mp_vals - mp_min, 5)
                                 # Format elevation with 3 decimal places
-                                elevation_formatted = np.round(seg_df['Elevation'].to_numpy(dtype=float), 3)
+                                elevation_formatted = np.round(
+                                    seg_df['Elevation'].to_numpy(dtype=float), 3)
                                 export_df = pd.DataFrame(
                                     {'Distance': mp_scaled, 'Elevation': elevation_formatted})
                                 # Filename
@@ -1861,9 +2074,11 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                         # Export data in user's selected units (Milepost and Elevation are already converted)
                         mp_vals = seg_df['Milepost'].to_numpy(dtype=float)
                         mp_min = mp_vals[0] if len(mp_vals) > 0 else 0.0
-                        mp_scaled = np.round(mp_vals - mp_min, 5)  # 5 decimal places for milepost
+                        # 5 decimal places for milepost
+                        mp_scaled = np.round(mp_vals - mp_min, 5)
                         # Format elevation with 3 decimal places
-                        elevation_formatted = np.round(seg_df['Elevation'].to_numpy(dtype=float), 3)
+                        elevation_formatted = np.round(
+                            seg_df['Elevation'].to_numpy(dtype=float), 3)
                         export_df = pd.DataFrame(
                             {'Distance': mp_scaled, 'Elevation': elevation_formatted})
                         s_io = io.StringIO()
@@ -2087,7 +2302,8 @@ def update_results_grid(load_clicks, line_value, current_rows, full_store_rows, 
 
         # Only update the graph data store on fresh load, not when adding rows
         # This preserves the complete original dataset while allowing grid edits
-        full_store_out = df_full.to_dict('records') if trig == 'load-line-btn' else dash.no_update
+        full_store_out = df_full.to_dict(
+            'records') if trig == 'load-line-btn' else dash.no_update
         return row_data, col_defs, filter_model, 'autoSize', full_store_out
     except Exception:
         return [], [], {}, 'sizeToFit', dash.no_update

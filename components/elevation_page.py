@@ -373,10 +373,10 @@ layout = dmc.Container(
                                         clearable=True,
                                         disabled=True,
                                         selectFirstOptionOnChange=True,
-                                        style={'minWidth': '100px',
-                                               'width': '120px'}
+                                        style={'minWidth': '120px',
+                                               'width': '150px'}
                                     ),
-                                ], gap="xs"),
+                                ], gap="xs", style={'flex': '2'}),
                                 dmc.Stack([
                                     dmc.Text("Distance", size="sm", fw=500),
                                     dmc.Select(
@@ -387,9 +387,9 @@ layout = dmc.Container(
                                         ],
                                         value='mi',
                                         clearable=False,
-                                        style={'width': '70px'}
+                                        style={'width': '75px'}
                                     ),
-                                ], gap="xs"),
+                                ], gap="xs", style={'flex': '1'}),
                                 dmc.Stack([
                                     dmc.Text("Elevation", size="sm", fw=500),
                                     dmc.Select(
@@ -400,10 +400,10 @@ layout = dmc.Container(
                                         ],
                                         value='ft',
                                         clearable=False,
-                                        style={'width': '70px'}
+                                        style={'width': '75px'}
                                     ),
-                                ], gap="xs"),
-                            ], align="flex-end", gap="md"),
+                                ], gap="xs", style={'flex': '1'}),
+                            ], align="flex-end", gap="xs", style={'width': '100%'}),
                             dmc.Button([
                                 BootstrapIcon(icon="cloud-download",
                                               width=16, height=16),
@@ -413,7 +413,7 @@ layout = dmc.Container(
                         ], gap="xs")
                     ], p="xs")
                 ], shadow="sm", h="100%")
-            ], span=3),
+            ], span=2),
             # Reduction settings card (epsilon + reduce)
             dmc.GridCol([
                 dmc.Card([
@@ -441,7 +441,7 @@ layout = dmc.Container(
                         ], gap="xs")
                     ], p="xs")
                 ], shadow="sm", h="100%")
-            ], id='right-controls-col', span=3, style={'display': 'none'}),
+            ], id='right-controls-col', span=1, style={'display': 'none'}),
             # MBS File Upload Card
             dmc.GridCol([
                 dmc.Card([
@@ -495,7 +495,7 @@ layout = dmc.Container(
                         ], gap="xs")
                     ], p="xs")
                 ], shadow="sm", h="100%")
-            ], id='mbs-controls-col', span=3, style={'display': 'none'}),
+            ], id='mbs-controls-col', span=4, style={'display': 'none'}),
             # Actions card (Save + Units combined inline)
             dmc.GridCol([
                 dmc.Card([
@@ -834,7 +834,6 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
             stats = dmc.Group([
                 dmc.Badge("Input Points: 0", color="blue", variant="dot"),
                 dmc.Badge("Output Points: 0", color="green", variant="dot"),
-                dmc.Badge("Epsilon: 0", color="yellow", variant="dot"),
             ], gap="sm")
             return empty_fig, stats
 
@@ -847,7 +846,6 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
             stats = dmc.Group([
                 dmc.Badge("Input Points: 0", color="blue", variant="dot"),
                 dmc.Badge("Output Points: 0", color="green", variant="dot"),
-                dmc.Badge("Epsilon: 0", color="yellow", variant="dot"),
             ], gap="sm")
             return empty_fig, stats
 
@@ -930,8 +928,6 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
                       color="blue", variant="dot"),
             dmc.Badge(f"Output Points: {reduced_points}",
                       color="green", variant="dot"),
-            dmc.Badge(f"Epsilon: {epsilon_value or 0.1} {elev_label}",
-                      color="yellow", variant="dot"),
         ], gap="sm")
 
         return fig, stats
@@ -1183,10 +1179,8 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                           className="mx-1", variant="dot"),
                 dmc.Badge("Output Points: 0", color="green",
                           className="mx-1", variant="dot"),
-                dmc.Badge("Top 3 deviations: —", color="red",
+                dmc.Badge("Top 3 deviations: —", color="yellow",
                           className="mx-1", variant="dot"),
-                dmc.Badge(f"Epsilon: 0 {elev_label} (no data)",
-                          color="yellow", className="mx-1", variant="dot"),
             ], className="mb-2")
             return empty_fig, stats, dash.no_update, page_class
 
@@ -1202,10 +1196,8 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                           className="mx-1", variant="dot"),
                 dmc.Badge("Output Points: 0", color="green",
                           className="mx-1", variant="dot"),
-                dmc.Badge("Top 3 deviations: —", color="red",
+                dmc.Badge("Top 3 deviations: —", color="yellow",
                           className="mx-1", variant="dot"),
-                dmc.Badge(f"Epsilon: 0 {elev_label} (no data)",
-                          color="yellow", className="mx-1", variant="dot"),
             ], className="mb-2")
             return empty_fig, stats, dash.no_update, page_class
 
@@ -1680,12 +1672,12 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
             kept_idx = np.where(flags != 0)[0]
             # High-contrast colors per theme for top deviations
             if dark_mode:
-                deviation_color = '#dc3545'  # Bootstrap danger red
-                deviation_fill = 'rgba(220, 53, 69, 0.22)'
-                deviation_text_color = '#ffffff'
+                deviation_color = '#ffc107'  # Bootstrap warning yellow
+                deviation_fill = 'rgba(255, 193, 7, 0.22)'
+                deviation_text_color = '#ffffff'  # White text for contrast on dark background
             else:
-                deviation_color = '#dc3545'  # Bootstrap danger red
-                deviation_fill = 'rgba(220, 53, 69, 0.12)'
+                deviation_color = '#ffc107'  # Bootstrap warning yellow
+                deviation_fill = 'rgba(255, 193, 7, 0.12)'
                 deviation_text_color = '#000000'
             for i, (dev, idx) in enumerate(top_devs, 1):
                 k = int(np.searchsorted(kept_idx, idx, side='right') - 1)
@@ -1719,8 +1711,6 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
             dmc.Badge(f"Output Points: {len(reduced_df)}",
                       color="green", className="mx-1", variant="dot"),
             dmc.Badge("Top 3 deviations: " + ', '.join(f"{dev:.4f} {elev_label}" for dev, _ in top_devs) if top_devs else "Top 3 deviations: —",
-                      color="red", className="mx-1", variant="dot"),
-            dmc.Badge(f"Epsilon: {epsilon_abs:.4f} {elev_label}",
                       color="yellow", className="mx-1", variant="dot"),
         ], className="mb-2")
 

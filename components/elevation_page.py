@@ -566,7 +566,7 @@ layout = dmc.Container(
                                         icon="plus", width=16, height=16),
                                     html.Span("Add Selected Features to the profile", style={
                                               'marginLeft': '8px'})
-                                ], id='add-valves-btn', variant="fill", size="sm")
+                                ], id='add-valves-btn', variant="outline", size="sm")
                             ], gap="sm"),
                             dcc.Loading(
                                 id='results-loading', type='default',
@@ -1189,7 +1189,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                 dmc.Badge("Top 3 deviations: —", color="red",
                           className="mx-1", variant="dot"),
                 dmc.Badge(f"Epsilon: 0 {elev_label} (no data)",
-                          color="orange", className="mx-1", variant="dot"),
+                          color="yellow", className="mx-1", variant="dot"),
             ], className="mb-2")
             return empty_fig, stats, dash.no_update, page_class
 
@@ -1209,7 +1209,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                 dmc.Badge("Top 3 deviations: —", color="red",
                           className="mx-1", variant="dot"),
                 dmc.Badge(f"Epsilon: 0 {elev_label} (no data)",
-                          color="orange", className="mx-1", variant="dot"),
+                          color="yellow", className="mx-1", variant="dot"),
             ], className="mb-2")
             return empty_fig, stats, dash.no_update, page_class
 
@@ -1727,7 +1727,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
             dmc.Badge("Top 3 deviations: " + ', '.join(f"{dev:.4f} {elev_label}" for dev, _ in top_devs) if top_devs else "Top 3 deviations: —",
                       color="red", className="mx-1", variant="dot"),
             dmc.Badge(f"Epsilon: {epsilon_abs:.4f} {elev_label}",
-                      color="orange", className="mx-1", variant="dot"),
+                      color="yellow", className="mx-1", variant="dot"),
         ], className="mb-2")
 
         if dash.callback_context.triggered and dash.callback_context.triggered[0]['prop_id'].split('.')[0] == 'save-btn':

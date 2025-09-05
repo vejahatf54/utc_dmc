@@ -831,9 +831,9 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
-                dmc.Badge("Input Points: 0", color="blue", variant="filled"),
-                dmc.Badge("Output Points: 0", color="green", variant="filled"),
-                dmc.Badge("Epsilon: 0", color="yellow", variant="filled"),
+                dmc.Badge("Input Points: 0", color="blue", variant="dot"),
+                dmc.Badge("Output Points: 0", color="green", variant="dot"),
+                dmc.Badge("Epsilon: 0", color="yellow", variant="dot"),
             ], gap="sm")
             return empty_fig, stats
 
@@ -845,9 +845,9 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
-                dmc.Badge("Input Points: 0", color="blue", variant="filled"),
-                dmc.Badge("Output Points: 0", color="green", variant="filled"),
-                dmc.Badge("Epsilon: 0", color="yellow", variant="filled"),
+                dmc.Badge("Input Points: 0", color="blue", variant="dot"),
+                dmc.Badge("Output Points: 0", color="green", variant="dot"),
+                dmc.Badge("Epsilon: 0", color="yellow", variant="dot"),
             ], gap="sm")
             return empty_fig, stats
 
@@ -872,7 +872,7 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
                 dmc.Badge("Data Error: Missing columns",
-                          color="red", variant="filled"),
+                          color="red", variant="dot"),
             ], gap="sm")
             return empty_fig, stats
 
@@ -884,7 +884,7 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
-                dmc.Badge("No valid data", color="red", variant="filled"),
+                dmc.Badge("No valid data", color="red", variant="dot"),
             ], gap="sm")
             return empty_fig, stats
 
@@ -930,11 +930,11 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
         # Update stats
         stats = dmc.Group([
             dmc.Badge(f"Input Points: {len(df_current)}",
-                      color="blue", variant="filled"),
+                      color="blue", variant="dot"),
             dmc.Badge(f"Output Points: {reduced_points}",
-                      color="green", variant="filled"),
+                      color="green", variant="dot"),
             dmc.Badge(f"Epsilon: {epsilon_value or 0.1} {elev_label}",
-                      color="yellow", variant="filled"),
+                      color="yellow", variant="dot"),
         ], gap="sm")
 
         return fig, stats
@@ -945,7 +945,7 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
         traceback.print_exc()
         empty_fig = go.Figure()
         stats = dmc.Group([
-            dmc.Badge("Error loading graph", color="red", variant="filled"),
+            dmc.Badge("Error loading graph", color="red", variant="dot"),
         ], gap="sm")
         return empty_fig, stats
 
@@ -1183,13 +1183,13 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
                 dmc.Badge("Input Points: 0", color="blue",
-                          className="mx-1"),
+                          className="mx-1", variant="dot"),
                 dmc.Badge("Output Points: 0", color="green",
-                          className="mx-1"),
+                          className="mx-1", variant="dot"),
                 dmc.Badge("Top 3 deviations: —", color="red",
-                          className="mx-1"),
+                          className="mx-1", variant="dot"),
                 dmc.Badge(f"Epsilon: 0 {elev_label} (no data)",
-                          color="orange", className="mx-1"),
+                          color="orange", className="mx-1", variant="dot"),
             ], className="mb-2")
             return empty_fig, stats, dash.no_update, page_class
 
@@ -1203,13 +1203,13 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
                 dmc.Badge("Input Points: 0", color="blue",
-                          className="mx-1"),
+                          className="mx-1", variant="dot"),
                 dmc.Badge("Output Points: 0", color="green",
-                          className="mx-1"),
+                          className="mx-1", variant="dot"),
                 dmc.Badge("Top 3 deviations: —", color="red",
-                          className="mx-1"),
+                          className="mx-1", variant="dot"),
                 dmc.Badge(f"Epsilon: 0 {elev_label} (no data)",
-                          color="orange", className="mx-1"),
+                          color="orange", className="mx-1", variant="dot"),
             ], className="mb-2")
             return empty_fig, stats, dash.no_update, page_class
 
@@ -1721,13 +1721,13 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
 
         stats = dmc.Group([
             dmc.Badge(f"Input Points: {len(df_current)}",
-                      color="blue", className="mx-1"),
+                      color="blue", className="mx-1", variant="dot"),
             dmc.Badge(f"Output Points: {len(reduced_df)}",
-                      color="green", className="mx-1"),
+                      color="green", className="mx-1", variant="dot"),
             dmc.Badge("Top 3 deviations: " + ', '.join(f"{dev:.4f} {elev_label}" for dev, _ in top_devs) if top_devs else "Top 3 deviations: —",
-                      color="red", className="mx-1"),
+                      color="red", className="mx-1", variant="dot"),
             dmc.Badge(f"Epsilon: {epsilon_abs:.4f} {elev_label}",
-                      color="orange", className="mx-1"),
+                      color="orange", className="mx-1", variant="dot"),
         ], className="mb-2")
 
         if dash.callback_context.triggered and dash.callback_context.triggered[0]['prop_id'].split('.')[0] == 'save-btn':
@@ -2084,7 +2084,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
         fig.update_layout(template=template, margin=dict(
             l=30, r=30, t=40, b=20), xaxis_title='Distance', yaxis_title='Elevation')
         stats = dmc.Group([dmc.Badge(
-            "Error", color="red", className="mx-1")], className="mb-2")
+            "Error", color="red", className="mx-1", variant="dot")], className="mb-2")
         return fig, stats, dash.no_update, page_class
 
 

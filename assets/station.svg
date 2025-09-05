@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 121 151" fill="none" fill-rule="evenodd" stroke="#4285f4" stroke-linecap="round" stroke-linejoin="round" font-family="Roboto" font-size="14" text-anchor="middle">
+  <style><![CDATA[.B{stroke:#4285f4;stroke-width:0.5;fill:#ffffff}.C{fill:none}.D{font-size:8px}.E{stroke-width:.5;fill:#ffffff}.F{fill:#ffffff}.G{stroke-linecap:square}]]></style>
+  
+  <!-- Narrower home icon outline (filled background) -->
+  <path d="M25 120 L25 85 L50 55 L75 85 L75 120 Z" fill="#4285f4" stroke="#4285f4" stroke-width="2"/>
+  
+  <!-- Pump and trapezoid brought forward with white fill -->
+  <g transform="scale(0.6) translate(23, 65)">
+    <!-- Main pump body and circle (white filled, on top) -->
+    <path d="M59.75 75H57v.151C44.592 76.525 35 87.089 35 100c0 13.85 11.039 25 24.75 25s24.75-11.15 24.75-25c0-.939 0-3-.625-5H90V75z" class="E" fill="#ffffff" stroke="#4285f4"/>
+    <circle cx="60" cy="100" r="5" class="E F" stroke="#4285f4"/>
+    <path d="M50 97.5h10v5H50z" class="B"/>
+    
+    <!-- Trapezoid base (white filled, on top) -->
+    <path d="M52 125 L68 125 L78 133.3 L42 133.3 Z" fill="#ffffff" stroke="#4285f4" stroke-width="0.5"/>
+  </g>
+</svg>

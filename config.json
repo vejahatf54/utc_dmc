@@ -2,5 +2,18 @@
     "archive": {
         "base_path": "\\\\lpdev.local\\common\\LD_Data\\MBS\\arkbackup\\production",
         "timeout": 30
+    },
+    "database": {
+        "type": "sqlite",
+        "sqlite_path": "C:\\Temp\\OneSource\\local_onesource.db",
+        "sql_server": "PRODDWAGL2",
+        "sql_database": "ONESOURCEDATAMART",
+        "sql_driver": "SQL Server",
+        "sql_echo": false
+    },
+    "app": {
+        "debug": true,
+        "port": 8050,
+        "secret_key": "dev-secret-key-change-in-production"
     }
 }

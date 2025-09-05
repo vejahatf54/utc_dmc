@@ -1,0 +1,49 @@
+/* Disable scrollbars for accordion bodies */
+.accordion-body {
+    overflow: hidden !important;
+}
+
+.accordion-sidebyside {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 16px !important;
+    height: 70vh !important;
+}
+
+.accordion-sidebyside .accordion-item:first-child {
+    flex: 2 !important;
+    min-width: 0;
+}
+
+.accordion-sidebyside .accordion-item:last-child {
+    flex: 1 !important;
+    min-width: 0;
+}
+
+.accordion-sidebyside .accordion-body {
+    height: 60vh !important;
+    overflow: hidden;
+    padding: 0.5rem;
+}
+
+.accordion-sidebyside .accordion-button {
+    padding: 0.5rem 1rem;
+}
+
+/* Only target the graph specifically in side-by-side mode */
+.accordion-sidebyside #comparison-graph {
+    height: 55vh !important;
+    width: 100% !important;
+}
+
+/* Only target the grid specifically in side-by-side mode with higher specificity */
+.accordion-sidebyside .dash-ag-grid #results-grid {
+    height: 60vh !important;
+    width: 100% !important;
+}
+
+/* Also target the grid container for better space utilization */
+.accordion-sidebyside #results-loading {
+    height: 60vh !important;
+    width: 100% !important;
+}

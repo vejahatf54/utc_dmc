@@ -39,6 +39,12 @@ def build_sidebar():
                                 html.Span(
                                     "Fetch Archive", className="nav-label sb-label"),
                             ], href="/fetch-archive", className="nav-link"),
+                            html.A([
+                                BootstrapIcon(icon="activity", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "Elevation Tool", className="nav-label sb-label"),
+                            ], href="/elevation", className="nav-link"),
                         ],
                     ),
 

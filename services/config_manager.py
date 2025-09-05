@@ -244,6 +244,47 @@ class ConfigManager:
         """
         return self.get('archive.timeout', 30)
     
+    def get_database_config(self) -> Dict[str, Any]:
+        """
+        Get the database configuration section.
+        
+        Returns:
+            Database configuration dictionary
+        """
+        return self.get('database', {})
+    
+    def get_database_type(self) -> str:
+        """
+        Get the database type.
+        
+        Returns:
+            Database type string ('sqlite' or 'sql_server')
+        """
+        return self.get('database.type', 'sqlite')
+    
+    def get_sqlite_path(self) -> str:
+        """
+        Get the SQLite database path.
+        
+        Returns:
+            SQLite database path string
+        """
+        return self.get('database.sqlite_path', r"C:\Temp\OneSource\local_onesource.db")
+    
+    def get_sql_server_config(self) -> Dict[str, Any]:
+        """
+        Get SQL Server configuration.
+        
+        Returns:
+            Dictionary with SQL Server connection settings
+        """
+        return {
+            'server': self.get('database.sql_server', 'PRODDWAGL2'),
+            'database': self.get('database.sql_database', 'ONESOURCEDATAMART'),
+            'driver': self.get('database.sql_driver', 'SQL Server'),
+            'echo': self.get('database.sql_echo', False)
+        }
+    
     def add_reload_callback(self, callback: Callable[[], None]):
         """
         Add a callback function to be called when configuration is reloaded.

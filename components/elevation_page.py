@@ -350,24 +350,6 @@ layout = dmc.Container(
                 ], gap="xs")
             ]),
 
-            # Layout toggle section
-            dmc.Center([
-                dmc.Group([
-                    dmc.Text("Layout:", size="sm", fw=500),
-                    dmc.ButtonGroup([
-                        dmc.Button([
-                            BootstrapIcon(icon="stack", width=16, height=16),
-                            html.Span("Stack", style={'marginLeft': '8px'})
-                        ], id='stack-layout-btn', variant='filled', color='blue', size='sm'),
-                        dmc.Button([
-                            BootstrapIcon(icon="columns", width=16, height=16),
-                            html.Span("Side by Side", style={
-                                      'marginLeft': '8px'})
-                        ], id='sidebyside-layout-btn', variant='outline', color='blue', size='sm')
-                    ])
-                ], gap="sm")
-            ]),
-
             dmc.Space(h="md"),
         ]),  # Close the dmc.Stack
 
@@ -537,6 +519,25 @@ layout = dmc.Container(
 
         dmc.Space(h="lg"),
 
+        # Layout toggle affix component
+        dmc.Affix(
+            dmc.ButtonGroup([
+                dmc.Button(
+                    BootstrapIcon(icon="stack", width=16, height=16),
+                    id='stack-layout-btn', 
+                    variant='filled', 
+                    size='sm'
+                ),
+                dmc.Button(
+                    BootstrapIcon(icon="columns", width=16, height=16),
+                    id='sidebyside-layout-btn', 
+                    variant='filled', 
+                    size='sm'
+                )
+            ]),
+            position={"top": 60, "right": 300}
+        ),
+
         html.Div(id='main-content-container', children=[
             dmc.Accordion([
                 dmc.AccordionItem([
@@ -603,10 +604,11 @@ layout = dmc.Container(
      Output('sidebyside-layout-btn', 'variant')],
     [Input('stack-layout-btn', 'n_clicks'),
      Input('sidebyside-layout-btn', 'n_clicks')],
-    [State('layout-toggle-store', 'data')],
+    [State('layout-toggle-store', 'data'),
+     State('mantine-provider', 'theme')],
     prevent_initial_call=True
 )
-def toggle_layout(stack_clicks, sidebyside_clicks, layout_data):
+def toggle_layout(stack_clicks, sidebyside_clicks, layout_data, theme):
     """Handle layout toggle button clicks"""
     ctx = dash.callback_context
     if not ctx.triggered:
@@ -614,17 +616,20 @@ def toggle_layout(stack_clicks, sidebyside_clicks, layout_data):
 
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     current_mode = layout_data.get('mode', 'stack') if layout_data else 'stack'
+    
+    # Get primary color from theme, fallback to 'green' if not available
+    primary_color = theme.get('primaryColor', 'green') if theme else 'green'
 
     if trigger_id == 'stack-layout-btn' and current_mode != 'stack':
-        return 'accordion', {'mode': 'stack'}, 'blue', 'filled', 'blue', 'outline'
+        return 'accordion', {'mode': 'stack'}, primary_color, 'filled', primary_color, 'outline'
     elif trigger_id == 'sidebyside-layout-btn' and current_mode != 'sidebyside':
-        return 'accordion accordion-sidebyside', {'mode': 'sidebyside'}, 'blue', 'outline', 'blue', 'filled'
+        return 'accordion accordion-sidebyside', {'mode': 'sidebyside'}, primary_color, 'outline', primary_color, 'filled'
     else:
         # No change needed - return current state
         if current_mode == 'stack':
-            return dash.no_update, dash.no_update, 'blue', 'filled', 'blue', 'outline'
+            return dash.no_update, dash.no_update, primary_color, 'filled', primary_color, 'outline'
         else:
-            return dash.no_update, dash.no_update, 'blue', 'outline', 'blue', 'filled'
+            return dash.no_update, dash.no_update, primary_color, 'outline', primary_color, 'filled'
 
 
 @dash.callback(
@@ -632,17 +637,21 @@ def toggle_layout(stack_clicks, sidebyside_clicks, layout_data):
      Output('stack-layout-btn', 'variant', allow_duplicate=True),
      Output('sidebyside-layout-btn', 'color', allow_duplicate=True),
      Output('sidebyside-layout-btn', 'variant', allow_duplicate=True)],
-    [Input('layout-toggle-store', 'data')],
+    [Input('layout-toggle-store', 'data'),
+     Input('mantine-provider', 'theme')],
     prevent_initial_call='initial_duplicate'
 )
-def initialize_button_styles(layout_data):
-    """Initialize button styles based on current layout mode"""
+def initialize_button_styles(layout_data, theme):
+    """Initialize button styles based on current layout mode and theme"""
     mode = layout_data.get('mode', 'stack') if layout_data else 'stack'
+    
+    # Get primary color from theme, fallback to 'green' if not available
+    primary_color = theme.get('primaryColor', 'green') if theme else 'green'
 
     if mode == 'stack':
-        return 'white', 'filled', 'white', 'outline'
+        return primary_color, 'filled', primary_color, 'outline'
     else:
-        return 'white', 'outline', 'white', 'filled'
+        return primary_color, 'outline', primary_color, 'filled'
 
 
 @dash.callback(

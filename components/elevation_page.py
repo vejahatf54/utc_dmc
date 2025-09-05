@@ -303,7 +303,7 @@ layout = dmc.Container(
         dcc.Store(id='mbs-data-store', data={}),
         dcc.Store(id='unit-store', data={'dist': 'mi', 'elev': 'ft'}),
         dcc.Store(id='layout-toggle-store', data={'mode': 'stack'}),
-        dcc.Store(id='theme-store', data={'dark': False}),
+        # Remove local theme store - use global plotly-theme-store instead
         dcc.Interval(id='init-interval', interval=300,
                      n_intervals=0, max_intervals=1),
         dcc.Store(id='valve-state-store', data={'added': False}),
@@ -804,15 +804,17 @@ def load_elevation_data(load_clicks, line_value, dist_unit, elev_unit):
      Output('graph-stats', 'children', allow_duplicate=True)],
     [Input('reduce-btn', 'n_clicks'),
      Input('graph-data-store', 'data'),
-     Input('unit-store', 'data')],
-    [State('epsilon-input', 'value'),
-     State('theme-store', 'data')],
+     Input('unit-store', 'data'),
+     Input('plotly-theme-store', 'data')],
+    [State('epsilon-input', 'value')],
     prevent_initial_call=True
 )
-def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_data):
+def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_value):
     """Update the elevation graph with original and reduced data"""
     try:
-        dark_mode = bool(theme_data.get('dark')) if theme_data else False
+        # Get template from theme data, default to mantine_light
+        template = theme_data.get('template', 'mantine_light') if theme_data else 'mantine_light'
+        print(f"DEBUG: Theme data received: {theme_data}, Using template: {template}")
 
         # Unit helpers
         dist_unit = ((unit_data or {}).get('dist') or 'mi')
@@ -827,7 +829,6 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
         # Early exit if no data
         if not cached_rows:
             empty_fig = go.Figure()
-            template = 'plotly_dark' if dark_mode else 'plotly_white'
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
@@ -841,7 +842,6 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
         df_current = pd.DataFrame(cached_rows)
         if df_current.empty:
             empty_fig = go.Figure()
-            template = 'plotly_dark' if dark_mode else 'plotly_white'
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
@@ -867,7 +867,6 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
         required_cols = ['DistanceMeters', 'ElevationMeters']
         if not all(col in df_current.columns for col in required_cols):
             empty_fig = go.Figure()
-            template = 'plotly_dark' if dark_mode else 'plotly_white'
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
@@ -880,7 +879,6 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
             subset=required_cols).reset_index(drop=True)
         if df_current.empty:
             empty_fig = go.Figure()
-            template = 'plotly_dark' if dark_mode else 'plotly_white'
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
@@ -896,7 +894,6 @@ def update_graph(reduce_clicks, cached_rows, unit_data, epsilon_value, theme_dat
 
         # Create figure
         fig = go.Figure()
-        template = 'plotly_dark' if dark_mode else 'plotly_white'
         fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                           xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
 
@@ -986,10 +983,9 @@ def toggle_valves(add_clicks, row_data, line_val, current):
     return {'added': False}
 
 
-@dash.callback(Output('results-grid', 'className'), Input('theme-store', 'data'))
-def sync_aggrid_theme(theme_data):
-    dark_mode = bool(theme_data.get('dark')) if theme_data else False
-    return 'ag-theme-alpine-dark' if dark_mode else 'ag-theme-alpine'
+@dash.callback(Output('results-grid', 'className'), Input('color-scheme-switch', 'checked'))
+def sync_aggrid_theme(is_dark):
+    return 'ag-theme-alpine-dark' if is_dark else 'ag-theme-alpine'
 
 
 # MBS Folder Input Callbacks
@@ -1146,17 +1142,19 @@ def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_dat
      Input('valve-state-store', 'data'),
      Input('mbs-data-store', 'data'),
      Input('graph-data-store', 'data'),
-     Input('unit-store', 'data')],
+     Input('unit-store', 'data'),
+     Input('plotly-theme-store', 'data')],
     [State('results-grid', 'rowData'),
-     State('theme-store', 'data'),
      State('comparison-graph', 'relayoutData'),
      State('epsilon-input', 'value'),
      State('results-grid', 'selectedRows')]
 )
-def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_rows, unit_data, grid_rows, theme_data, relayout_data, eps_input, selected_rows):
+def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_rows, unit_data, theme_data, grid_rows, relayout_data, eps_input, selected_rows):
     try:
         ctx = dash.callback_context
-        dark_mode = bool(theme_data.get('dark')) if theme_data else False
+        # Get template from theme data, default to mantine_light
+        template = theme_data.get('template', 'mantine_light') if theme_data else 'mantine_light'
+        dark_mode = template == 'mantine_dark'
 
         # Unit helpers
         dist_unit = ((unit_data or {}).get('dist') or 'mi')
@@ -1177,7 +1175,6 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
         # Early exit if no data
         if not grid_rows and not cached_rows:
             empty_fig = go.Figure()
-            template = 'plotly_dark' if dark_mode else 'plotly_white'
             page_class = DARK_CLASS if dark_mode else LIGHT_CLASS
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
@@ -1197,7 +1194,6 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
         df_current = pd.DataFrame(cached_rows or grid_rows or [])
         if df_current.empty or not set(['DistanceMeters', 'ElevationMeters']).issubset(df_current.columns):
             empty_fig = go.Figure()
-            template = 'plotly_dark' if dark_mode else 'plotly_white'
             page_class = DARK_CLASS if dark_mode else LIGHT_CLASS
             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
@@ -1431,12 +1427,10 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
 
         # Theme
         if dark_mode:
-            template = 'plotly_dark'
             page_class = DARK_CLASS
             legend_bgcolor = 'rgba(30,41,59,0.85)'
             legend_font_color = 'white'
         else:
-            template = 'plotly_white'
             page_class = LIGHT_CLASS
             legend_bgcolor = 'rgba(255,255,255,0.85)'
             legend_font_color = 'black'
@@ -2076,10 +2070,9 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
 
         return fig, stats, dash.no_update, page_class
     except Exception as e:
-        template = 'plotly_dark' if (
-            (theme_data or {}).get('dark')) else 'plotly_white'
-        page_class = DARK_CLASS if (
-            (theme_data or {}).get('dark')) else LIGHT_CLASS
+        # Use template from theme data or default to mantine_light
+        template = theme_data.get('template', 'mantine_light') if theme_data else 'mantine_light'
+        page_class = DARK_CLASS if template == 'mantine_dark' else LIGHT_CLASS
         fig = go.Figure()
         fig.update_layout(template=template, margin=dict(
             l=30, r=30, t=40, b=20), xaxis_title='Distance', yaxis_title='Elevation')

@@ -125,3 +125,35 @@ clientside_callback(
      Output("shadow", "value")],
     Input("url", "pathname"),
 )
+
+# Clientside callback to initialize and update plotly theme store
+clientside_callback(
+    """
+    (pathname, isChecked) => {
+        // Always use the current switch state if available, otherwise fall back to localStorage
+        let isDark = false;
+        
+        if (typeof isChecked === 'boolean') {
+            // Use the current switch state
+            isDark = isChecked;
+        } else {
+            // Fallback: get theme from localStorage on initialization
+            try {
+                const savedSettings = localStorage.getItem('dmc-theme-settings');
+                if (savedSettings) {
+                    const settings = JSON.parse(savedSettings);
+                    isDark = settings.colorScheme === 'dark';
+                }
+            } catch (e) {
+                console.log('Error loading theme settings for plotly:', e);
+            }
+        }
+        
+        const template = isDark ? "mantine_dark" : "mantine_light";
+        console.log('Plotly theme updated to:', template);
+        return {"template": template};
+    }
+    """,
+    Output("plotly-theme-store", "data"),
+    [Input("url", "pathname"), Input("color-scheme-switch", "checked")],
+)

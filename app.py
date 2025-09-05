@@ -10,6 +10,9 @@ import components.elevation_page as elevation_page
 from components.custom_theme import theme_controls, theme_name_mapping, size_name_mapping
 from services.config_manager import initialize_config_manager
 
+# Add Mantine figure templates for Plotly
+dmc.add_figure_templates()
+
 # Initialize configuration manager on application startup
 config_manager = initialize_config_manager()
 
@@ -29,6 +32,7 @@ app.layout = dmc.MantineProvider(
         id="app-shell",
         children=[
             dcc.Location(id="url"),
+            dcc.Store(id="plotly-theme-store"),  # Store for Plotly theme state
             dmc.NotificationContainer(
                 position="top-center", id="notification-container"),
             sidebar,

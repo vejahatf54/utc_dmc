@@ -24,8 +24,7 @@ directory_component, directory_ids = create_directory_selector(
     component_id='fetch-archive-output',
     title="Output Directory for Archive Files",
     placeholder="Select directory for extracted archive files...",
-    browse_button_text="Browse",
-    reset_button_text="Reset"
+    browse_button_text="Browse"
 )
 
 # Layout

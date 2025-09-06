@@ -23,8 +23,7 @@ def create_csv_to_rtu_page():
         component_id='csv-rtu-output',
         title="Output Directory for RTU Files",
         placeholder="Select directory for RTU output files...",
-        browse_button_text="Browse Folder",
-        reset_button_text="Clear"
+        browse_button_text="Browse Folder"
     )
 
     return dmc.Container([
@@ -391,21 +390,17 @@ def toggle_help_modal(n_clicks, opened):
      Output('directory-status-csv-rtu-output', 'children'),
      Output('directory-store-csv-rtu-output', 'data')],
     Input('browse-btn-csv-rtu-output', 'n_clicks'),
-    Input('reset-btn-csv-rtu-output', 'n_clicks'),
     prevent_initial_call=True
 )
-def handle_directory_selection(browse_clicks, reset_clicks):
-    """Handle directory selection and reset for CSV to RTU output directory."""
+def handle_directory_selection(browse_clicks):
+    """Handle directory selection for CSV to RTU output directory."""
     ctx = callback_context
     if not ctx.triggered:
         return "", "", {'path': ''}
 
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
-    if trigger_id == 'reset-btn-csv-rtu-output':
-        return "", "", {'path': ''}
-
-    elif trigger_id == 'browse-btn-csv-rtu-output':
+    if trigger_id == 'browse-btn-csv-rtu-output':
         try:
             import tkinter as tk
             from tkinter import filedialog

@@ -17,6 +17,7 @@ from services.onesource_service import get_onesource_service
 from services.elevation_data_service import fetch_elevation_profile, validate_elevation_data
 from services.pipe_analysis_service import PipeAnalysisService
 from components.bootstrap_icon import BootstrapIcon
+from components.directory_selector import create_directory_selector, create_directory_selector_callback
 
 # ---------------------------
 # Config (assets only; CSV removed)
@@ -46,6 +47,46 @@ def get_pipe_analysis_service():
     if pipe_analysis_service is None:
         pipe_analysis_service = PipeAnalysisService()
     return pipe_analysis_service
+
+# Register the directory selector callback at module level
+@dash.callback(
+    [Output('directory-input-mbs-profile', 'value'),
+     Output('directory-store-mbs-profile', 'data')],
+    Input('browse-btn-mbs-profile', 'n_clicks'),
+    prevent_initial_call=True
+)
+def handle_mbs_directory_selection(browse_clicks):
+    """Handle MBS directory selection."""
+    from dash import callback_context
+    ctx = callback_context
+    if not ctx.triggered:
+        return "", {'path': ''}
+
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+    if trigger_id == 'browse-btn-mbs-profile':
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+
+            root = tk.Tk()
+            root.withdraw()  # Hide the main window
+            root.lift()      # Bring to front
+            root.attributes("-topmost", True)
+
+            directory = filedialog.askdirectory(title="Select MBS Profile Directory")
+            root.destroy()
+
+            if directory:
+                return directory, {'path': directory}
+            else:
+                return "", {'path': ''}
+
+        except Exception as e:
+            print(f"Error selecting directory: {str(e)}")
+            return "", {'path': ''}
+
+    return "", {'path': ''}
 
 
 def simplify_dataframe_rdp(
@@ -284,10 +325,7 @@ LIGHT_CLASS = "d-flex flex-column bg-light text-dark"
 
 def create_elevation_page():
     """Create the elevation page layout"""
-    return layout
-
-
-layout = dmc.Container(
+    layout = dmc.Container(
     id="page-container",
     fluid=True,
     style={
@@ -303,6 +341,7 @@ layout = dmc.Container(
         dcc.Store(id='mbs-data-store', data={}),
         dcc.Store(id='unit-store', data={'dist': 'mi', 'elev': 'ft'}),
         dcc.Store(id='features-collapse-store', data={'collapsed': False}),
+        dcc.Store(id='directory-store-mbs-profile', data={'path': ''}),
         # Remove local theme store - use global plotly-theme-store instead
         dcc.Interval(id='init-interval', interval=300,
                      n_intervals=0, max_intervals=1),
@@ -450,23 +489,26 @@ layout = dmc.Container(
                     ], p="sm", withBorder=True),
                     dmc.CardSection([
                         dmc.Stack([
+                            # MBS directory input and browse button (no card wrapper)
                             dmc.Stack([
-                                dmc.Text("MBS Elevation Profile:", size="sm"),
                                 dmc.Group([
                                     dmc.TextInput(
-                                        id='mbs-folder-input',
-                                        placeholder="Enter folder path containing inprep files...",
-                                        style={'flex': '1'}
+                                        id='directory-input-mbs-profile',
+                                        placeholder="Select folder containing inprep files...",
+                                        value='',
+                                        readOnly=True,
+                                        leftSection=BootstrapIcon(icon="folder-open", width=16),
+                                        size="md",
+                                        style={"flex": 1}
                                     ),
-                                    dmc.ActionIcon(
-                                        BootstrapIcon(
-                                            icon="folder", width=16, height=16),
-                                        id='mbs-browse-btn',
-                                        variant="fill",
-                                        color="gray"
+                                    dmc.Button(
+                                        BootstrapIcon(icon="search", width=16),
+                                        id='browse-btn-mbs-profile',
+                                        variant="outline",
+                                        size="md"
                                     )
-                                ], gap="xs", style={'width': '100%'})
-                            ], gap="xs"),
+                                ], gap="xs", style={"alignItems": "end"})
+                            ], gap="0"),
                             dcc.Loading(
                                 id='mbs-loading',
                                 type='default',
@@ -474,7 +516,7 @@ layout = dmc.Container(
                                     dmc.Text(
                                         id='mbs-file-status',
                                         size="sm",
-                                        style={'minHeight': '20px'}
+                                        style={'minHeight': '0px'}
                                     ),
                                     dmc.Group([
                                         dmc.Button([
@@ -490,7 +532,7 @@ layout = dmc.Container(
                                                       'marginLeft': '8px'})
                                         ], id='unload-mbs-btn', variant="fill", disabled=True, size="sm", style={'flex': '1'})
                                     ], gap="xs", style={'width': '100%'})
-                                ], gap="xs")
+                                ], gap="0")
                             ),
                         ], gap="xs")
                     ], p="xs")
@@ -530,7 +572,7 @@ layout = dmc.Container(
                         id='graph-loading', type='default',
                         children=dmc.Stack([
                             dmc.Group(
-                                id='graph-stats', style={'padding': '6px 0', 'fontWeight': '600'}),
+                                id='graph-stats', style={'padding': '6px 0', 'fontWeight': '600'}, justify="center"),
                             dmc.Text("💡 Tip: Click on any point in the elevation profile to open its location in ArcGIS.",
                                      c="dimmed", size="sm", style={'marginBottom': '8px'}),
                             dcc.Graph(id='comparison-graph', config={'responsive': True})
@@ -559,7 +601,7 @@ layout = dmc.Container(
                                 html.Span("Add Selected Features", style={
                                           'marginLeft': '8px'})
                             ], id='add-valves-btn', variant="outline", size="sm")
-                        ], gap="sm"),
+                        ], gap="sm", style={'marginTop': '12px', 'marginLeft': '12px'}),
                         dcc.Loading(
                             id='results-loading', type='default',
                             children=dag.AgGrid(
@@ -579,6 +621,8 @@ layout = dmc.Container(
         ])
     ]
 )
+    
+    return layout
 
 
 # ---------------------------
@@ -772,7 +816,7 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
             stats = dmc.Group([
                 dmc.Badge("Input Points: 0", color="blue", variant="dot"),
                 dmc.Badge("Output Points: 0", color="green", variant="dot"),
-            ], gap="sm")
+            ], gap="sm", justify="center")
             return empty_fig, stats
 
         # Convert distance and elevation columns using the working field names
@@ -796,7 +840,7 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
             stats = dmc.Group([
                 dmc.Badge("Data Error: Missing columns",
                           color="red", variant="dot"),
-            ], gap="sm")
+            ], gap="sm", justify="center")
             return empty_fig, stats
 
         df_current = df_current.dropna(
@@ -807,7 +851,7 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
             stats = dmc.Group([
                 dmc.Badge("No valid data", color="red", variant="dot"),
-            ], gap="sm")
+            ], gap="sm", justify="center")
             return empty_fig, stats
 
         # Apply unit conversions for plotting
@@ -854,7 +898,7 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
                       color="blue", variant="dot"),
             dmc.Badge(f"Output Points: {reduced_points}",
                       color="green", variant="dot"),
-        ], gap="sm")
+        ], gap="sm", justify="center")
 
         return fig, stats
 
@@ -865,7 +909,7 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
         empty_fig = go.Figure()
         stats = dmc.Group([
             dmc.Badge("Error loading graph", color="red", variant="dot"),
-        ], gap="sm")
+        ], gap="sm", justify="center")
         return empty_fig, stats
 
 
@@ -912,58 +956,71 @@ def sync_aggrid_theme(is_dark):
 
 # MBS Folder Input Callbacks
 @dash.callback(
-    [Output('mbs-file-status', 'children'),
-     Output('load-mbs-btn', 'disabled'),
+    [Output('load-mbs-btn', 'disabled'),
      Output('unload-mbs-btn', 'disabled'),
      Output('load-mbs-btn', 'style'),
      Output('unload-mbs-btn', 'style'),
-     Output('mbs-data-store', 'data')],
-    [Input('mbs-folder-input', 'value'),
+     Output('mbs-data-store', 'data'),
+     Output('notification-container', 'sendNotifications', allow_duplicate=True)],
+    [Input('directory-store-mbs-profile', 'data'),
      Input('load-mbs-btn', 'n_clicks'),
      Input('unload-mbs-btn', 'n_clicks')],
-    [State('mbs-data-store', 'data')]
+    [State('mbs-data-store', 'data')],
+    prevent_initial_call=True
 )
-def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_data):
+def handle_mbs_folder_input(directory_data, load_clicks, unload_clicks, current_data):
     ctx = dash.callback_context
 
     if not ctx.triggered:
         # Initial: show Load (disabled), hide Unload
-        return "", True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, current_data or {}
+        return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, current_data or {}, dash.no_update
 
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    # Extract folder path from directory selector data
+    folder_path = directory_data.get('path', '') if directory_data else ''
 
-    # If the text input was cleared, automatically unload the profile
-    if trigger_id == 'mbs-folder-input' and (not folder_path or (isinstance(folder_path, str) and not folder_path.strip())):
+    # If the directory selector was cleared, automatically unload the profile
+    if trigger_id == 'directory-store-mbs-profile' and (not folder_path or not folder_path.strip()):
         # Clear the profile if it was loaded
         if current_data and current_data.get('loaded'):
-            status_msg = html.Div([
-                html.I(className="bi bi-info-circle text-secondary me-2"),
-                "MBS Profile unloaded (input cleared)"
-            ], style={'color': 'gray'})
+            unload_notification = [{
+                "title": "MBS Profile Unloaded",
+                "message": "MBS Profile unloaded (directory cleared)",
+                "color": "gray",
+                "autoClose": 3000,
+                "action": "show"
+            }]
             cleared_data = {'loaded': False, 'data': [],
                             'folder_path': '', 'ready_to_load': False}
-            return status_msg, True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, cleared_data
+            return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, cleared_data, unload_notification
         else:
             # No profile was loaded, just reset UI
-            return "", True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, {}
+            return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, {}, dash.no_update
 
-    if trigger_id == 'mbs-folder-input' and folder_path:
+    if trigger_id == 'directory-store-mbs-profile' and folder_path:
         try:
             folder_path = folder_path.strip()
 
             if not os.path.exists(folder_path):
-                error_msg = html.Div([
-                    html.I(className="bi bi-exclamation-triangle text-danger me-2"),
-                    f"Folder not found: {folder_path}"
-                ], style={'color': 'red'})
-                return error_msg, True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update
+                error_notification = [{
+                    "title": "Error",
+                    "message": f"Folder not found: {folder_path}",
+                    "color": "red",
+                    "autoClose": 5000,
+                    "action": "show"
+                }]
+                return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update, error_notification
 
             if not os.path.isdir(folder_path):
-                error_msg = html.Div([
-                    html.I(className="bi bi-exclamation-triangle text-danger me-2"),
-                    f"Path is not a folder: {folder_path}"
-                ], style={'color': 'red'})
-                return error_msg, True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update
+                error_notification = [{
+                    "title": "Error",
+                    "message": f"Path is not a folder: {folder_path}",
+                    "color": "red",
+                    "autoClose": 5000,
+                    "action": "show"
+                }]
+                return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update, error_notification
 
             # Check if folder contains inprep files
             has_inprep = False
@@ -973,27 +1030,36 @@ def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_dat
                     break
 
             if not has_inprep:
-                error_msg = html.Div([
-                    html.I(className="bi bi-exclamation-triangle text-warning me-2"),
-                    f"No inprep files found in folder"
-                ], style={'color': 'orange'})
-                return error_msg, True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update
+                warning_notification = [{
+                    "title": "Warning",
+                    "message": "No inprep files found in folder",
+                    "color": "orange",
+                    "autoClose": 5000,
+                    "action": "show"
+                }]
+                return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update, warning_notification
 
-            status_msg = html.Div([
-                html.I(className="bi bi-folder text-success me-2"),
-                f"Ready to load: {folder_path}"
-            ], style={'color': 'green'})
+            success_notification = [{
+                "title": "Ready to Load",
+                "message": f"MBS profile directory validated: {folder_path}",
+                "color": "green",
+                "autoClose": 3000,
+                "action": "show"
+            }]
             ready_data = current_data.copy() if current_data else {}
             ready_data.update(
                 {'ready_to_load': True, 'folder_path': folder_path})
-            return status_msg, False, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, ready_data
+            return False, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, ready_data, success_notification
 
         except Exception as e:
-            error_msg = html.Div([
-                html.I(className="bi bi-exclamation-triangle text-danger me-2"),
-                f"Error: {str(e)}"
-            ], style={'color': 'red'})
-            return error_msg, True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update
+            error_notification = [{
+                "title": "Error",
+                "message": f"Error validating directory: {str(e)}",
+                "color": "red",
+                "autoClose": 5000,
+                "action": "show"
+            }]
+            return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update, error_notification
 
     elif trigger_id == 'load-mbs-btn' and load_clicks:
         try:
@@ -1017,10 +1083,13 @@ def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_dat
             # Store in the expected format
             profile_data = df_profile.to_dict('records')
 
-            success_msg = html.Div([
-                html.I(className="bi bi-check-circle text-success me-2"),
-                f"MBS Profile loaded ({len(profile_data)} points)"
-            ], style={'color': 'green'})
+            success_notification = [{
+                "title": "MBS Profile Loaded",
+                "message": f"MBS Profile loaded successfully ({len(profile_data)} points)",
+                "color": "green",
+                "autoClose": 3000,
+                "action": "show"
+            }]
 
             loaded_data = {
                 'loaded': True,
@@ -1029,25 +1098,31 @@ def handle_mbs_folder_input(folder_path, load_clicks, unload_clicks, current_dat
                 'ready_to_load': False
             }
 
-            return success_msg, True, False, {'display': 'none'}, {'display': 'inline-block', 'width': '100%'}, loaded_data
+            return True, False, {'display': 'none'}, {'display': 'inline-block', 'width': '100%'}, loaded_data, success_notification
 
         except Exception as e:
-            error_msg = html.Div([
-                html.I(className="bi bi-exclamation-triangle text-danger me-2"),
-                f"Load failed: {str(e)}"
-            ], style={'color': 'red'})
-            return error_msg, True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update
+            error_notification = [{
+                "title": "Load Failed",
+                "message": f"Failed to load MBS profile: {str(e)}",
+                "color": "red",
+                "autoClose": 5000,
+                "action": "show"
+            }]
+            return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, dash.no_update, error_notification
 
     elif trigger_id == 'unload-mbs-btn' and unload_clicks:
         # Unload the profile
-        unload_msg = html.Div([
-            html.I(className="bi bi-info-circle text-secondary me-2"),
-            "MBS Profile unloaded"
-        ], style={'color': 'gray'})
+        unload_notification = [{
+            "title": "MBS Profile Unloaded",
+            "message": "MBS Profile unloaded successfully",
+            "color": "gray",
+            "autoClose": 3000,
+            "action": "show"
+        }]
 
         unloaded_data = {'loaded': False, 'data': [],
                          'folder_path': '', 'ready_to_load': False}
-        return unload_msg, True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, unloaded_data
+        return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, unloaded_data, unload_notification
 
     # Default fallback
     return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
@@ -1124,7 +1199,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                           className="mx-1", variant="dot"),
                 dmc.Badge("Top 3 deviations: —", color="yellow",
                           className="mx-1", variant="dot"),
-            ], className="mb-2")
+            ], className="mb-2", justify="center")
             return empty_fig, stats, dash.no_update, page_class
 
         # Clean and convert
@@ -1638,7 +1713,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                       color="green", className="mx-1", variant="dot"),
             dmc.Badge("Top 3 deviations: " + ', '.join(f"{dev:.4f} {elev_label}" for dev, _ in top_devs) if top_devs else "Top 3 deviations: —",
                       color="yellow", className="mx-1", variant="dot"),
-        ], className="mb-2")
+        ], className="mb-2", justify="center")
 
         if dash.callback_context.triggered and dash.callback_context.triggered[0]['prop_id'].split('.')[0] == 'save-btn':
             dist_header = {'km': 'Kilometers',
@@ -1993,7 +2068,7 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
         fig.update_layout(template=template, margin=dict(
             l=30, r=30, t=40, b=20), xaxis_title='Distance', yaxis_title='Elevation')
         stats = dmc.Group([dmc.Badge(
-            "Error", color="red", className="mx-1", variant="dot")], className="mb-2")
+            "Error", color="red", className="mx-1", variant="dot")], className="mb-2", justify="center")
         return fig, stats, dash.no_update, page_class
 
 

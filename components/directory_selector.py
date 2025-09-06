@@ -1,6 +1,6 @@
 """
 Directory Selector Component for DMC application.
-Reusable directory selection component with browse and reset functionality.
+Reusable directory selection component with browse functionality.
 """
 
 import dash_mantine_components as dmc
@@ -16,18 +16,16 @@ def create_directory_selector(
     component_id: str,
     title: str = "Output Directory",
     placeholder: str = "Select output directory...",
-    browse_button_text: str = "Browse",
-    reset_button_text: str = "Reset"
+    browse_button_text: str = "Browse"
 ) -> tuple:
     """
-    Create a directory selector component with browse and reset functionality.
+    Create a directory selector component with browse functionality.
 
     Args:
         component_id: Unique identifier for this component instance
         title: Title for the card header
         placeholder: Placeholder text for the input field
-        browse_button_text: Text for the browse button
-        reset_button_text: Text for the reset button
+        browse_button_text: Text for the browse button (used for accessibility)
 
     Returns:
         tuple: (component, store_ids) where component is the UI element and store_ids contains the IDs
@@ -36,7 +34,6 @@ def create_directory_selector(
     # Create unique IDs for this instance
     input_id = f'directory-input-{component_id}'
     browse_id = f'browse-btn-{component_id}'
-    reset_id = f'reset-btn-{component_id}'
     status_id = f'directory-status-{component_id}'
     store_id = f'directory-store-{component_id}'
 
@@ -51,41 +48,24 @@ def create_directory_selector(
 
             dmc.Divider(),
 
-            # Input field
-            dmc.TextInput(
-                id=input_id,
-                placeholder=placeholder,
-                value='',
-                readOnly=True,
-                leftSection=BootstrapIcon(icon="folder-open", width=16),
-                size="md"
-            ),
-
-            # Button row
+            # Input field with browse button in one row
             dmc.Group([
-                dmc.Button([
-                    BootstrapIcon(icon="search",
-                                width=16, className="me-2"),
-                    browse_button_text
-                ],
-                    id=browse_id,
-                    color='green',
-                    variant="outline",
-                    size="sm",
-                    flex=1
+                dmc.TextInput(
+                    id=input_id,
+                    placeholder=placeholder,
+                    value='',
+                    readOnly=True,
+                    leftSection=BootstrapIcon(icon="folder-open", width=16),
+                    size="md",
+                    style={"flex": 1}
                 ),
-                dmc.Button([
-                    BootstrapIcon(icon="arrow-clockwise",
-                                width=16, className="me-2"),
-                    reset_button_text
-                ],
-                    id=reset_id,
-                    color='red',
+                dmc.Button(
+                    BootstrapIcon(icon="search", width=16),
+                    id=browse_id,
                     variant="outline",
-                    size="sm",
-                    flex=1
+                    size="md"
                 )
-            ], grow=True),
+            ], gap="xs", style={"alignItems": "end"}),
 
             # Status display
             html.Div(
@@ -99,7 +79,6 @@ def create_directory_selector(
     store_ids = {
         'input': input_id,
         'browse': browse_id,
-        'reset': reset_id,
         'status': status_id,
         'store': store_id
     }
@@ -124,22 +103,18 @@ def create_directory_selector_callback(store_ids: dict, dialog_title: str = "Sel
         [Output(store_ids['input'], 'value'),
          Output(store_ids['status'], 'children'),
          Output(store_ids['store'], 'data')],
-        [Input(store_ids['browse'], 'n_clicks'),
-         Input(store_ids['reset'], 'n_clicks')],
+        [Input(store_ids['browse'], 'n_clicks')],
         prevent_initial_call=True
     )
-    def handle_directory_selection(browse_clicks, reset_clicks):
-        """Handle directory selection and reset."""
+    def handle_directory_selection(browse_clicks):
+        """Handle directory selection."""
         ctx = callback_context
         if not ctx.triggered:
             return "", "", {'path': ''}
 
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
-        if trigger_id == store_ids['reset']:
-            return "", "", {'path': ''}
-
-        elif trigger_id == store_ids['browse']:
+        if trigger_id == store_ids['browse']:
             try:
                 import tkinter as tk
                 from tkinter import filedialog
@@ -177,16 +152,14 @@ class DirectorySelector:
         component_id: str,
         title: str = "Output Directory",
         placeholder: str = "Select output directory...",
-        browse_button_text: str = "Browse",
-        reset_button_text: str = "Reset"
+        browse_button_text: str = "Browse"
     ) -> tuple:
         """Create a directory selector component"""
         return create_directory_selector(
             component_id=component_id,
             title=title,
             placeholder=placeholder,
-            browse_button_text=browse_button_text,
-            reset_button_text=reset_button_text
+            browse_button_text=browse_button_text
         )
 
     @staticmethod
@@ -195,7 +168,6 @@ class DirectorySelector:
         return {
             'input': f'directory-input-{component_id}',
             'browse': f'browse-btn-{component_id}',
-            'reset': f'reset-btn-{component_id}',
             'status': f'directory-status-{component_id}',
             'store': f'directory-store-{component_id}'
         }

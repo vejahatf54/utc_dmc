@@ -1167,15 +1167,18 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
             if trig_id == 'valve-state-store' and not (isinstance(valve_state, dict) and valve_state.get('added')):
                 return dash.no_update, dash.no_update, dash.no_update, (DARK_CLASS if dark_mode else LIGHT_CLASS)
             
-            # Guard: ignore MBS data changes when only directory selection (ready_to_load) changes
-            # Only trigger on actual load/unload operations
+            # Guard: ignore MBS data changes when only directory selection changes
+            # Only trigger on actual load/unload operations, not directory browsing
             if trig_id == 'mbs-data-store':
                 if isinstance(mbs_data, dict):
-                    # Only update if profile is actually loaded or unloaded
+                    # Check if this is just a directory selection update
+                    # Directory selection updates ready_to_load and folder_path but doesn't change loaded status
+                    has_folder_path = bool(mbs_data.get('folder_path'))
+                    is_ready_to_load = mbs_data.get('ready_to_load', False)
                     is_loaded = mbs_data.get('loaded', False)
-                    ready_to_load = mbs_data.get('ready_to_load', False)
-                    # If only ready_to_load is set but not loaded, don't update graph
-                    if ready_to_load and not is_loaded:
+                    
+                    # If ready_to_load is True but loaded is False, this is just directory selection
+                    if is_ready_to_load and not is_loaded and has_folder_path:
                         return dash.no_update, dash.no_update, dash.no_update, (DARK_CLASS if dark_mode else LIGHT_CLASS)
 
         # Early exit if no data

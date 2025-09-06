@@ -170,6 +170,16 @@ function Test-Environment {
         throw "PyInstaller not available. Install with: pip install PyInstaller"
     }
     
+    # Check PyWin32 (required for Windows functionality)
+    Write-Info "Verifying PyWin32 for Windows functionality..."
+    $pywin32Test = & $PythonExe -c "import win32api, win32gui, win32con; print('PyWin32 OK')" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "PyWin32: OK"
+    }
+    else {
+        Write-Warning "PyWin32 test failed: $pywin32Test"
+    }
+    
     # Verify spec file exists
     if (-not (Test-Path $SpecFile)) {
         throw "PyInstaller spec file not found: $SpecFile"
@@ -185,13 +195,18 @@ function Test-Environment {
     # Test DMC components
     Write-Info "Testing DMC application components..."
     $testResult = & $PythonExe -c "
-from components.sidebar import build_sidebar
-from components.home_page import create_home_page
-from components.fluid_id_page import create_fluid_id_page
-from components.csv_to_rtu_page import create_csv_to_rtu_page
-from components.fetch_archive_page import layout as fetch_archive_layout
-from components.custom_theme import theme_controls
-print('All components loaded successfully')
+import components.sidebar
+import components.home_page
+import components.fluid_id_page
+import components.csv_to_rtu_page
+import components.fetch_archive_page
+import components.elevation_page
+import components.custom_theme
+import components.directory_selector
+import components.bootstrap_icon
+import components.icon_mapping
+import components.theme_switch
+print('All components imported successfully')
 " 2>&1
     
     if ($LASTEXITCODE -eq 0) {
@@ -205,11 +220,15 @@ print('All components loaded successfully')
     # Test services
     Write-Info "Testing DMC services..."
     $serviceTestResult = & $PythonExe -c "
-from services.config_manager import ConfigManager
-from services.csv_to_rtu_service import CsvToRtuService
-from services.fluid_id_service import FluidIdConverterService
-from services.fetch_archive_service import FetchArchiveService
-print('All services loaded successfully')
+import services.config_manager
+import services.csv_to_rtu_service
+import services.elevation_data_service
+import services.exceptions
+import services.fetch_archive_service
+import services.fluid_id_service
+import services.onesource_service
+import services.pipe_analysis_service
+print('All services imported successfully')
 " 2>&1
     
     if ($LASTEXITCODE -eq 0) {

@@ -217,6 +217,42 @@ class ConfigManager:
             'echo': self.get('database.sql_echo', False)
         }
     
+    def get_app_config(self) -> Dict[str, Any]:
+        """
+        Get the app configuration section.
+        
+        Returns:
+            App configuration dictionary
+        """
+        return self.get('app', {})
+    
+    def get_app_secret_key(self) -> str:
+        """
+        Get the app secret key.
+        
+        Returns:
+            Secret key string for Flask session security
+        """
+        return self.get('app.secret_key', 'dev-secret-key-change-in-production')
+    
+    def get_app_debug(self) -> bool:
+        """
+        Get the app debug setting.
+        
+        Returns:
+            Debug mode boolean
+        """
+        return self.get('app.debug', True)
+    
+    def get_app_port(self) -> int:
+        """
+        Get the app port.
+        
+        Returns:
+            Port number for the web server
+        """
+        return self.get('app.port', 8050)
+    
     def get_all_config(self) -> Dict[str, Any]:
         """
         Get the entire configuration dictionary.

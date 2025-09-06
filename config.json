@@ -14,6 +14,6 @@
     "app": {
         "debug": true,
         "port": 8050,
-        "secret_key": "dev-secret-key-change-in-production"
+        "secret_key": "DMC-2025-production-secret-change-me-for-deployment"
     }
 }

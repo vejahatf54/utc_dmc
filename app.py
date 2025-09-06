@@ -22,6 +22,9 @@ debug_mode = not hasattr(sys, '_MEIPASS')
 
 app = Dash(__name__, suppress_callback_exceptions=True)
 
+# Configure Flask server with secret key from config
+app.server.secret_key = config_manager.get_app_secret_key()
+
 sidebar = build_sidebar()
 
 # Main content container; content will be swapped by callback
@@ -111,6 +114,9 @@ def render_page(pathname: str):
 
 
 if __name__ == "__main__":
-    # Use debug mode only in development (not when packaged)
-    app.run(debug=debug_mode, host="127.0.0.1", port=8050)    
+    # Use debug mode and port from config, but override debug=False when packaged
+    debug_from_config = config_manager.get_app_debug() and debug_mode
+    port_from_config = config_manager.get_app_port()
+    
+    app.run(debug=debug_from_config, host="127.0.0.1", port=port_from_config)    
     

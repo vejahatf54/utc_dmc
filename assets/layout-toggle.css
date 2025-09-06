@@ -8,10 +8,10 @@
     transition: all 0.3s ease !important;
 }
 
-/* Elevation profile panel - 80% width, expandable to 100% */
+/* Elevation profile panel - 70% width, expandable to 100% */
 .elevation-panel {
-    flex: 0 0 80% !important;
-    max-width: 80% !important;
+    flex: 0 0 70% !important;
+    max-width: 70% !important;
     min-width: 0 !important;
     background: var(--mantine-color-body) !important;
     border: 1px solid var(--mantine-color-gray-3) !important;
@@ -28,11 +28,11 @@
     max-width: 97% !important;
 }
 
-/* Features panel - 20% width, collapsible to the right */
+/* Features panel - 30% width, collapsible to the right */
 
 .features-panel {
-    flex: 0 0 20% !important;
-    max-width: 20% !important;
+    flex: 0 0 30% !important;
+    max-width: 30% !important;
     min-width: 0 !important;
     background: var(--mantine-color-body) !important;
     border: 1px solid var(--mantine-color-gray-3) !important;

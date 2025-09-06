@@ -562,7 +562,7 @@ def create_elevation_page():
         dmc.Space(h="lg"),
 
         html.Div(id='main-content-container', className='main-layout', children=[
-            # Elevation Profile Panel (80%)
+            # Elevation Profile Panel (70%)
             html.Div(id='elevation-panel', className='elevation-panel', children=[
                 html.Div(className='panel-header', children=[
                     html.Span("Elevation Profile"),
@@ -581,7 +581,7 @@ def create_elevation_page():
                 ])
             ]),
             
-            # Features Panel (20%, collapsible)
+            # Features Panel (30%, collapsible)
             html.Div(id='features-panel', className='features-panel', children=[
                 html.Div(className='panel-header', children=[
                     html.Span("Features"),

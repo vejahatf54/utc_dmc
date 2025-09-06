@@ -391,7 +391,7 @@ def create_elevation_page():
         ]),  # Close the dmc.Stack
 
         dmc.Grid([
-            # Data selection card (Line & Section)
+            # Data selection card (Line only)
             dmc.GridCol([
                 dmc.Card([
                     dmc.CardSection([
@@ -399,21 +399,38 @@ def create_elevation_page():
                     ], p="sm", withBorder=True),
                     dmc.CardSection([
                         dmc.Stack([
-                            # Line, Distance, and Elevation in one row
+                            dmc.Stack([
+                                dmc.Text("Line", size="sm", fw=500),
+                                dmc.Autocomplete(
+                                    id='line-dropdown',
+                                    data=LINE_OPTIONS,
+                                    placeholder='Select line…',
+                                    clearable=True,
+                                    disabled=True,
+                                    selectFirstOptionOnChange=True,
+                                    style={'minWidth': '120px',
+                                           'width': '100%'}
+                                ),
+                            ], gap="xs"),
+                            dmc.Button([
+                                BootstrapIcon(icon="cloud-download",
+                                              width=16, height=16),
+                                html.Span("Load Data", style={
+                                          'marginLeft': '8px'})
+                            ], id='load-line-btn', variant="fill", fullWidth=True, size="sm"),
+                        ], gap="xs")
+                    ], p="xs")
+                ], shadow="sm", h="100%")
+            ], span=2),
+            # Units card (Distance and Elevation)
+            dmc.GridCol([
+                dmc.Card([
+                    dmc.CardSection([
+                        dmc.Text("Units", fw=600)
+                    ], p="sm", withBorder=True),
+                    dmc.CardSection([
+                        dmc.Stack([
                             dmc.Group([
-                                dmc.Stack([
-                                    dmc.Text("Line", size="sm", fw=500),
-                                    dmc.Autocomplete(
-                                        id='line-dropdown',
-                                        data=LINE_OPTIONS,
-                                        placeholder='Select line…',
-                                        clearable=True,
-                                        disabled=True,
-                                        selectFirstOptionOnChange=True,
-                                        style={'minWidth': '120px',
-                                               'width': '150px'}
-                                    ),
-                                ], gap="xs", style={'flex': '2'}),
                                 dmc.Stack([
                                     dmc.Text("Distance", size="sm", fw=500),
                                     dmc.Select(
@@ -424,7 +441,7 @@ def create_elevation_page():
                                         ],
                                         value='mi',
                                         clearable=False,
-                                        style={'width': '75px'}
+                                        style={'width': '100px'}
                                     ),
                                 ], gap="xs", style={'flex': '1'}),
                                 dmc.Stack([
@@ -437,16 +454,10 @@ def create_elevation_page():
                                         ],
                                         value='ft',
                                         clearable=False,
-                                        style={'width': '75px'}
+                                        style={'width': '100px'}
                                     ),
                                 ], gap="xs", style={'flex': '1'}),
-                            ], align="flex-end", gap="xs", style={'width': '100%'}),
-                            dmc.Button([
-                                BootstrapIcon(icon="cloud-download",
-                                              width=16, height=16),
-                                html.Span("Load Data", style={
-                                          'marginLeft': '8px'})
-                            ], id='load-line-btn', variant="fill", fullWidth=True, size="sm"),
+                            ], align="flex-start", gap="md", style={'width': '100%'}),
                         ], gap="xs")
                     ], p="xs")
                 ], shadow="sm", h="100%")

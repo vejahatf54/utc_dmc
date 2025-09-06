@@ -1452,7 +1452,7 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
         # Always add original trace
         fig.add_trace(go.Scatter(
             x=df_current['Milepost'], y=df_current['Elevation'],
-            mode='lines', name='Original', line=dict(width=1)
+            mode='lines', name='Original', line=dict(color='#9333ea', width=1)
         ))
         
         # Show reduced trace if reduce button has been clicked (preserve state when loading new data)
@@ -1460,7 +1460,7 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
         if show_reduced:
             fig.add_trace(go.Scatter(
                 x=reduced_df['Milepost'], y=reduced_df['Elevation'],
-                mode='lines', name='Reduced', line=dict(width=2)
+                mode='lines', name='Reduced', line=dict(color='#dc2626', width=2)
             ))
 
         # Add MBS profile if available
@@ -1473,7 +1473,7 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
                     mbs_df['Elevation'] = mbs_df['ElevationMeters'] * ELEV_FACTOR
                     fig.add_trace(go.Scatter(
                         x=mbs_df['Milepost'], y=mbs_df['Elevation'],
-                        mode='lines', name='MBS Profile', line=dict(color='orange', width=2, dash='dash')
+                        mode='lines', name='MBS Profile', line=dict(color='#ea580c', width=2, dash='dash')
                     ))
 
         # Feature icons (valves + stations + dividers) - using SVG images like LDUTC

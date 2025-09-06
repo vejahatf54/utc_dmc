@@ -22,7 +22,7 @@
     transition: flex-basis 0.3s ease !important;
 }
 
-/* When features panel is collapsed, elevation panel takes full width */
+/* When features panel is collapsed, elevation panel takes full width --- */
 .elevation-panel.expanded {
     flex: 0 0 97% !important;
     max-width: 97% !important;

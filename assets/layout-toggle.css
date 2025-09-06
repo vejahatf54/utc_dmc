@@ -3,7 +3,7 @@
     display: flex !important;
     flex-direction: row !important;
     gap: 16px !important;
-    height: 70vh !important;
+    height: calc(100vh - 420px) !important;
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
@@ -37,7 +37,7 @@
     flex: 0 0 calc(30% - 5px) !important;
     max-width: calc(30% - 5px) !important;
     min-width: 0 !important;
-    min-height: calc(70vh - 20px) !important;
+    min-height: calc(100vh - 440px) !important;
     background: var(--mantine-color-body) !important;
     border: 1px solid var(--mantine-color-gray-3) !important;
     border-radius: var(--mantine-radius-md) !important;
@@ -118,7 +118,7 @@
 /* Panel content areas */
 .panel-content {
     flex: 1 1 auto !important;
-    min-height: calc(70vh - 68px) !important;
+    min-height: calc(100vh - 488px) !important;
     padding: 0 !important;
     overflow: hidden !important;
     display: flex !important;
@@ -150,7 +150,6 @@
 .main-layout #results-loading {
     height: 100% !important;
     width: 100% !important;
-    min-height: 300px !important;
     flex: 1 1 auto !important;
 }
 
@@ -166,21 +165,29 @@
 /* Make the graph container take remaining space */
 .main-layout #comparison-graph {
     flex: 1 !important;
-    min-height: 400px !important;
+    min-height: max(250px, calc(100vh - 580px)) !important;
+    max-height: calc(100vh - 580px) !important;
+}
+
+/* Control the actual Plotly graph height */
+.main-layout #comparison-graph .js-plotly-plot,
+.main-layout #comparison-graph .plotly-graph-div {
+    height: max(250px, calc(100vh - 580px)) !important;
+    max-height: calc(100vh - 580px) !important;
 }
 
 /* Make the grid container take remaining space with proper padding */
 .main-layout #results-grid {
     flex: 1 !important;
     height: 100% !important;
-    min-height: calc(70vh - 88px) !important;
+    min-height: max(220px, calc(100vh - 508px)) !important;
 }
 
 /* Grid loading container with padding */
 .main-layout #results-loading {
     flex: 1 !important;
     height: calc(100% - 20px) !important;
-    min-height: calc(70vh - 88px) !important;
+    min-height: max(220px, calc(100vh - 508px)) !important;
     margin: 10px 0 !important;
 }
 

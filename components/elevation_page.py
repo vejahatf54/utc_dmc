@@ -339,7 +339,7 @@ def create_elevation_page():
         dcc.Store(id='init-store', data={'ready': False}),
         dcc.Store(id='graph-data-store'),
         dcc.Store(id='mbs-data-store', data={}),
-        dcc.Store(id='unit-store', data={'dist': 'mi', 'elev': 'ft'}),
+        dcc.Store(id='unit-store', data={'distance': 'mi', 'elevation': 'ft'}),
         dcc.Store(id='features-collapse-store', data={'collapsed': False}),
         dcc.Store(id='directory-store-mbs-profile', data={'path': ''}),
         # Remove local theme store - use global plotly-theme-store instead
@@ -742,17 +742,17 @@ def load_elevation_data(load_clicks, line_value, dist_unit, elev_unit):
         if df is not None and not df.empty:
             # Prepare data for grid display
             row_data = df.to_dict('records')
-            unit_data = {'dist': dist_unit, 'elev': elev_unit}
+            unit_data = {'distance': dist_unit or 'mi', 'elevation': elev_unit or 'ft'}
 
             return row_data, row_data, unit_data
         else:
-            return [], [], {'dist': dist_unit, 'elev': elev_unit}
+            return [], [], {'distance': dist_unit or 'mi', 'elevation': elev_unit or 'ft'}
 
     except Exception as e:
         print(f"ERROR in load_elevation_data: {e}")
         import traceback
         traceback.print_exc()
-        return [], [], {'dist': dist_unit, 'elev': elev_unit}
+        return [], [], {'distance': dist_unit or 'mi', 'elevation': elev_unit or 'ft'}
 
 
 # Disabled - functionality moved to main callback to fix Load Data issue
@@ -903,16 +903,6 @@ def load_elevation_data(load_clicks, line_value, dist_unit, elev_unit):
 @dash.callback(Output('load-line-btn', 'disabled', allow_duplicate=True), [Input('line-dropdown', 'value')], prevent_initial_call=True)
 def toggle_load_button(line_value):
     return not bool(line_value)
-
-
-# Capture units at the time of loading so future updates don't trigger from unit changes
-@dash.callback(Output('unit-store', 'data', allow_duplicate=True),
-               [Input('load-line-btn', 'n_clicks')],
-               [State('distance-unit-dd', 'value'), State('elevation-unit-dd', 'value'), State('unit-store', 'data')], prevent_initial_call=True)
-def capture_units_on_load(load_clicks, dist_unit, elev_unit, current):
-    if not load_clicks:
-        raise dash.exceptions.PreventUpdate
-    return {'distance': dist_unit or 'mi', 'elevation': elev_unit or 'ft'}
 
 
 @dash.callback(Output('unit-store', 'data', allow_duplicate=True),

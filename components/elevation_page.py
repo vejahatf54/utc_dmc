@@ -583,8 +583,18 @@ def create_elevation_page():
             
             # Features Panel (30%, collapsible)
             html.Div(id='features-panel', className='features-panel', children=[
-                html.Div(className='panel-header', children=[
-                    html.Span("Features"),
+                html.Div(className='panel-header', style={
+                    'display': 'flex !important', 
+                    'justifyContent': 'space-between !important', 
+                    'alignItems': 'center !important', 
+                    'gridTemplateColumns': 'none !important'
+                }, children=[
+                    dmc.Button([
+                        BootstrapIcon(
+                            icon="plus", width=16, height=16),
+                        html.Span("Add Selected Features", style={
+                                  'marginLeft': '6px'})
+                    ], id='add-valves-btn', className='features-panel-button', variant="outline", size="sm", style={'margin': '0', 'padding': '4px 6px', 'width': 'fit-content', 'whiteSpace': 'nowrap'}),
                     html.Button(
                         BootstrapIcon(icon="chevron-right", width=16, height=16),
                         id='features-collapse-btn',
@@ -593,29 +603,19 @@ def create_elevation_page():
                     )
                 ]),
                 html.Div(className='panel-content', children=[
-                    dmc.Stack([
-                        dmc.Group([
-                            dmc.Button([
-                                BootstrapIcon(
-                                    icon="plus", width=16, height=16),
-                                html.Span("Add Selected Features", style={
-                                          'marginLeft': '8px'})
-                            ], id='add-valves-btn', variant="outline", size="sm")
-                        ], gap="sm", style={'marginTop': '12px', 'marginLeft': '12px'}),
-                        dcc.Loading(
-                            id='results-loading', type='default',
-                            children=dag.AgGrid(
-                                id='results-grid', className='ag-theme-alpine', rowData=[], columnDefs=[],
-                                defaultColDef={
-                                    'sortable': False, 'filter': True, 'resizable': True, 'editable': True},
-                                filterModel={}, columnSize='sizeToFit',
-                                dashGridOptions={'rowHeight': 24, 'headerHeight': 28, 'enableCellTextSelection': True,
-                                                 'ensureDomOrder': True, 'pagination': True, 'paginationPageSize': 10,
-                                                 'rowSelection': 'multiple', 'suppressRowClickSelection': True}
-                            ),
-                            style={'height': '100%', 'minHeight': 0}
-                        )
-                    ], gap="sm", style={'height': '100%', 'minHeight': 0})
+                    dcc.Loading(
+                        id='results-loading', type='default',
+                        children=dag.AgGrid(
+                            id='results-grid', className='ag-theme-alpine', rowData=[], columnDefs=[],
+                            defaultColDef={
+                                'sortable': False, 'filter': True, 'resizable': True, 'editable': True},
+                            filterModel={}, columnSize='sizeToFit',
+                            dashGridOptions={'rowHeight': 24, 'headerHeight': 28, 'enableCellTextSelection': True,
+                                             'ensureDomOrder': True, 'pagination': True, 'paginationPageSize': 40,
+                                             'rowSelection': 'multiple', 'suppressRowClickSelection': True}
+                        ),
+                        style={'height': '100%', 'minHeight': 0}
+                    )
                 ])
             ])
         ])

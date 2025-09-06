@@ -784,7 +784,6 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
     try:
         # Get template from theme data, default to mantine_light
         template = theme_data.get('template', 'mantine_light') if theme_data else 'mantine_light'
-        print(f"DEBUG: Theme data received: {theme_data}, Using template: {template}")
 
         # Unit helpers
         dist_unit = ((unit_data or {}).get('dist') or 'mi')

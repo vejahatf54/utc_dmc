@@ -786,8 +786,8 @@ def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_valu
         template = theme_data.get('template', 'mantine_light') if theme_data else 'mantine_light'
 
         # Unit helpers
-        dist_unit = ((unit_data or {}).get('dist') or 'mi')
-        elev_unit = ((unit_data or {}).get('elev') or 'ft')
+        dist_unit = ((unit_data or {}).get('distance') or 'mi')
+        elev_unit = ((unit_data or {}).get('elevation') or 'ft')
         dist_label = {'m': 'meters', 'km': 'kilometers',
                       'mi': 'miles'}.get(dist_unit, 'miles')
         elev_label = {'m': 'm', 'ft': 'ft'}.get(elev_unit, 'ft')
@@ -926,6 +926,27 @@ def capture_units_on_load(load_clicks, dist_unit, elev_unit, current):
     if not load_clicks:
         raise dash.exceptions.PreventUpdate
     return {'distance': dist_unit or 'mi', 'elevation': elev_unit or 'ft'}
+
+
+@dash.callback(Output('unit-store', 'data', allow_duplicate=True),
+               [Input('distance-unit-dd', 'value'), Input('elevation-unit-dd', 'value')],
+               [State('unit-store', 'data')], prevent_initial_call=True)
+def update_units_on_change(dist_unit, elev_unit, current_units):
+    """Update unit store when distance or elevation unit dropdown changes"""
+    if dist_unit is None and elev_unit is None:
+        raise dash.exceptions.PreventUpdate
+    
+    # Get current units or use defaults
+    current_units = current_units or {'distance': 'mi', 'elevation': 'ft'}
+    
+    # Update the changed unit(s)
+    updated_units = current_units.copy()
+    if dist_unit is not None:
+        updated_units['distance'] = dist_unit
+    if elev_unit is not None:
+        updated_units['elevation'] = elev_unit
+        
+    return updated_units
 
 
 # Manage valve state: reset when data/grid changes; set added when button clicked
@@ -1153,8 +1174,8 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
         dark_mode = template == 'mantine_dark'
 
         # Unit helpers
-        dist_unit = ((unit_data or {}).get('dist') or 'mi')
-        elev_unit = ((unit_data or {}).get('elev') or 'ft')
+        dist_unit = ((unit_data or {}).get('distance') or 'mi')
+        elev_unit = ((unit_data or {}).get('elevation') or 'ft')
         dist_label = {'m': 'meters', 'km': 'kilometers',
                       'mi': 'miles'}.get(dist_unit, 'miles')
         elev_label = {'m': 'm', 'ft': 'ft'}.get(elev_unit, 'ft')
@@ -2076,11 +2097,11 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
     [Output('results-grid', 'rowData'), Output('results-grid', 'columnDefs'),
      Output('results-grid', 'filterModel'), Output('results-grid', 'columnSize'),
      Output('graph-data-store', 'data')],
-    [Input('load-line-btn', 'n_clicks')],
+    [Input('load-line-btn', 'n_clicks'), Input('unit-store', 'data')],
     [State('line-dropdown', 'value'), State('results-grid', 'rowData'), State('graph-data-store', 'data'),
-     State('distance-unit-dd', 'value'), State('unit-store', 'data')]
+     State('distance-unit-dd', 'value')]
 )
-def update_results_grid(load_clicks, line_value, current_rows, full_store_rows, dd_dist_unit, unit_data):
+def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_store_rows, dd_dist_unit):
     try:
         ctx = dash.callback_context
         trig = ctx.triggered[0]['prop_id'].split(
@@ -2196,7 +2217,7 @@ def update_results_grid(load_clicks, line_value, current_rows, full_store_rows, 
         if trig == 'load-line-btn':
             dist_unit = (dd_dist_unit or 'mi')
         else:
-            dist_unit = ((unit_data or {}).get('dist') or 'mi')
+            dist_unit = ((unit_data or {}).get('distance') or 'mi')
 
         # Apply unit conversions to Distance column
         if dist_unit == 'km':

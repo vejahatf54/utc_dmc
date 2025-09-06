@@ -5,13 +5,16 @@
     gap: 16px !important;
     height: 70vh !important;
     width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
     transition: all 0.3s ease !important;
 }
 
-/* Elevation profile panel - 70% width, expandable to 100% */
+/* Elevation profile panel - flex-grow with calculated width to account for gap */
 .elevation-panel {
-    flex: 0 0 70% !important;
-    max-width: 70% !important;
+    flex: 1 1 calc(70% - 11px) !important;
+    max-width: calc(70% - 11px) !important;
     min-width: 0 !important;
     background: var(--mantine-color-body) !important;
     border: 1px solid var(--mantine-color-gray-3) !important;
@@ -19,20 +22,20 @@
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
-    transition: flex-basis 0.3s ease !important;
+    box-sizing: border-box !important;
+    transition: all 0.3s ease !important;
 }
 
-/* When features panel is collapsed, elevation panel takes full width --- */
+/* When features panel is collapsed, elevation panel takes almost full width */
 .elevation-panel.expanded {
-    flex: 0 0 97% !important;
-    max-width: 97% !important;
+    flex: 1 1 calc(100% - 56px) !important;
+    max-width: calc(100% - 56px) !important;
 }
 
-/* Features panel - 30% width, collapsible to the right */
-
+/* Features panel - flex-shrink with calculated width to account for gap */
 .features-panel {
-    flex: 0 0 30% !important;
-    max-width: 30% !important;
+    flex: 0 0 calc(30% - 5px) !important;
+    max-width: calc(30% - 5px) !important;
     min-width: 0 !important;
     background: var(--mantine-color-body) !important;
     border: 1px solid var(--mantine-color-gray-3) !important;
@@ -40,15 +43,16 @@
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
+    box-sizing: border-box !important;
     transition: all 0.3s ease !important;
     position: relative !important;
 }
 
 /* When features panel is collapsed */
 .features-panel.collapsed {
-    flex: 0 0 3% !important;
-    min-width: 32px !important;
-    max-width: 60px !important;
+    flex: 0 0 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
     border-width: 0 !important;
     opacity: 0.7 !important;
     transform: translateX(0%) !important;

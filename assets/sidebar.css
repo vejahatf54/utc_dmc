@@ -149,6 +149,8 @@
   background: var(--mantine-color-gray-0);
   max-height: calc(100vh - 32px);
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 /* Enhanced card hover effects */

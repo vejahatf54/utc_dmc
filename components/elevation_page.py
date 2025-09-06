@@ -478,7 +478,7 @@ def create_elevation_page():
                         ], gap="xs")
                     ], p="xs")
                 ], shadow="sm", h="100%")
-            ], id='right-controls-col', span=1, style={'display': 'none'}),
+            ], id='right-controls-col', span=2, style={'display': 'none'}),
             # MBS File Upload Card
             dmc.GridCol([
                 dmc.Card([
@@ -535,7 +535,7 @@ def create_elevation_page():
                         ], gap="xs")
                     ], p="xs")
                 ], shadow="sm", h="100%")
-            ], id='mbs-controls-col', span=4, style={'display': 'none'}),
+            ], id='mbs-controls-col', span=3, style={'display': 'none'}),
             # Actions card (Save + Units combined inline)
             dmc.GridCol([
                 dmc.Card([
@@ -554,7 +554,7 @@ def create_elevation_page():
                         ], gap="xs")
                     ], p="xs")
                 ], shadow="sm", h="100%")
-            ], id='actions-controls-col', span=3, style={'display': 'none'}),
+            ], id='actions-controls-col', span=2, style={'display': 'none'}),
         ], gutter="md", align="stretch"),
 
         dmc.Space(h="lg"),
@@ -1165,6 +1165,17 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
             trig_id = ctx.triggered[0]['prop_id'].split('.')[0]
             if trig_id == 'valve-state-store' and not (isinstance(valve_state, dict) and valve_state.get('added')):
                 return dash.no_update, dash.no_update, dash.no_update, (DARK_CLASS if dark_mode else LIGHT_CLASS)
+            
+            # Guard: ignore MBS data changes when only directory selection (ready_to_load) changes
+            # Only trigger on actual load/unload operations
+            if trig_id == 'mbs-data-store':
+                if isinstance(mbs_data, dict):
+                    # Only update if profile is actually loaded or unloaded
+                    is_loaded = mbs_data.get('loaded', False)
+                    ready_to_load = mbs_data.get('ready_to_load', False)
+                    # If only ready_to_load is set but not loaded, don't update graph
+                    if ready_to_load and not is_loaded:
+                        return dash.no_update, dash.no_update, dash.no_update, (DARK_CLASS if dark_mode else LIGHT_CLASS)
 
         # Early exit if no data
         if not grid_rows and not cached_rows:

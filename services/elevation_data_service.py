@@ -51,10 +51,13 @@ def extract_elevation_profile(folder_path: str) -> Optional[pd.DataFrame]:
         if not os.path.isdir(folder_path):
             raise ServiceError(f"Path is not a directory: {folder_path}")
         
+        # Normalize the folder path to use OS-appropriate separators
+        normalized_folder_path = os.path.normpath(folder_path)
+        
         # Step 1: Try to find l*.inprep
         inprep_file = None
         try:
-            folder_contents = os.listdir(folder_path)
+            folder_contents = os.listdir(normalized_folder_path)
             service_logger.debug(f"Folder contains {len(folder_contents)} files")
             
             for f in folder_contents:
@@ -69,13 +72,13 @@ def extract_elevation_profile(folder_path: str) -> Optional[pd.DataFrame]:
             raise ServiceError(f"Cannot access folder contents: {e}") from e
 
         # Step 2: Define output text file
-        inprep_txt = os.path.join(folder_path, "inprep.txt")
+        inprep_txt = os.path.join(normalized_folder_path, "inprep.txt")
 
         # Step 3: Generate inprep.txt if needed
         if inprep_file:
             service_logger.info(f"Running demac to generate inprep.txt from {inprep_file}")
             try:
-                result = os.system(f'cd "{folder_path}" && demac {inprep_file} inprep.txt')
+                result = os.system(f'cd "{normalized_folder_path}" && demac {inprep_file} inprep.txt')
                 if result != 0:
                     service_logger.warning(f"demac command returned non-zero exit code: {result}")
             except Exception as e:

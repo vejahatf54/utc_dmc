@@ -1490,24 +1490,32 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
                 ) - df_current['Elevation'].min() or 1.0)
 
                 # Determine visual size scale for SVG icons
+                # Base sizing that adapts to zoom level by using smaller relative sizes
                 if n_features > 300:
-                    frac_y, frac_x = 0.030, 0.008
+                    frac_y, frac_x = 0.025, 0.006  # Reduced from 0.030, 0.008
                 elif n_features > 150:
-                    frac_y, frac_x = 0.042, 0.011
+                    frac_y, frac_x = 0.035, 0.009  # Reduced from 0.042, 0.011
                 elif n_features > 60:
-                    frac_y, frac_x = 0.054, 0.014
+                    frac_y, frac_x = 0.045, 0.012  # Reduced from 0.054, 0.014
                 else:
-                    frac_y, frac_x = 0.070, 0.018
+                    frac_y, frac_x = 0.058, 0.015  # Reduced from 0.070, 0.018
 
                 _valve_icon_scale = 1.75
-                _station_icon_scale = 2.5  # Make stations larger than valves
-                sizey = max(y_range * frac_y * _valve_icon_scale, 1e-9)
-                sizex = max(x_range * frac_x * _valve_icon_scale, 1e-9)
-                # Station sizing - larger than valve icons
-                station_sizey = max(y_range * frac_y *
-                                    _station_icon_scale, 1e-9)
-                station_sizex = max(x_range * frac_x *
-                                    _station_icon_scale, 1e-9)
+                _station_icon_scale = 1.8  # Reduce station size (was 2.5)
+                _divider_icon_scale = 1.0   # Make dividers even smaller for subtlety
+                
+                # Use more conservative sizing to improve zoom behavior
+                base_sizey = max(y_range * frac_y, 1e-9)
+                base_sizex = max(x_range * frac_x, 1e-9)
+                
+                sizey = base_sizey * _valve_icon_scale
+                sizex = base_sizex * _valve_icon_scale
+                # Station sizing - slightly larger than valve icons but not too big
+                station_sizey = base_sizey * _station_icon_scale
+                station_sizex = base_sizex * _station_icon_scale
+                # Divider sizing - smaller and more subtle
+                divider_sizey = base_sizey * _divider_icon_scale
+                divider_sizex = base_sizex * _divider_icon_scale
 
                 # Build layout images for valves and stations
                 layout_images = list(
@@ -1575,7 +1583,7 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
                         source='/assets/divider.svg',
                         xref='x', yref='y',
                         x=float(mp), y=float(elev),
-                        sizex=sizex, sizey=sizey,
+                        sizex=divider_sizex, sizey=divider_sizey,
                         xanchor='center', yanchor='middle',
                         sizing='contain', layer='above', opacity=0.95
                     ))

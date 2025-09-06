@@ -2127,7 +2127,7 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
                 if not df_api.empty:
                     # Map the repository columns to UI expected columns (matching working repository logic)
                     df = pd.DataFrame({
-                        'DistanceMeters': pd.to_numeric(df_api.get('CorrectedMilepost'), errors='coerce'),
+                        'DistanceMeters': pd.to_numeric(df_api.get('CorrectedMilepost'), errors='coerce').round(5),
                         'ElevationMeters': pd.to_numeric(df_api.get('ILIElevationMeters'), errors='coerce'),
                         'Features': df_api.get('Features').astype(object) if 'Features' in df_api.columns else pd.Series([''] * len(df_api)),
                         'Station': df_api.get('Station').astype(object) if 'Station' in df_api.columns else pd.Series([''] * len(df_api)),
@@ -2149,7 +2149,7 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
                         def _clean_features(val):
                             if pd.isna(val):
                                 return ''
-                            s = str(val)
+                            s = str(val).strip()
                             s_up = s.upper()
                             if ('CHECK' in s_up) and ('VALVE' in s_up):
                                 return 'CHECK VALVE'
@@ -2169,7 +2169,7 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
                             _clean_features).astype(object)
                     if 'Station' in df.columns:
                         df['Station'] = df['Station'].where(
-                            ~pd.isna(df['Station']), '').astype(object)
+                            ~pd.isna(df['Station']), '').astype(str).str.strip().astype(object)
                     # Save to cache
                     try:
                         _profile_cache[line_key] = df.copy()
@@ -2212,7 +2212,9 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
 
         df_grid = df_grid.copy()
         if 'Features' in df_grid.columns:
-            df_grid['Features'] = df_grid['Features'].astype(object)
+            df_grid['Features'] = df_grid['Features'].astype(str).str.strip().astype(object)
+        if 'Station' in df_grid.columns:
+            df_grid['Station'] = df_grid['Station'].astype(str).str.strip().astype(object)
 
         if trig == 'load-line-btn':
             dist_unit = (dd_dist_unit or 'mi')
@@ -2222,15 +2224,15 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
         # Apply unit conversions to Distance column
         if dist_unit == 'km':
             df_grid['DistanceMeter'] = pd.to_numeric(
-                df_grid['DistanceMeters'], errors='coerce') / 1000.0
+                df_grid['DistanceMeters'], errors='coerce').div(1000.0).round(5)
             dist_hdr = 'Distance (km)'
         elif dist_unit == 'mi':
             df_grid['DistanceMeter'] = pd.to_numeric(
-                df_grid['DistanceMeters'], errors='coerce') * 0.000621371
+                df_grid['DistanceMeters'], errors='coerce').mul(0.000621371).round(5)
             dist_hdr = 'Distance (mi)'
         else:
             df_grid['DistanceMeter'] = pd.to_numeric(
-                df_grid['DistanceMeters'], errors='coerce')
+                df_grid['DistanceMeters'], errors='coerce').round(5)
             dist_hdr = 'Distance (m)'
 
         row_data = df_grid.to_dict('records')
@@ -2247,7 +2249,8 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
             'pinned': 'left',
             'lockPosition': True,
             'suppressAutoSize': False,
-            'minWidth': 90,
+            'minWidth': 80,
+            'width': 80,
             'cellClass': 'include-col',
             'headerClass': 'include-col-header',
             'cellStyle': {
@@ -2264,7 +2267,9 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
             'type': 'rightAligned',
             'filter': 'agNumberColumnFilter',
             'valueFormatter': {'function': 'return (value == null || isNaN(value) ? "" : Number(value).toFixed(3));'},
-            'minWidth': 160,
+            'minWidth': 120,
+            'width': 140,
+            'resizable': True,
             'editable': True
         }
         station_col = {
@@ -2272,16 +2277,16 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
             'field': 'Station',
             'filter': 'agTextColumnFilter',
             'editable': True,
-            'minWidth': 160,
-            'width': 200,
+            'minWidth': 120,
+            'width': 140,
             'resizable': True
         }
         features_col = {
             'headerName': 'Features',
             'field': 'Features',
             'filter': 'agTextColumnFilter',
-            'minWidth': 200,
-            'width': 250,
+            'minWidth': 140,
+            'width': 160,
             'resizable': True
         }
         # Column order: Include, Distance, Station, Features

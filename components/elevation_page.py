@@ -390,6 +390,67 @@ def create_elevation_page():
             dmc.Space(h="md"),
         ]),  # Close the dmc.Stack
 
+        # Help Modal
+        dmc.Modal(
+            title="How It Works",
+            id="elevation-help-modal",
+            children=[
+                dmc.Stack([
+                    dmc.Group([
+                        BootstrapIcon(icon="info-circle", width=20),
+                        dmc.Text("Ramer-Douglas-Peucker Algorithm", fw=500)
+                    ], gap="xs"),
+                    dmc.Text([
+                        "The Ramer-Douglas-Peucker algorithm is a line simplification algorithm that reduces the number of points ",
+                        "in a curve while preserving its essential shape. It works by recursively finding the point with the ",
+                        "maximum distance from the line segment between the start and end points."
+                    ], size="sm", c="dimmed"),
+                    
+                    dmc.Divider(),
+                    
+                    dmc.Group([
+                        BootstrapIcon(icon="gear", width=20),
+                        dmc.Text("Parameters", fw=500)
+                    ], gap="xs"),
+                    dmc.Text([
+                        "• ", dmc.Text("Max Vertical Deviation (ε):", fw=500, span=True), " The tolerance value that determines how much ",
+                        "deviation from the original line is acceptable. Smaller values preserve more detail, while larger values ",
+                        "result in greater simplification."
+                    ], size="sm", c="dimmed"),
+                    
+                    dmc.Divider(),
+                    
+                    dmc.Group([
+                        BootstrapIcon(icon="graph-up", width=20),
+                        dmc.Text("Features", fw=500)
+                    ], gap="xs"),
+                    dmc.List([
+                        dmc.ListItem("Load elevation data for different pipeline lines"),
+                        dmc.ListItem("Apply point reduction with customizable tolerance"),
+                        dmc.ListItem("Compare original vs reduced profiles"),
+                        dmc.ListItem("Add valve and station markers from grid selection"),
+                        dmc.ListItem("Load external MBS profile data for comparison"),
+                        dmc.ListItem("Export reduced data as CSV"),
+                        dmc.ListItem("Click on graph points to view location in ArcGIS")
+                    ], size="sm", c="dimmed"),
+                    
+                    dmc.Divider(),
+                    
+                    dmc.Group([
+                        BootstrapIcon(icon="lightbulb", width=20),
+                        dmc.Text("Tips", fw=500)
+                    ], gap="xs"),
+                    dmc.List([
+                        dmc.ListItem("Start with a tolerance of 0.1 and adjust based on your needs"),
+                        dmc.ListItem("Check the deviation statistics to understand the quality of reduction"),
+                        dmc.ListItem("Use the grid to select specific points for feature marking"),
+                        dmc.ListItem("Switch between different distance and elevation units as needed")
+                    ], size="sm", c="dimmed")
+                ], gap="md")
+            ],
+            size="lg"
+        ),
+
         dmc.Grid([
             # Data selection card (Line only)
             dmc.GridCol([
@@ -637,6 +698,18 @@ def create_elevation_page():
 # ---------------------------
 # Callbacks (features collapse + main logic)
 # ---------------------------
+
+# Help Modal Callback
+@dash.callback(
+    Output("elevation-help-modal", "opened"),
+    Input("elevation-help-modal-btn", "n_clicks"),
+    State("elevation-help-modal", "opened"),
+    prevent_initial_call=True,
+)
+def toggle_elevation_help_modal(n_clicks, opened):
+    """Toggle the elevation help modal."""
+    return not opened
+
 
 @dash.callback(
     [Output('features-panel', 'className'),

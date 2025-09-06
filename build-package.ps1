@@ -130,8 +130,7 @@ function Test-Environment {
         @{name = "dash"; import = "dash" },
         @{name = "dash-mantine-components"; import = "dash_mantine_components" },
         @{name = "dash-ag-grid"; import = "dash_ag_grid" },
-        @{name = "pandas"; import = "pandas" },
-        @{name = "watchdog"; import = "watchdog" }
+        @{name = "pandas"; import = "pandas" }
     )
     
     foreach ($package in $requiredPackages) {

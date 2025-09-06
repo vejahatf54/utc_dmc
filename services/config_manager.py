@@ -62,15 +62,15 @@ class ConfigManager:
         self.config_file_path = Path(config_file_path)
         self._config: Dict[str, Any] = {}
         self._lock = threading.RLock()
-        self._observers = None
+        self._observer = None
         self._reload_callbacks: list[Callable] = []
         self._last_modified = None
         
         # Load initial configuration
         self._load_config()
         
-        # Start file watcher for hot reload
-        self._start_file_watcher()
+        # Start file watcher for hot reload - DISABLED to prevent page reloads
+        # self._start_file_watcher()
     
     def _load_config(self) -> bool:
         """

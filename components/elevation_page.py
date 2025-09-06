@@ -343,8 +343,6 @@ def create_elevation_page():
         dcc.Store(id='features-collapse-store', data={'collapsed': False}),
         dcc.Store(id='directory-store-mbs-profile', data={'path': ''}),
         # Remove local theme store - use global plotly-theme-store instead
-        dcc.Interval(id='init-interval', interval=300,
-                     n_intervals=0, max_intervals=1),
         dcc.Store(id='valve-state-store', data={'added': False}),
         html.Div(
             id='splash-overlay',
@@ -673,11 +671,10 @@ def update_collapse_store(n_clicks, collapse_data):
      Output('line-dropdown', 'disabled'),
      Output('init-store', 'data'),
      Output('splash-overlay', 'style')],
-    [Input('init-interval', 'n_intervals')],
-    [State('init-store', 'data')],
+    [Input('init-store', 'data')],
     prevent_initial_call=False
 )
-def initialize_page(n_intervals, init_data):
+def initialize_page(init_data):
     """Initialize the page by loading pipeline lines and hiding splash screen"""
     if init_data and init_data.get('ready'):
         return dash.no_update, dash.no_update, dash.no_update, {'display': 'none'}
@@ -702,7 +699,7 @@ def initialize_page(n_intervals, init_data):
      Output('mbs-controls-col', 'style'),
      Output('actions-controls-col', 'style')],
     [Input('line-dropdown', 'value')],
-    prevent_initial_call=False
+    prevent_initial_call=True
 )
 def handle_line_selection(line_value):
     """Enable controls when a line is selected"""
@@ -714,7 +711,6 @@ def handle_line_selection(line_value):
 
 @dash.callback(
     [Output('results-grid', 'rowData', allow_duplicate=True),
-     Output('results-grid', 'columnDefs', allow_duplicate=True),
      Output('graph-data-store', 'data', allow_duplicate=True),
      Output('unit-store', 'data')],
     [Input('load-line-btn', 'n_clicks')],
@@ -726,7 +722,7 @@ def handle_line_selection(line_value):
 def load_elevation_data(load_clicks, line_value, dist_unit, elev_unit):
     """Load elevation data for the selected pipeline line"""
     if not load_clicks or not line_value:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update
 
     try:
         onesource_service = get_onesource_service()
@@ -734,182 +730,162 @@ def load_elevation_data(load_clicks, line_value, dist_unit, elev_unit):
 
         if df is not None and not df.empty:
             # Prepare data for grid display
-            column_defs = [
-                {"headerName": "Girth Weld",
-                    "field": "GirthWeldAddress", "sortable": True},
-                {"headerName": "Hydro MP", "field": "HydroMilePost",
-                    "type": "numericColumn", "sortable": True},
-                {"headerName": "Corrected MP", "field": "CorrectedMilepost",
-                    "type": "numericColumn", "sortable": True},
-                {"headerName": "Elevation (m)", "field": "ILIElevationMeters",
-                 "type": "numericColumn", "sortable": True},
-                {"headerName": "Latitude", "field": "ILILatitude",
-                    "type": "numericColumn"},
-                {"headerName": "Longitude", "field": "ILILongitude",
-                    "type": "numericColumn"},
-                {"headerName": "Wall Thickness (mm)",
-                 "field": "NominalWallThicknessMillimeters", "type": "numericColumn"},
-                {"headerName": "Pipe Size (in)", "field": "NominalPipeSizeInches",
-                 "type": "numericColumn"},
-                {"headerName": "Station", "field": "Station"},
-                {"headerName": "Features", "field": "Features"},
-            ]
-
             row_data = df.to_dict('records')
             unit_data = {'dist': dist_unit, 'elev': elev_unit}
 
-            return row_data, column_defs, row_data, unit_data
+            return row_data, row_data, unit_data
         else:
-            return [], [], [], {'dist': dist_unit, 'elev': elev_unit}
+            return [], [], {'dist': dist_unit, 'elev': elev_unit}
 
     except Exception as e:
         print(f"ERROR in load_elevation_data: {e}")
         import traceback
         traceback.print_exc()
-        return [], [], [], {'dist': dist_unit, 'elev': elev_unit}
+        return [], [], {'dist': dist_unit, 'elev': elev_unit}
 
 
-@dash.callback(
-    [Output('comparison-graph', 'figure', allow_duplicate=True),
-     Output('graph-stats', 'children', allow_duplicate=True)],
-    [Input('reduce-btn', 'n_clicks'),
-     Input('graph-data-store', 'data'),
-     Input('unit-store', 'data'),
-     Input('plotly-theme-store', 'data')],
-    [State('epsilon-input', 'value')],
-    prevent_initial_call=True
-)
-def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_value):
-    """Update the elevation graph with original and reduced data"""
-    try:
-        # Get template from theme data, default to mantine_light
-        template = theme_data.get('template', 'mantine_light') if theme_data else 'mantine_light'
-
-        # Unit helpers
-        dist_unit = ((unit_data or {}).get('distance') or 'mi')
-        elev_unit = ((unit_data or {}).get('elevation') or 'ft')
-        dist_label = {'m': 'meters', 'km': 'kilometers',
-                      'mi': 'miles'}.get(dist_unit, 'miles')
-        elev_label = {'m': 'm', 'ft': 'ft'}.get(elev_unit, 'ft')
-        DIST_FACTOR = {'m': 1.0, 'km': 0.001,
-                       'mi': 0.000621371}.get(dist_unit, 0.000621371)
-        ELEV_FACTOR = {'m': 1.0, 'ft': 3.28084}.get(elev_unit, 3.28084)
-
-        # Early exit if no data
-        if not cached_rows:
-            empty_fig = go.Figure()
-            empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
-                                    xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
-            stats = dmc.Group([
-                dmc.Badge("Input Points: 0", color="blue", variant="dot"),
-                dmc.Badge("Output Points: 0", color="green", variant="dot"),
-            ], gap="sm")
-            return empty_fig, stats
-
-        # Build dataframe
-        df_current = pd.DataFrame(cached_rows)
-        if df_current.empty:
-            empty_fig = go.Figure()
-            empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
-                                    xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
-            stats = dmc.Group([
-                dmc.Badge("Input Points: 0", color="blue", variant="dot"),
-                dmc.Badge("Output Points: 0", color="green", variant="dot"),
-            ], gap="sm", justify="center")
-            return empty_fig, stats
-
-        # Convert distance and elevation columns using the working field names
-        if 'CorrectedMilepost' in df_current.columns:
-            df_current['DistanceMeters'] = pd.to_numeric(
-                df_current['CorrectedMilepost'], errors='coerce') / DIST_FACTOR
-        elif 'HydroMilePost' in df_current.columns:
-            df_current['DistanceMeters'] = pd.to_numeric(
-                df_current['HydroMilePost'], errors='coerce') / DIST_FACTOR
-
-        if 'ILIElevationMeters' in df_current.columns:
-            df_current['ElevationMeters'] = pd.to_numeric(
-                df_current['ILIElevationMeters'], errors='coerce')
-
-        # Clean data
-        required_cols = ['DistanceMeters', 'ElevationMeters']
-        if not all(col in df_current.columns for col in required_cols):
-            empty_fig = go.Figure()
-            empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
-                                    xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
-            stats = dmc.Group([
-                dmc.Badge("Data Error: Missing columns",
-                          color="red", variant="dot"),
-            ], gap="sm", justify="center")
-            return empty_fig, stats
-
-        df_current = df_current.dropna(
-            subset=required_cols).reset_index(drop=True)
-        if df_current.empty:
-            empty_fig = go.Figure()
-            empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
-                                    xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
-            stats = dmc.Group([
-                dmc.Badge("No valid data", color="red", variant="dot"),
-            ], gap="sm", justify="center")
-            return empty_fig, stats
-
-        # Apply unit conversions for plotting
-        df_current['Milepost'] = df_current['DistanceMeters'] * DIST_FACTOR
-        df_current['Elevation'] = df_current['ElevationMeters'] * ELEV_FACTOR
-        df_current = df_current.sort_values(
-            'DistanceMeters', kind='stable').reset_index(drop=True)
-
-        # Create figure
-        fig = go.Figure()
-        fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
-                          xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
-
-        # Add original data trace
-        fig.add_trace(go.Scatter(
-            x=df_current['Milepost'],
-            y=df_current['Elevation'],
-            mode='lines',
-            name='Original',
-            line=dict(width=1)
-        ))
-
-        # Add reduced data trace if reduce button was clicked
-        reduced_points = len(df_current)
-        if reduce_clicks and reduce_clicks > 0 and epsilon_value:
-            try:
-                reduced_df, flags = simplify_dataframe_rdp(
-                    df_current, epsilon_value)
-                if not reduced_df.empty:
-                    fig.add_trace(go.Scatter(
-                        x=reduced_df['Milepost'],
-                        y=reduced_df['Elevation'],
-                        mode='lines',
-                        name='Reduced',
-                        line=dict(width=2)
-                    ))
-                    reduced_points = len(reduced_df)
-            except Exception as e:
-                print(f"Error in RDP simplification: {e}")
-
-        # Update stats
-        stats = dmc.Group([
-            dmc.Badge(f"Input Points: {len(df_current)}",
-                      color="blue", variant="dot"),
-            dmc.Badge(f"Output Points: {reduced_points}",
-                      color="green", variant="dot"),
-        ], gap="sm", justify="center")
-
-        return fig, stats
-
-    except Exception as e:
-        print(f"Error in update_graph: {e}")
-        import traceback
-        traceback.print_exc()
-        empty_fig = go.Figure()
-        stats = dmc.Group([
-            dmc.Badge("Error loading graph", color="red", variant="dot"),
-        ], gap="sm", justify="center")
-        return empty_fig, stats
+# Disabled - functionality moved to main callback to fix Load Data issue
+# @dash.callback(
+#     [Output('comparison-graph', 'figure', allow_duplicate=True),
+#      Output('graph-stats', 'children', allow_duplicate=True)],
+#     [Input('reduce-btn', 'n_clicks'),
+#      Input('graph-data-store', 'data'),
+#      Input('unit-store', 'data'),
+#      Input('plotly-theme-store', 'data')],
+#     [State('epsilon-input', 'value')],
+#     prevent_initial_call=True
+# )
+# def update_graph(reduce_clicks, cached_rows, unit_data, theme_data, epsilon_value):
+#     """Update the elevation graph with original and reduced data"""
+#     try:
+#         # Get template from theme data, default to mantine_light
+#         template = theme_data.get('template', 'mantine_light') if theme_data else 'mantine_light'
+#
+#         # Unit helpers
+#         dist_unit = ((unit_data or {}).get('distance') or 'mi')
+#         elev_unit = ((unit_data or {}).get('elevation') or 'ft')
+#         dist_label = {'m': 'meters', 'km': 'kilometers',
+#                       'mi': 'miles'}.get(dist_unit, 'miles')
+#         elev_label = {'m': 'm', 'ft': 'ft'}.get(elev_unit, 'ft')
+#         DIST_FACTOR = {'m': 1.0, 'km': 0.001,
+#                        'mi': 0.000621371}.get(dist_unit, 0.000621371)
+#         ELEV_FACTOR = {'m': 1.0, 'ft': 3.28084}.get(elev_unit, 3.28084)
+#
+#         # Early exit if no data
+#         if not cached_rows:
+#             empty_fig = go.Figure()
+#             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
+#                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
+#             stats = dmc.Group([
+#                 dmc.Badge("Input Points: 0", color="blue", variant="dot"),
+#                 dmc.Badge("Output Points: 0", color="green", variant="dot"),
+#             ], gap="sm")
+#             return empty_fig, stats
+#
+#         # Build dataframe
+#         df_current = pd.DataFrame(cached_rows)
+#         if df_current.empty:
+#             empty_fig = go.Figure()
+#             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
+#                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
+#             stats = dmc.Group([
+#                 dmc.Badge("Input Points: 0", color="blue", variant="dot"),
+#                 dmc.Badge("Output Points: 0", color="green", variant="dot"),
+#             ], gap="sm", justify="center")
+#             return empty_fig, stats
+#
+#         # Convert distance and elevation columns using the working field names
+#         if 'CorrectedMilepost' in df_current.columns:
+#             df_current['DistanceMeters'] = pd.to_numeric(
+#                 df_current['CorrectedMilepost'], errors='coerce') / DIST_FACTOR
+#         elif 'HydroMilePost' in df_current.columns:
+#             df_current['DistanceMeters'] = pd.to_numeric(
+#                 df_current['HydroMilePost'], errors='coerce') / DIST_FACTOR
+#
+#         if 'ILIElevationMeters' in df_current.columns:
+#             df_current['ElevationMeters'] = pd.to_numeric(
+#                 df_current['ILIElevationMeters'], errors='coerce')
+#
+#         # Clean data
+#         required_cols = ['DistanceMeters', 'ElevationMeters']
+#         if not all(col in df_current.columns for col in required_cols):
+#             empty_fig = go.Figure()
+#             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
+#                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
+#             stats = dmc.Group([
+#                 dmc.Badge("Data Error: Missing columns",
+#                           color="red", variant="dot"),
+#             ], gap="sm", justify="center")
+#             return empty_fig, stats
+#
+#         df_current = df_current.dropna(
+#             subset=required_cols).reset_index(drop=True)
+#         if df_current.empty:
+#             empty_fig = go.Figure()
+#             empty_fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
+#                                     xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
+#             stats = dmc.Group([
+#                 dmc.Badge("No valid data", color="red", variant="dot"),
+#             ], gap="sm", justify="center")
+#             return empty_fig, stats
+#
+#         # Apply unit conversions for plotting
+#         df_current['Milepost'] = df_current['DistanceMeters'] * DIST_FACTOR
+#         df_current['Elevation'] = df_current['ElevationMeters'] * ELEV_FACTOR
+#         df_current = df_current.sort_values(
+#             'DistanceMeters', kind='stable').reset_index(drop=True)
+#
+#         # Create figure
+#         fig = go.Figure()
+#         fig.update_layout(template=template, margin=dict(l=30, r=30, t=40, b=20),
+#                           xaxis_title=f'Distance ({dist_label})', yaxis_title=f'Elevation ({elev_label})')
+#
+#         # Add original data trace
+#         fig.add_trace(go.Scatter(
+#             x=df_current['Milepost'],
+#             y=df_current['Elevation'],
+#             mode='lines',
+#             name='Original',
+#             line=dict(width=1)
+#         ))
+#
+#         # Add reduced data trace if reduce button was clicked
+#         reduced_points = len(df_current)
+#         if reduce_clicks and reduce_clicks > 0 and epsilon_value:
+#             try:
+#                 reduced_df, flags = simplify_dataframe_rdp(
+#                     df_current, epsilon_value)
+#                 if not reduced_df.empty:
+#                     fig.add_trace(go.Scatter(
+#                         x=reduced_df['Milepost'],
+#                         y=reduced_df['Elevation'],
+#                         mode='lines',
+#                         name='Reduced',
+#                         line=dict(width=2)
+#                     ))
+#                     reduced_points = len(reduced_df)
+#             except Exception as e:
+#                 print(f"Error in RDP simplification: {e}")
+#
+#         # Update stats
+#         stats = dmc.Group([
+#             dmc.Badge(f"Input Points: {len(df_current)}",
+#                       color="blue", variant="dot"),
+#             dmc.Badge(f"Output Points: {reduced_points}",
+#                       color="green", variant="dot"),
+#         ], gap="sm", justify="center")
+#
+#         return fig, stats
+#
+#     except Exception as e:
+#         print(f"Error in update_graph: {e}")
+#         import traceback
+#         traceback.print_exc()
+#         empty_fig = go.Figure()
+#         stats = dmc.Group([
+#             dmc.Badge("Error loading graph", color="red", variant="dot"),
+#         ], gap="sm", justify="center")
+#         return empty_fig, stats
 
 
 # Enable Load Data button only when a line is selected
@@ -1155,6 +1131,7 @@ def handle_mbs_folder_input(directory_data, load_clicks, unload_clicks, current_
      Output('download-reduced-csv', 'data'),
      Output('page-container', 'className')],
     [Input('reduce-btn', 'n_clicks'),
+     Input('load-line-btn', 'n_clicks'),
      Input('save-btn', 'n_clicks'),
      Input('valve-state-store', 'data'),
      Input('mbs-data-store', 'data'),
@@ -1166,7 +1143,7 @@ def handle_mbs_folder_input(directory_data, load_clicks, unload_clicks, current_
      State('epsilon-input', 'value'),
      State('results-grid', 'selectedRows')]
 )
-def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_rows, unit_data, theme_data, grid_rows, relayout_data, eps_input, selected_rows):
+def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_data, cached_rows, unit_data, theme_data, grid_rows, relayout_data, eps_input, selected_rows):
     try:
         ctx = dash.callback_context
         # Get template from theme data, default to mantine_light
@@ -1434,6 +1411,12 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
         except Exception:
             pass
 
+        # Check what triggered this callback
+        triggered_id = None
+        if ctx and ctx.triggered:
+            triggered_id = ctx.triggered[0]['prop_id'].split('.')[0]
+
+        # Always perform RDP reduction (needed for save functionality and valve mask)
         reduced_df, flags = simplify_dataframe_rdp(
             df_current, epsilon=epsilon_abs, extra_keep_mask=mask_valves)
         top_devs = compute_top_n_deviations(df_current, flags, n=3)
@@ -1450,14 +1433,20 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
 
         fig = go.Figure()
         fig.update_layout(template=template)
+        
+        # Always add original trace
         fig.add_trace(go.Scatter(
             x=df_current['Milepost'], y=df_current['Elevation'],
             mode='lines', name='Original', line=dict(width=1)
         ))
-        fig.add_trace(go.Scatter(
-            x=reduced_df['Milepost'], y=reduced_df['Elevation'],
-            mode='lines', name='Reduced', line=dict(width=2)
-        ))
+        
+        # Show reduced trace if reduce button has been clicked (preserve state when loading new data)
+        show_reduced = reduce_clicks and reduce_clicks > 0
+        if show_reduced:
+            fig.add_trace(go.Scatter(
+                x=reduced_df['Milepost'], y=reduced_df['Elevation'],
+                mode='lines', name='Reduced', line=dict(width=2)
+            ))
 
         # Add MBS profile if available
         if isinstance(mbs_data, dict) and mbs_data.get('loaded'):
@@ -1689,7 +1678,8 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
             if divider_annos:
                 fig.update_layout(annotations=divider_annos)
 
-        if top_devs:
+        # Only show deviations when reduced profile is displayed
+        if top_devs and show_reduced:
             kept_idx = np.where(flags != 0)[0]
             # High-contrast colors per theme for top deviations
             if dark_mode:
@@ -1726,12 +1716,16 @@ def on_reduce_or_save(reduce_clicks, save_clicks, valve_state, mbs_data, cached_
                           dragmode='zoom')
         fig.update_layout(uirevision='elev-graph')
 
+        # Update stats based on what's being displayed
+        output_points = len(reduced_df) if show_reduced else len(df_current)
+        deviation_text = "Top 3 deviations: " + ', '.join(f"{dev:.4f} {elev_label}" for dev, _ in top_devs) if (top_devs and show_reduced) else "Top 3 deviations: —"
+        
         stats = dmc.Group([
             dmc.Badge(f"Input Points: {len(df_current)}",
                       color="blue", className="mx-1", variant="dot"),
-            dmc.Badge(f"Output Points: {len(reduced_df)}",
+            dmc.Badge(f"Output Points: {output_points}",
                       color="green", className="mx-1", variant="dot"),
-            dmc.Badge("Top 3 deviations: " + ', '.join(f"{dev:.4f} {elev_label}" for dev, _ in top_devs) if top_devs else "Top 3 deviations: —",
+            dmc.Badge(deviation_text,
                       color="yellow", className="mx-1", variant="dot"),
         ], className="mb-2", justify="center")
 

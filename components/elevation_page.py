@@ -302,7 +302,7 @@ layout = dmc.Container(
         dcc.Store(id='graph-data-store'),
         dcc.Store(id='mbs-data-store', data={}),
         dcc.Store(id='unit-store', data={'dist': 'mi', 'elev': 'ft'}),
-        dcc.Store(id='layout-toggle-store', data={'mode': 'stack'}),
+        dcc.Store(id='features-collapse-store', data={'collapsed': False}),
         # Remove local theme store - use global plotly-theme-store instead
         dcc.Interval(id='init-interval', interval=300,
                      n_intervals=0, max_intervals=1),
@@ -519,183 +519,109 @@ layout = dmc.Container(
 
         dmc.Space(h="lg"),
 
-        # Layout toggle affix component
-        dmc.Affix(
-            dmc.ButtonGroup([
-                dmc.Button(
-                    BootstrapIcon(icon="stack", width=16, height=16),
-                    id='stack-layout-btn', 
-                    variant='outline', 
-                    size='sm'
-                ),
-                dmc.Button(
-                    BootstrapIcon(icon="columns", width=16, height=16),
-                    id='sidebyside-layout-btn', 
-                    variant='outline', 
-                    size='sm'
-                )
+        html.Div(id='main-content-container', className='main-layout', children=[
+            # Elevation Profile Panel (80%)
+            html.Div(id='elevation-panel', className='elevation-panel', children=[
+                html.Div(className='panel-header', children=[
+                    html.Span("Elevation Profile"),
+                ]),
+                html.Div(className='panel-content', children=[
+                    dcc.Loading(
+                        id='graph-loading', type='default',
+                        children=dmc.Stack([
+                            dmc.Group(
+                                id='graph-stats', style={'padding': '6px 0', 'fontWeight': '600'}),
+                            dmc.Text("💡 Tip: Click on any point in the elevation profile to open its location in ArcGIS.",
+                                     c="dimmed", size="sm", style={'marginBottom': '8px'}),
+                            dcc.Graph(id='comparison-graph', config={'responsive': True})
+                        ], gap="xs", style={'height': '100%', 'minHeight': 0})
+                    )
+                ])
             ]),
-            position={"top": 60, "right": 300}
-        ),
-
-        html.Div(id='main-content-container', children=[
-            dmc.Accordion([
-                dmc.AccordionItem([
-                    dmc.AccordionControl("Elevation Profile"),
-                    dmc.AccordionPanel([
+            
+            # Features Panel (20%, collapsible)
+            html.Div(id='features-panel', className='features-panel', children=[
+                html.Div(className='panel-header', children=[
+                    html.Span("Features"),
+                    html.Button(
+                        BootstrapIcon(icon="chevron-right", width=16, height=16),
+                        id='features-collapse-btn',
+                        className='collapse-toggle',
+                        title='Collapse panel'
+                    )
+                ]),
+                html.Div(className='panel-content', children=[
+                    dmc.Stack([
+                        dmc.Group([
+                            dmc.Button([
+                                BootstrapIcon(
+                                    icon="plus", width=16, height=16),
+                                html.Span("Add Selected Features", style={
+                                          'marginLeft': '8px'})
+                            ], id='add-valves-btn', variant="outline", size="sm")
+                        ], gap="sm"),
                         dcc.Loading(
-                            id='graph-loading', type='default',
-                            children=dmc.Stack([
-                                dmc.Group(
-                                    id='graph-stats', style={'padding': '6px 0', 'fontWeight': '600'}),
-                                dmc.Text("💡 Tip: Click on any point in the elevation profile to open its location in ArcGIS.",
-                                         c="dimmed", size="sm", style={'marginBottom': '8px'}),
-                                dcc.Graph(id='comparison-graph', config={'responsive': True}, style={
-                                    'height': '30vh', 'width': '100%'})
-                            ], gap="xs")
+                            id='results-loading', type='default',
+                            children=dag.AgGrid(
+                                id='results-grid', className='ag-theme-alpine', rowData=[], columnDefs=[],
+                                defaultColDef={
+                                    'sortable': False, 'filter': True, 'resizable': True, 'editable': True},
+                                filterModel={}, columnSize='sizeToFit',
+                                dashGridOptions={'rowHeight': 24, 'headerHeight': 28, 'enableCellTextSelection': True,
+                                                 'ensureDomOrder': True, 'pagination': True, 'paginationPageSize': 10,
+                                                 'rowSelection': 'multiple', 'suppressRowClickSelection': True}
+                            ),
+                            style={'height': '100%', 'minHeight': 0}
                         )
-                    ])
-                ], value='item-1'),
-                dmc.AccordionItem([
-                    dmc.AccordionControl("Features"),
-                    dmc.AccordionPanel([
-                        dmc.Stack([
-                            dmc.Group([
-                                dmc.Button([
-                                    BootstrapIcon(
-                                        icon="plus", width=16, height=16),
-                                    html.Span("Add Selected Features to the profile", style={
-                                              'marginLeft': '8px'})
-                                ], id='add-valves-btn', variant="outline", size="sm")
-                            ], gap="sm"),
-                            dcc.Loading(
-                                id='results-loading', type='default',
-                                children=dag.AgGrid(
-                                    id='results-grid', className='ag-theme-alpine', rowData=[], columnDefs=[],
-                                    defaultColDef={
-                                        'sortable': False, 'filter': True, 'resizable': True, 'editable': True},
-                                    filterModel={}, columnSize='sizeToFit',
-                                    dashGridOptions={'rowHeight': 24, 'headerHeight': 28, 'enableCellTextSelection': True,
-                                                     'ensureDomOrder': True, 'pagination': True, 'paginationPageSize': 10,
-                                                     'rowSelection': 'multiple', 'suppressRowClickSelection': True},
-                                    # Increased grid height to better fill accordion space
-                                    style={'width': '100%', 'height': '35vh'}
-                                )
-                            )
-                        ], gap="sm")
-                    ])
-                ], value='item-2')
-            ], value=["item-1", "item-2"], multiple=True, id='main-accordion', style={'marginBottom': '16px'})
+                    ], gap="sm", style={'height': '100%', 'minHeight': 0})
+                ])
+            ])
         ])
     ]
 )
 
 
 # ---------------------------
-# Callbacks (layout toggle + dynamic sizing + main logic)
+# Callbacks (features collapse + main logic)
 # ---------------------------
 
 @dash.callback(
-    [Output('main-accordion', 'className'),
-     Output('layout-toggle-store', 'data'),
-     Output('stack-layout-btn', 'color'),
-     Output('stack-layout-btn', 'variant'),
-     Output('sidebyside-layout-btn', 'color'),
-     Output('sidebyside-layout-btn', 'variant')],
-    [Input('stack-layout-btn', 'n_clicks'),
-     Input('sidebyside-layout-btn', 'n_clicks')],
-    [State('layout-toggle-store', 'data'),
-     State('mantine-provider', 'theme')],
+    [Output('features-panel', 'className'),
+     Output('elevation-panel', 'className'),
+     Output('features-collapse-btn', 'children')],
+    [Input('features-collapse-btn', 'n_clicks')],
+    [State('features-collapse-store', 'data')],
     prevent_initial_call=True
 )
-def toggle_layout(stack_clicks, sidebyside_clicks, layout_data, theme):
-    """Handle layout toggle button clicks"""
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
-
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    current_mode = layout_data.get('mode', 'stack') if layout_data else 'stack'
+def toggle_features_panel(n_clicks, collapse_data):
+    """Handle features panel collapse/expand"""
+    if not n_clicks:
+        return dash.no_update, dash.no_update, dash.no_update
     
-    # Get primary color from theme, fallback to 'green' if not available
-    primary_color = theme.get('primaryColor', 'green') if theme else 'green'
-
-    if trigger_id == 'stack-layout-btn' and current_mode != 'stack':
-        return 'accordion', {'mode': 'stack'}, primary_color, 'filled', primary_color, 'outline'
-    elif trigger_id == 'sidebyside-layout-btn' and current_mode != 'sidebyside':
-        return 'accordion accordion-sidebyside', {'mode': 'sidebyside'}, primary_color, 'outline', primary_color, 'filled'
-    else:
-        # No change needed - return current state
-        if current_mode == 'stack':
-            return dash.no_update, dash.no_update, primary_color, 'filled', primary_color, 'outline'
-        else:
-            return dash.no_update, dash.no_update, primary_color, 'outline', primary_color, 'filled'
+    current_collapsed = collapse_data.get('collapsed', False) if collapse_data else False
+    new_collapsed = not current_collapsed
+    
+    # Update CSS classes and button icon
+    features_class = 'features-panel collapsed' if new_collapsed else 'features-panel'
+    elevation_class = 'elevation-panel expanded' if new_collapsed else 'elevation-panel'
+    # Chevron points left when collapsed, right when open
+    button_icon = BootstrapIcon(icon='chevron-left' if new_collapsed else 'chevron-right', width=16, height=16)
+    return features_class, elevation_class, button_icon
 
 
 @dash.callback(
-    [Output('stack-layout-btn', 'color', allow_duplicate=True),
-     Output('stack-layout-btn', 'variant', allow_duplicate=True),
-     Output('sidebyside-layout-btn', 'color', allow_duplicate=True),
-     Output('sidebyside-layout-btn', 'variant', allow_duplicate=True)],
-    [Input('layout-toggle-store', 'data'),
-     Input('mantine-provider', 'theme')],
-    prevent_initial_call='initial_duplicate'
+    Output('features-collapse-store', 'data'),
+    [Input('features-collapse-btn', 'n_clicks')],
+    [State('features-collapse-store', 'data')],
+    prevent_initial_call=True
 )
-def initialize_button_styles(layout_data, theme):
-    """Initialize button styles based on current layout mode and theme"""
-    mode = layout_data.get('mode', 'stack') if layout_data else 'stack'
+def update_collapse_store(n_clicks, collapse_data):
+    """Update the collapse state in the store"""
+    if not n_clicks:
+        return dash.no_update
     
-    # Get primary color from theme, fallback to 'green' if not available
-    primary_color = theme.get('primaryColor', 'green') if theme else 'green'
-
-    if mode == 'stack':
-        return primary_color, 'filled', primary_color, 'outline'
-    else:
-        return primary_color, 'outline', primary_color, 'filled'
-
-
-@dash.callback(
-    [Output('comparison-graph', 'style'), Output('results-grid', 'style')],
-    [Input('main-accordion', 'value'),
-     Input('layout-toggle-store', 'data')],
-    prevent_initial_call=False
-)
-def adjust_panel_heights(active_items, layout_data):
-    """Adjust panel heights based on accordion state and layout mode"""
-    mode = layout_data.get('mode', 'stack') if layout_data else 'stack'
-
-    # For side-by-side mode, use fixed heights that work well with CSS
-    if mode == 'sidebyside':
-        return {'height': '55vh', 'width': '100%'}, {'height': '55vh', 'width': '100%'}
-
-    # For stack mode, use the original dynamic height logic
-    # Normalize active items to a set for easy checks
-    if isinstance(active_items, (list, tuple, set)):
-        active = set(active_items)
-    else:
-        active = {active_items} if active_items else set()
-
-    elev_open = 'item-1' in active
-    valves_open = 'item-2' in active
-
-    # Conservative heights to avoid page overflow, no scrollbars in accordions
-    if elev_open and valves_open:
-        graph_h = '30vh'   # elevation profile
-        grid_h = '22vh'    # valves grid (reduced)
-    elif elev_open and not valves_open:
-        graph_h = '58vh'
-        grid_h = '0vh'
-    elif valves_open and not elev_open:
-        graph_h = '0vh'
-        grid_h = '50vh'
-    else:
-        # Fallback (shouldn't occur with always_open=True)
-        graph_h = '30vh'
-        grid_h = '22vh'
-
-    graph_style = {'height': graph_h, 'width': '100%'}
-    grid_style = {'height': grid_h, 'width': '100%'}
-    return graph_style, grid_style
+    current_collapsed = collapse_data.get('collapsed', False) if collapse_data else False
+    return {'collapsed': not current_collapsed}
 
 
 @dash.callback(

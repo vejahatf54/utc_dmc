@@ -1,49 +1,166 @@
-/* Disable scrollbars for accordion bodies */
-.accordion-body {
-    overflow: hidden !important;
-}
-
-.accordion-sidebyside {
+/* Simplified side-by-side layout - always visible */
+.main-layout {
     display: flex !important;
     flex-direction: row !important;
     gap: 16px !important;
     height: 70vh !important;
+    width: 100% !important;
+    transition: all 0.3s ease !important;
 }
 
-.accordion-sidebyside .accordion-item:first-child {
-    flex: 2 !important;
-    min-width: 0;
+/* Elevation profile panel - 80% width, expandable to 100% */
+.elevation-panel {
+    flex: 0 0 80% !important;
+    max-width: 80% !important;
+    min-width: 0 !important;
+    background: var(--mantine-color-body) !important;
+    border: 1px solid var(--mantine-color-gray-3) !important;
+    border-radius: var(--mantine-radius-md) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    transition: flex-basis 0.3s ease !important;
 }
 
-.accordion-sidebyside .accordion-item:last-child {
+/* When features panel is collapsed, elevation panel takes full width */
+.elevation-panel.expanded {
+    flex: 0 0 97% !important;
+    max-width: 97% !important;
+}
+
+/* Features panel - 20% width, collapsible to the right */
+
+.features-panel {
+    flex: 0 0 20% !important;
+    max-width: 20% !important;
+    min-width: 0 !important;
+    background: var(--mantine-color-body) !important;
+    border: 1px solid var(--mantine-color-gray-3) !important;
+    border-radius: var(--mantine-radius-md) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    transition: all 0.3s ease !important;
+    position: relative !important;
+}
+
+/* When features panel is collapsed */
+.features-panel.collapsed {
+    flex: 0 0 3% !important;
+    min-width: 32px !important;
+    max-width: 60px !important;
+    border-width: 0 !important;
+    opacity: 0.7 !important;
+    transform: translateX(0%) !important;
+    position: relative !important;
+}
+
+.features-panel.collapsed .panel-header {
+    position: absolute !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 100%;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    z-index: 10;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+}
+.features-panel.collapsed .panel-header span {
+    display: none !important;
+}
+.features-panel.collapsed .panel-content {
+    display: none !important;
+}
+
+/* Panel headers */
+.panel-header {
+    padding: 0.75rem 1rem !important;
+    background: var(--mantine-color-gray-1) !important;
+    border-bottom: 1px solid var(--mantine-color-gray-3) !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    min-height: 48px !important;
+}
+
+/* Panel content areas */
+.panel-content {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+}
+
+/* Collapse toggle button */
+.collapse-toggle {
+    background: none !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 4px !important;
+    border-radius: var(--mantine-radius-sm) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease !important;
+}
+
+.collapse-toggle:hover {
+    background: var(--mantine-color-gray-2) !important;
+}
+
+/* Graph and grid styling for the layout */
+.main-layout #comparison-graph,
+.main-layout #graph-loading,
+.main-layout .dash-ag-grid #results-grid,
+.main-layout #results-loading {
+    height: 100% !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    flex: 1 1 auto !important;
+}
+
+/* Force dmc.Stack to fill height and use flexbox properly */
+.main-layout .panel-content > div {
+    height: 100% !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
     flex: 1 !important;
-    min-width: 0;
 }
 
-.accordion-sidebyside .accordion-body {
-    height: 60vh !important;
-    overflow: hidden;
-    padding: 0.5rem;
+/* Make the graph container take remaining space */
+.main-layout #comparison-graph {
+    flex: 1 !important;
+    min-height: 400px !important;
 }
 
-.accordion-sidebyside .accordion-button {
-    padding: 0.5rem 1rem;
+/* Make the grid container take remaining space */
+.main-layout #results-grid {
+    flex: 1 !important;
+    min-height: 400px !important;
 }
 
-/* Only target the graph specifically in side-by-side mode */
-.accordion-sidebyside #comparison-graph {
-    height: 55vh !important;
-    width: 100% !important;
+/* Dark theme adjustments */
+[data-mantine-color-scheme="dark"] .panel-header {
+    background: var(--mantine-color-dark-6) !important;
+    border-bottom-color: var(--mantine-color-dark-4) !important;
 }
 
-/* Only target the grid specifically in side-by-side mode with higher specificity */
-.accordion-sidebyside .dash-ag-grid #results-grid {
-    height: 60vh !important;
-    width: 100% !important;
+[data-mantine-color-scheme="dark"] .elevation-panel,
+[data-mantine-color-scheme="dark"] .features-panel {
+    border-color: var(--mantine-color-dark-4) !important;
 }
 
-/* Also target the grid container for better space utilization */
-.accordion-sidebyside #results-loading {
-    height: 60vh !important;
-    width: 100% !important;
+[data-mantine-color-scheme="dark"] .collapse-toggle:hover {
+    background: var(--mantine-color-dark-5) !important;
 }

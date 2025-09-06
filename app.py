@@ -112,4 +112,5 @@ def render_page(pathname: str):
 
 if __name__ == "__main__":
     # Use debug mode only in development (not when packaged)
-    app.run(debug=debug_mode, host="127.0.0.1", port=8050)
+    app.run(debug=debug_mode, host="127.0.0.1", port=8050)    
+    

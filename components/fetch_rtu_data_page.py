@@ -563,12 +563,12 @@ def fetch_rtu_data(n_clicks, single_date, start_date, end_date, selected_lines, 
 
         if fetch_result['success']:
             summary = fetch_result['summary']
-            success_status = dmc.Text(f"✓ Success! {summary['total_files_copied']} files copied", c="green")
+            success_status = dmc.Text(f"✓ Success! {summary['total_files_extracted']} files extracted", c="green")
             
             # Success notification
             notification = {
                 'id': f'rtu-fetch-success-{datetime.now().timestamp()}',
-                'message': f"RTU data fetch completed successfully! {summary['total_files_copied']} files copied for {summary['lines_processed']} lines across {summary['dates_processed']} dates.",
+                'message': f"RTU data fetch completed successfully! {summary['total_files_extracted']} files extracted for {summary['lines_processed']} lines.",
                 'color': 'green',
                 'autoClose': 5000,
                 'icon': BootstrapIcon(icon="check-circle", width=20)

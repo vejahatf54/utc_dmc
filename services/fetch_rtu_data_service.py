@@ -5,8 +5,8 @@ Adapted from FetchArchiveService for RTU data requirements - accessing UNC paths
 
 import os
 import logging
-import shutil
 import re
+import zipfile
 from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime, date, timedelta
@@ -390,63 +390,110 @@ class FetchRtuDataService:
                     'missing_dates': missing_dates
                 }
 
-            # Copy files for each source file
-            copied_files = []
-            copy_errors = []
+            # Process and extract files for each line
+            extracted_files = {}  # Track extracted files by line_id
+            extract_errors = []
 
+            # Group files by line_id and deduplicate by date (keep first file per date)
+            files_by_line = {}
             for file_info in source_files:
                 line_id = file_info['line_id']
-                target_date = file_info['date']
-                source_file_path = file_info['source_path']
-                filename = file_info['filename']
                 date_str = file_info['date_str']
-                server = file_info['server']
+                
+                if line_id not in files_by_line:
+                    files_by_line[line_id] = {}
+                
+                # Only keep the first file for each date
+                if date_str not in files_by_line[line_id]:
+                    files_by_line[line_id][date_str] = file_info
+                else:
+                    # Log that we're skipping duplicate files
+                    logger.info(f"Skipping duplicate file for {line_id} date {date_str}: {file_info['filename']} (keeping {files_by_line[line_id][date_str]['filename']})")
 
+            for line_id, date_files in files_by_line.items():
                 try:
-                    # Create organized output structure: output_dir/LineXX/YYYYMMDD/
-                    line_output_dir = os.path.join(output_directory, line_id, date_str)
+                    # Create line output directory: output_dir/line_id/
+                    line_output_dir = os.path.join(output_directory, line_id)
                     os.makedirs(line_output_dir, exist_ok=True)
-
-                    # Copy the zip file to destination
-                    dest_file_path = os.path.join(line_output_dir, filename)
-                    shutil.copy2(source_file_path, dest_file_path)
-
-                    copied_files.append({
-                        'line_id': line_id,
-                        'date': target_date.strftime('%Y-%m-%d'),
-                        'filename': filename,
-                        'server': server,
-                        'output_path': dest_file_path
-                    })
-
-                    logger.info(f"Copied file {filename} for Line {line_id}, Date {date_str}")
+                    
+                    extracted_files[line_id] = []
+                    
+                    for date_str, file_info in date_files.items():
+                        source_file_path = file_info['source_path']
+                        filename = file_info['filename']
+                        
+                        try:
+                            # Extract zip file
+                            with zipfile.ZipFile(source_file_path, 'r') as zip_ref:
+                                # Find .dt files in the zip
+                                dt_files = [f for f in zip_ref.namelist() if f.endswith('.dt')]
+                                
+                                if not dt_files:
+                                    extract_errors.append(f"No .dt file found in {filename}")
+                                    continue
+                                
+                                # Process each .dt file (usually just one)
+                                for dt_file in dt_files:
+                                    # Extract the .dt file
+                                    dt_content = zip_ref.read(dt_file)
+                                    
+                                    # Create new filename: line_date.dt (e.g., l05_20250804.dt)
+                                    new_filename = f"{line_id}_{date_str}.dt"
+                                    output_file_path = os.path.join(line_output_dir, new_filename)
+                                    
+                                    # Write the extracted content to the new file
+                                    with open(output_file_path, 'wb') as output_file:
+                                        output_file.write(dt_content)
+                                    
+                                    extracted_files[line_id].append({
+                                        'original_zip': filename,
+                                        'extracted_file': new_filename,
+                                        'full_path': output_file_path,
+                                        'date': date_str,
+                                        'server': file_info['server']
+                                    })
+                                    
+                                    logger.info(f"Extracted {dt_file} from {filename} as {new_filename}")
+                        
+                        except zipfile.BadZipFile:
+                            extract_errors.append(f"Invalid zip file: {filename}")
+                        except Exception as e:
+                            extract_errors.append(f"Error extracting {filename}: {str(e)}")
+                    
+                    # Create a text file listing all extracted files for this line
+                    if extracted_files[line_id]:
+                        list_file_path = os.path.join(line_output_dir, f"{line_id}.txt")
+                        with open(list_file_path, 'w') as list_file:
+                            for file_info in extracted_files[line_id]:
+                                list_file.write(f"{file_info['full_path']}\n")
+                        
+                        logger.info(f"Created file list: {list_file_path}")
 
                 except Exception as e:
-                    error_msg = f"Error copying {filename} for Line {line_id}, Date {date_str}: {str(e)}"
-                    copy_errors.append(error_msg)
+                    error_msg = f"Error processing line {line_id}: {str(e)}"
+                    extract_errors.append(error_msg)
                     logger.error(error_msg)
 
             # Prepare result summary
-            total_files_copied = len(copied_files)
+            total_files_extracted = sum(len(files) for files in extracted_files.values())
             
             result = {
                 'success': True,
-                'message': f'RTU data fetch completed successfully',
+                'message': f'RTU data extraction completed successfully',
                 'summary': {
-                    'lines_processed': len(set(item['line_id'] for item in copied_files)),
-                    'dates_processed': len(set(item['date'] for item in copied_files)),
-                    'total_files_copied': total_files_copied,
+                    'lines_processed': len(extracted_files),
+                    'total_files_extracted': total_files_extracted,
                     'output_directory': output_directory
                 },
-                'copied_files': copied_files,
-                'copy_errors': copy_errors,
+                'extracted_files': extracted_files,
+                'extract_errors': extract_errors,
                 'missing_dates': missing_dates
             }
 
-            if copy_errors:
-                result['message'] += f' (with {len(copy_errors)} errors)'
+            if extract_errors:
+                result['message'] += f' (with {len(extract_errors)} errors)'
 
-            logger.info(f"RTU data fetch completed: {total_files_copied} files copied")
+            logger.info(f"RTU data extraction completed: {total_files_extracted} files extracted")
             return result
 
         except Exception as e:

@@ -28,6 +28,12 @@ def build_sidebar():
                                     "Fluid ID Converter", className="nav-label sb-label"),
                             ], href="/fluid-id-converter", className="nav-link"),
                             html.A([
+                                BootstrapIcon(icon="clock-history", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "SPS Time Converter", className="nav-label sb-label"),
+                            ], href="/sps-time-converter", className="nav-link"),
+                            html.A([
                                 BootstrapIcon(icon="file-text", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(

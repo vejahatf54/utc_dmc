@@ -4,6 +4,7 @@ from dash import Dash, Input, Output, State, callback, dcc, html
 from components.sidebar import build_sidebar
 from components.home_page import create_home_page
 from components.fluid_id_page import create_fluid_id_page
+from components.sps_time_converter_page import create_sps_time_converter_page
 from components.csv_to_rtu_page import create_csv_to_rtu_page
 import components.fetch_archive_page as fetch_archive_page
 import components.elevation_page as elevation_page
@@ -98,6 +99,8 @@ def render_page(pathname: str):
         return create_home_page()
     elif pathname == "/fluid-id-converter":
         return create_fluid_id_page()
+    elif pathname == "/sps-time-converter":
+        return create_sps_time_converter_page()
     elif pathname == "/csv-to-rtu":
         return create_csv_to_rtu_page()
     elif pathname == "/fetch-archive":

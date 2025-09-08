@@ -16,6 +16,13 @@
         "sql_driver": "SQL Server",
         "sql_echo": false
     },
+    "oracle": {
+        "connection_strings": {
+            "CMT_ICS": "Data Source=SCADA_CMT_PRD;User Id=MAKELINEFILL_INTFAC;Password=Hu2vDX0wr12VfCdB;",
+            "CMT_CNPL": "Data Source=ewrv0405.cnpl.enbridge.com:1521/cmt_rep.CNPL.ENBRIDGE.COM;User Id=MAKELINEFILL_INTFAC;Password=Hu2vDX0wr12VfCdB;"
+        },
+        "timeout": 30
+    },
     "app": {
         "debug": true,
         "port": 8050,

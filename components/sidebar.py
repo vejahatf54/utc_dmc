@@ -57,6 +57,12 @@ def build_sidebar():
                                 html.Span(
                                     "Elevation Tool", className="nav-label sb-label"),
                             ], href="/elevation", className="nav-link"),
+                            html.A([
+                                BootstrapIcon(icon="file-earmark-text", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "Linefill Data", className="nav-label sb-label"),
+                            ], href="/linefill", className="nav-link"),
                         ],
                     ),
 

@@ -9,6 +9,7 @@ from components.csv_to_rtu_page import create_csv_to_rtu_page
 import components.fetch_archive_page as fetch_archive_page
 import components.fetch_rtu_data_page as fetch_rtu_data_page
 import components.elevation_page as elevation_page
+import components.linefill_page as linefill_page
 from components.custom_theme import theme_controls, theme_name_mapping, size_name_mapping
 from services.config_manager import initialize_config_manager
 
@@ -110,6 +111,8 @@ def render_page(pathname: str):
         return fetch_rtu_data_page.layout
     elif pathname == "/elevation":
         return elevation_page.create_elevation_page()
+    elif pathname == "/linefill":
+        return linefill_page.create_linefill_page()
     elif pathname == "/settings":
         # Redirect settings to home page since we use a modal now
         return create_home_page()
@@ -123,6 +126,5 @@ if __name__ == "__main__":
     # Use debug mode and port from config, but override debug=False when packaged
     debug_from_config = config_manager.get_app_debug() and debug_mode
     port_from_config = config_manager.get_app_port()
-    
-    app.run(debug=debug_from_config, host="127.0.0.1", port=port_from_config)    
-    
+
+    app.run(debug=debug_from_config, host="127.0.0.1", port=port_from_config)

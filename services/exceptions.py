@@ -59,3 +59,13 @@ class ServiceError(DMCError):
 class DataProcessingError(ProcessingError):
     """Raised when data processing operations encounter specific errors."""
     pass
+
+
+class DatabaseConnectionError(DatabaseError):
+    """Raised when database connection fails."""
+    pass
+
+
+class QueryExecutionError(DatabaseError):
+    """Raised when database query execution fails."""
+    pass

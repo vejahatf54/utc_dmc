@@ -6,6 +6,7 @@ charset-normalizer==3.4.3
 click==8.2.1
 clr_loader==0.2.7.post0
 colorama==0.4.6
+cryptography==45.0.7
 dash==3.2.0
 dash-bootstrap-components==2.0.4
 dash_ag_grid==32.3.1
@@ -20,6 +21,7 @@ MarkupSafe==3.0.2
 narwhals==2.3.0
 nest-asyncio==1.6.0
 numpy==2.3.2
+oracledb==3.3.0
 packaging==25.0
 pandas==2.3.2
 pefile==2023.2.7

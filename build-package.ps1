@@ -279,6 +279,7 @@ except Exception as e:
 import components.sidebar
 import components.home_page
 import components.fluid_id_page
+import components.fluid_properties_page
 import components.csv_to_rtu_page
 import components.fetch_archive_page
 import components.fetch_rtu_data_page
@@ -311,11 +312,12 @@ import services.elevation_data_service
 import services.exceptions
 import services.fetch_archive_service
 import services.fetch_rtu_data_service
-import services.sps_time_converter_service
 import services.fluid_id_service
+import services.fluid_properties_service
 import services.linefill_service
 import services.onesource_service
 import services.pipe_analysis_service
+import services.sps_time_converter_service
 print('All services imported successfully')
 " 2>&1
     

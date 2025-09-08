@@ -46,6 +46,12 @@ def build_sidebar():
                                     "Fetch Archive", className="nav-label sb-label"),
                             ], href="/fetch-archive", className="nav-link"),
                             html.A([
+                                BootstrapIcon(icon="database", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "Fetch RTU Data", className="nav-label sb-label"),
+                            ], href="/fetch-rtu-data", className="nav-link"),
+                            html.A([
                                 BootstrapIcon(icon="activity", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(

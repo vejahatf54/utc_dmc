@@ -200,6 +200,8 @@ import components.home_page
 import components.fluid_id_page
 import components.csv_to_rtu_page
 import components.fetch_archive_page
+import components.fetch_rtu_data_page
+import components.sps_time_converter_page
 import components.elevation_page
 import components.custom_theme
 import components.directory_selector
@@ -225,6 +227,8 @@ import services.csv_to_rtu_service
 import services.elevation_data_service
 import services.exceptions
 import services.fetch_archive_service
+import services.fetch_rtu_data_service
+import services.sps_time_converter_service
 import services.fluid_id_service
 import services.onesource_service
 import services.pipe_analysis_service
@@ -352,6 +356,8 @@ FEATURES INCLUDED:
 - CSV to RTU file conversion
 - Fluid ID converter (37-basis conversion system)
 - Archive data fetching and management
+- RTU data fetching and management
+- SPS time converter utility
 - Interactive data visualization with dash_ag_grid
 - All themes and assets bundled for offline operation
 - Hot reloading when config.json is modified
@@ -416,6 +422,8 @@ echo Loading DMC services...
 echo * CSV to RTU conversion service
 echo * Fluid ID converter service  
 echo * Archive fetching service
+echo * RTU data fetching service
+echo * SPS time converter service
 echo * Configuration manager
 echo.
 echo Please wait for the "Starting server on:" message...

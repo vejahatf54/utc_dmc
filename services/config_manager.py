@@ -176,6 +176,42 @@ class ConfigManager:
         """
         return self.get('archive.timeout', 30)
     
+    def get_rtudata_config(self) -> Dict[str, Any]:
+        """
+        Get RTU data-specific configuration.
+        
+        Returns:
+            Dictionary containing RTU data configuration
+        """
+        return self.get('rtudata', {})
+    
+    def get_rtudata_base_path(self) -> str:
+        """
+        Get the RTU data base path.
+        
+        Returns:
+            RTU data base path string
+        """
+        return self.get('rtudata.base_path', "")
+    
+    def get_rtudata_timeout(self) -> int:
+        """
+        Get the RTU data operation timeout.
+        
+        Returns:
+            Timeout in seconds
+        """
+        return self.get('rtudata.timeout', 30)
+    
+    def get_rtudata_default_output_path(self) -> str:
+        """
+        Get the default output path for RTU data.
+        
+        Returns:
+            Default output path string
+        """
+        return self.get('rtudata.default_output_path', "D:\\Historical-Rtudata\\")
+    
     def get_database_config(self) -> Dict[str, Any]:
         """
         Get the database configuration section.

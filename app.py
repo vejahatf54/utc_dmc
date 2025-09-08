@@ -7,6 +7,7 @@ from components.fluid_id_page import create_fluid_id_page
 from components.sps_time_converter_page import create_sps_time_converter_page
 from components.csv_to_rtu_page import create_csv_to_rtu_page
 import components.fetch_archive_page as fetch_archive_page
+import components.fetch_rtu_data_page as fetch_rtu_data_page
 import components.elevation_page as elevation_page
 from components.custom_theme import theme_controls, theme_name_mapping, size_name_mapping
 from services.config_manager import initialize_config_manager
@@ -105,6 +106,8 @@ def render_page(pathname: str):
         return create_csv_to_rtu_page()
     elif pathname == "/fetch-archive":
         return fetch_archive_page.layout
+    elif pathname == "/fetch-rtu-data":
+        return fetch_rtu_data_page.layout
     elif pathname == "/elevation":
         return elevation_page.create_elevation_page()
     elif pathname == "/settings":

@@ -3,6 +3,11 @@
         "base_path": "\\\\lpdev.local\\common\\LD_Data\\MBS\\arkbackup\\production",
         "timeout": 30
     },
+    "rtudata": {
+        "base_path": "\\\\lpdev.local\\Common\\LD_Data\\MBS\\rtudata\\windows_prod",
+        "timeout": 30,
+        "default_output_path": "D:\\Historical-Rtudata\\"
+    },
     "database": {
         "type": "sqlite",
         "sqlite_path": "C:\\Temp\\OneSource\\local_onesource.db",

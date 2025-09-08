@@ -20,6 +20,7 @@ class LinefillService:
         """Initialize the linefill service with database configuration."""
         self.config_manager = get_config_manager()
         self._connection_string = None
+        self._failed_lines = []  # Initialize failed lines list (matches C# _failedLines)
 
     def _get_connection_string(self) -> str:
         """Get Oracle database connection string from config."""
@@ -121,34 +122,72 @@ class LinefillService:
         Args:
             line_no: Line number to fetch data for
             linefill_start_time: Start time for linefill data
-            batch_boundary: Optional batch boundary filter
+            batch_boundary: Optional batch boundary filter ('ID1LAB' or 'LAB')
 
         Returns:
-            List of new_file_text strings from the query result
+            List of file_text strings from the query result
         """
         try:
-            # Read the SQL query from file
-            sql_file_path = Path(__file__).parent.parent / \
-                "sql" / "LinefillQuery.sql"
-            with open(sql_file_path, 'r') as file:
-                sql_query = file.read()
-
             # Format the timestamp for Oracle query (HH24MI DD-Mon-YYYY)
             formatted_time = linefill_start_time.strftime('%H%M %d-%b-%Y')
 
-            # Replace parameters in SQL query
-            sql_query = sql_query.replace('%line%', line_no)
-            sql_query = sql_query.replace(
-                '%lineFillStartTime%', formatted_time)
+            if batch_boundary == "ID1LAB":
+                # Use the SQL file query with batch name replacement (equivalent to Id1LabRadioButton.Checked = true)
+                sql_file_path = Path(__file__).parent.parent / \
+                    "sql" / "LinefillQuery.sql"
+                with open(sql_file_path, 'r') as file:
+                    sql_query = file.read()
 
-            # Execute query using SQLAlchemy
-            df = self._execute_query(sql_query)
+                # Replace parameters in SQL query
+                sql_query = sql_query.replace('%line%', line_no)
+                sql_query = sql_query.replace(
+                    '%lineFillStartTime%', formatted_time)
 
-            if df.empty:
-                return []
+                # Execute query using SQLAlchemy
+                df = self._execute_query(sql_query)
 
-            # Return the new_file_text column as a list
-            return df['NEW_FILE_TEXT'].tolist()
+                if df.empty:
+                    return []
+
+                # Get the new_file_text column as a list
+                raw_data = df['NEW_FILE_TEXT'].tolist()
+                
+                # Apply ID1LAB filtering (equivalent to C# filtering logic)
+                modified_list = []
+                for value in raw_data:
+                    # Split by spaces, removing empty entries (equivalent to StringSplitOptions.RemoveEmptyEntries)
+                    segments = [seg for seg in value.split(' ') if seg.strip()]
+                    
+                    # If there are more than 2 segments, remove the element at index 3 (4th column)
+                    if len(segments) > 2:
+                        # Remove column at index 3 if it exists (equivalent to segments.RemoveAt(3))
+                        if len(segments) > 3:
+                            segments.pop(3)
+                    
+                    # Join with tabs instead of spaces (equivalent to string.Join("\t", segments))
+                    modified_value = '\t'.join(segments)
+                    modified_list.append(modified_value)
+                
+                return modified_list
+            else:
+                # Use inline SQL query for LAB (equivalent to Id1LabRadioButton.Checked = false)
+                sql_query = f"""
+                SELECT FILE_TEXT 
+                FROM linefill_pcs_xfr 
+                WHERE TO_NUMBER(regexp_substr(file_text, '(\\S*)(\\s*)',1,3)) > 0 
+                  AND line_no = '{line_no}' 
+                  AND linefill_date = to_date('{formatted_time}','hh24mi dd-Mon-yyyy')
+                ORDER BY LNFLPX_INTL_ID ASC
+                """
+
+                # Execute query using SQLAlchemy
+                df = self._execute_query(sql_query)
+
+                if df.empty:
+                    return []
+
+                # Return the file_text column as a list
+                return df['FILE_TEXT'].tolist()
 
         except Exception as e:
             raise QueryExecutionError(
@@ -178,7 +217,6 @@ class LinefillService:
 
         for line_no in line_numbers:
             line_results = []
-            line_failed = False
 
             for timestamp in timestamps:
                 try:
@@ -186,19 +224,23 @@ class LinefillService:
                         line_no, timestamp, batch_boundary)
                     if data:  # Only add if we got data
                         line_results.append((timestamp, data))
+                    else:
+                        # No data returned - add to failed lines (matching C# behavior)
+                        failed_line_entry = f"{line_no}-{timestamp.strftime('%H%M %d-%b-%Y')}"
+                        failed_lines.append(failed_line_entry)
                 except Exception as e:
                     print(
                         f"Failed to fetch data for line {line_no} at {timestamp}: {str(e)}")
-                    line_failed = True
-                    break
+                    # Add to failed lines on exception as well
+                    failed_line_entry = f"{line_no}-{timestamp.strftime('%H%M %d-%b-%Y')}"
+                    failed_lines.append(failed_line_entry)
 
-            if line_failed:
-                failed_lines.append(line_no)
-            else:
+            # Only add line results if we got some data
+            if line_results:
                 results[line_no] = line_results
 
         if failed_lines:
-            # Store failed lines for notification
+            # Store failed lines for notification (matching C# _failedLines behavior)
             self._failed_lines = failed_lines
 
         return results

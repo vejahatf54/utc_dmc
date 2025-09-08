@@ -531,9 +531,19 @@ def load_linefill_data(n_clicks, selected_lines, batch_boundary, date_type,
                         if data:
                             tab_title = f"{line} - {datetime_obj.strftime('%Y-%m-%d %H:%M')}"
                             results_data[tab_title] = "\n".join(data)
+                        else:
+                            # No data returned - add to failed lines (matching C# behavior)
+                            failed_line_entry = f"{line}-{datetime_obj.strftime('%H%M %d-%b-%Y')}"
+                            if not hasattr(linefill_service, '_failed_lines'):
+                                linefill_service._failed_lines = []
+                            linefill_service._failed_lines.append(failed_line_entry)
                     except Exception as e:
                         print(f"Error fetching data for line {line}: {str(e)}")
-                        # Continue with other lines even if one fails
+                        # Add to failed lines on exception as well
+                        failed_line_entry = f"{line}-{datetime_obj.strftime('%H%M %d-%b-%Y')}"
+                        if not hasattr(linefill_service, '_failed_lines'):
+                            linefill_service._failed_lines = []
+                        linefill_service._failed_lines.append(failed_line_entry)
 
         else:
             # Date range processing

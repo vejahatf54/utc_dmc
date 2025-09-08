@@ -103,7 +103,7 @@ layout = dmc.Container([
             size="lg"
         ),
 
-        dmc.Space(h="md"),
+        dmc.Space(h="sm"),
 
         # Main Content - Two Column Layout
         dmc.Group([
@@ -212,13 +212,36 @@ layout = dmc.Container([
                                        'minHeight': '20px'}
                             )
 
-                        ], gap="sm", p="md")
+                        ], gap="sm", p="sm")
                     ], shadow="sm", radius="md", withBorder=True),
 
                     # Directory Selection Section
-                    directory_component
+                    directory_component,
 
-                ], gap="md")
+                    # Server Filter Section
+                    dmc.Paper([
+                        dmc.Stack([
+                            dmc.Group([
+                                BootstrapIcon(icon="funnel", width=20),
+                                dmc.Text("Server Filter", fw=500, size="md")
+                            ], gap="xs"),
+
+                            dmc.Divider(size="xs"),
+
+                            dmc.Stack([
+                                dmc.Text("Filter by server (optional):", size="sm", fw=500),
+                                dmc.TextInput(
+                                    id="server-filter-input-rtu",
+                                    placeholder="e.g., LPP02WVSPSS15, LPP02WV*, LPP02*SPSS*",
+                                    description="Optional filter with wildcard support (* = any characters). Case-insensitive.",
+                                    size="md"
+                                )
+                            ], gap="xs")
+
+                        ], gap="sm", p="sm")
+                    ], shadow="sm", radius="md", withBorder=True)
+
+                ], gap="sm")
             ], style={"flex": "1", "minWidth": "750px", "maxWidth": "1000px"}),
 
             # Right Column: Line Selection and Fetch Button
@@ -283,29 +306,6 @@ layout = dmc.Container([
                         ], gap="sm", p="sm")
                     ], shadow="sm", radius="md", withBorder=True),
 
-                    # Server Filter Section
-                    dmc.Paper([
-                        dmc.Stack([
-                            dmc.Group([
-                                BootstrapIcon(icon="funnel", width=20),
-                                dmc.Text("Server Filter", fw=500, size="md")
-                            ], gap="xs"),
-
-                            dmc.Divider(size="xs"),
-
-                            dmc.Stack([
-                                dmc.Text("Filter by server (optional):", size="sm", fw=500),
-                                dmc.TextInput(
-                                    id="server-filter-input-rtu",
-                                    placeholder="e.g., LPP02WVSPSS15, LPP02WV*, LPP02*SPSS*",
-                                    description="Optional filter with wildcard support (* = any characters). Case-insensitive.",
-                                    size="md"
-                                )
-                            ], gap="xs")
-
-                        ], gap="sm", p="sm")
-                    ], shadow="sm", radius="md", withBorder=True),
-
                     # Fetch Button Section
                     dmc.Paper([
                         dmc.Stack([
@@ -341,12 +341,12 @@ layout = dmc.Container([
                         ], gap="sm", p="sm")
                     ], shadow="sm", radius="md", withBorder=True)
 
-                ], gap="md")
+                ], gap="sm")
             ], style={"flex": "1", "minWidth": "350px"})
 
-        ], grow=True, gap="lg", align="stretch", wrap="nowrap", style={"minWidth": "1500px"})
+        ], grow=True, gap="md", align="stretch", wrap="nowrap", style={"minWidth": "1500px"})
 
-    ], gap="md")
+    ], gap="sm")
 
 ], fluid=True, p="sm")
 

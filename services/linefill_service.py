@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from services.config_manager import get_config_manager
 from services.exceptions import DatabaseConnectionError, QueryExecutionError
+from services.date_range_service import DateRangeService
 
 
 class LinefillService:
@@ -246,28 +247,12 @@ class LinefillService:
         return results
 
     def _generate_timestamps(self, start_time: datetime, end_time: datetime, frequency: str) -> List[datetime]:
-        """Generate list of timestamps based on frequency."""
-        timestamps = []
-        current_time = start_time
+        """Generate list of timestamps based on frequency using DateRangeService."""
+        return DateRangeService.generate_datetime_range(start_time, end_time, frequency)
 
-        if frequency == 'Hourly':
-            delta = timedelta(hours=1)
-        elif frequency == 'Daily':
-            delta = timedelta(days=1)
-        elif frequency == 'Weekly':
-            delta = timedelta(weeks=1)
-        elif frequency == 'Monthly':
-            # Approximate monthly as 30 days
-            delta = timedelta(days=30)
-        else:
-            # Default to daily
-            delta = timedelta(days=1)
-
-        while current_time <= end_time:
-            timestamps.append(current_time)
-            current_time += delta
-
-        return timestamps
+    def get_frequency_options(self) -> List[Dict[str, str]]:
+        """Get list of available frequency options for UI components."""
+        return DateRangeService.get_frequency_options()
 
     def get_failed_lines(self) -> List[str]:
         """Get list of lines that failed during the last fetch operation."""

@@ -267,25 +267,40 @@ def create_linefill_page():
 
                             dmc.Divider(size="xs"),
 
-                            dmc.Group([
+                            # Single date mode buttons
+                            html.Div([
+                                dmc.Group([
+                                    dmc.Button(
+                                        "Load Linefill Data",
+                                        id="linefill-load-btn",
+                                        leftSection=BootstrapIcon("download"),
+                                        size="md",
+                                        disabled=True,
+                                        style={"flex": 1}
+                                    ),
+                                    dmc.Button(
+                                        "Save All",
+                                        id="linefill-save-all-btn",
+                                        leftSection=BootstrapIcon("save"),
+                                        variant="light",
+                                        size="md",
+                                        disabled=True,
+                                        style={"flex": 1}
+                                    )
+                                ], gap="sm")
+                            ], id="linefill-single-buttons", style={"display": "block"}),
+                            
+                            # Date range mode button
+                            html.Div([
                                 dmc.Button(
-                                    "Load Linefill Data",
-                                    id="linefill-load-btn",
-                                    leftSection=BootstrapIcon("download"),
+                                    "Download All Files",
+                                    id="linefill-download-all-btn",
+                                    leftSection=BootstrapIcon("cloud-download"),
                                     size="md",
                                     disabled=True,
-                                    style={"flex": 1}
-                                ),
-                                dmc.Button(
-                                    "Save All",
-                                    id="linefill-save-all-btn",
-                                    leftSection=BootstrapIcon("save"),
-                                    variant="light",
-                                    size="md",
-                                    disabled=True,
-                                    style={"flex": 1}
+                                    style={"width": "100%"}
                                 )
-                            ], gap="sm")
+                            ], id="linefill-range-buttons", style={"display": "none"})
                         ], gap="sm", p="sm")
                     ], shadow="sm", radius="md", withBorder=True)
                 ], gap="md")
@@ -421,15 +436,40 @@ def handle_line_selection(select_all_value, line_checkboxes):
 
 @callback(
     [Output("linefill-single-controls", "style"),
-     Output("linefill-range-controls", "style")],
-    Input("linefill-date-type", "value")
+     Output("linefill-range-controls", "style"),
+     Output("linefill-single-buttons", "style"),
+     Output("linefill-range-buttons", "style"),
+     Output("linefill-results-container", "style"),
+     Output("linefill-results-container", "children", allow_duplicate=True),
+     Output("linefill-data-store", "data", allow_duplicate=True),
+     Output("linefill-failed-lines-store", "data", allow_duplicate=True)],
+    Input("linefill-date-type", "value"),
+    prevent_initial_call=True
 )
 def toggle_date_controls(date_type):
-    """Toggle between single and range date controls."""
+    """Toggle between single and range date controls, buttons, results visibility, and clear all data."""
     if date_type == "single":
-        return {"display": "block"}, {"display": "none"}
+        return (
+            {"display": "block"},      # single controls
+            {"display": "none"},       # range controls  
+            {"display": "block"},      # single buttons
+            {"display": "none"},       # range buttons
+            {"display": "block"},      # results container
+            [],                        # clear results content
+            {},                        # clear data store
+            {}                         # clear failed lines store
+        )
     else:
-        return {"display": "none"}, {"display": "block"}
+        return (
+            {"display": "none"},       # single controls
+            {"display": "block"},      # range controls
+            {"display": "none"},       # single buttons
+            {"display": "block"},      # range buttons
+            {"display": "none"},       # results container (hidden in range mode)
+            [],                        # clear results content
+            {},                        # clear data store
+            {}                         # clear failed lines store
+        )
 
 
 @callback(
@@ -481,12 +521,14 @@ def force_end_datetime_minutes_to_zero(value):
 
 
 @callback(
-    Output("linefill-load-btn", "disabled"),
+    [Output("linefill-load-btn", "disabled"),
+     Output("linefill-download-all-btn", "disabled")],
     Input("linefill-line-selection", "value")
 )
-def enable_load_button(selected_lines):
-    """Enable load button when at least one line is selected."""
-    return not (selected_lines and len(selected_lines) > 0)
+def enable_buttons(selected_lines):
+    """Enable buttons when at least one line is selected."""
+    disabled = not (selected_lines and len(selected_lines) > 0)
+    return disabled, disabled
 
 
 @callback(
@@ -717,7 +759,8 @@ def load_linefill_data(n_clicks, selected_lines, batch_boundary, date_type,
                     title="Some lines failed to load",
                     message=f"Failed lines: {', '.join(failed_lines)}",
                     color="red",
-                    autoClose=5000
+                    autoClose=5000,
+                    action="show"
                 )
                 results_component = html.Div(
                     [failed_notification, results_component])
@@ -734,8 +777,8 @@ def load_linefill_data(n_clicks, selected_lines, batch_boundary, date_type,
             title="Success",
             message="Linefill data loaded successfully!",
             color="green",
-            action="show",
             autoClose=3000,
+            action="show",
             icon=BootstrapIcon("check-circle-fill")
         )
 
@@ -749,10 +792,23 @@ def load_linefill_data(n_clicks, selected_lines, batch_boundary, date_type,
             title="Error",
             message=f"Failed to load linefill data: {str(e)}",
             color="red",
-            action="show",
             autoClose=5000,
+            action="show",
             icon=BootstrapIcon("exclamation-triangle-fill")
         )
+
+
+# Callback for download all functionality (date range mode) - Just open modal
+@callback(
+    Output("save-directory-modal", "opened", allow_duplicate=True),
+    Input("linefill-download-all-btn", "n_clicks"),
+    prevent_initial_call=True
+)
+def open_download_modal(n_clicks):
+    """Open the save directory modal immediately when download is clicked."""
+    if n_clicks:
+        return True
+    return no_update
 
 
 @callback(
@@ -778,7 +834,8 @@ def save_all_data(n_clicks, data_store):
             title="Files Saved Successfully",
             message=f"Saved {len(saved_files)} files",
             color="green",
-            autoClose=3000
+            autoClose=3000,
+            action="show"
         )
 
     except Exception as e:
@@ -786,7 +843,8 @@ def save_all_data(n_clicks, data_store):
             title="Save Error",
             message=f"Error saving files: {str(e)}",
             color="red",
-            autoClose=5000
+            autoClose=5000,
+            action="show"
         )
 
 
@@ -913,19 +971,94 @@ def cancel_save_modal(n_clicks):
 
 
 @callback(
-    [Output("save-directory-modal", "opened", allow_duplicate=True),
-     Output("linefill-notifications", "children", allow_duplicate=True)],
+    Output("save-modal-confirm", "loading"),
     Input("save-modal-confirm", "n_clicks"),
-    [State("save-directory-input", "value"),
-     State("linefill-data-store", "data")],
     prevent_initial_call=True
 )
-def save_all_files(n_clicks, directory_path, data_store):
-    """Save all linefill data to .inc files."""
-    if not n_clicks or not directory_path or not data_store:
-        return no_update, no_update
+def set_save_loading(n_clicks):
+    """Show loading state when save button is clicked."""
+    if n_clicks:
+        return True
+    return False
+
+
+@callback(
+    [Output("save-directory-modal", "opened", allow_duplicate=True),
+     Output("linefill-notifications", "children", allow_duplicate=True),
+     Output("save-modal-confirm", "loading", allow_duplicate=True)],
+    Input("save-modal-confirm", "n_clicks"),
+    [State("save-directory-input", "value"),
+     State("linefill-data-store", "data"),
+     State("linefill-line-selection", "value"),
+     State("linefill-batch-boundary", "value"),
+     State("linefill-start-datetime", "value"),
+     State("linefill-end-datetime", "value"),
+     State("linefill-frequency", "value"),
+     State("linefill-date-type", "value")],
+    prevent_initial_call=True
+)
+def save_all_files(n_clicks, directory_path, data_store, selected_lines, batch_boundary, start_datetime, end_datetime, frequency, date_type):
+    """Save all linefill data to .inc files - handles both regular save and download operations."""
+    if not n_clicks or not directory_path:
+        return no_update, no_update, False
 
     try:
+        # If data_store is empty and we're in date range mode, this is a download operation
+        is_date_range_mode = (date_type == "range")
+        if (not data_store or len(data_store) == 0) and is_date_range_mode and selected_lines:
+            # This is a download operation - fetch data now
+            linefill_service = get_linefill_service()
+            linefill_service.clear_failed_lines()
+            
+            # Convert DateTimePicker values to datetime objects
+            start_dt = datetime.fromisoformat(start_datetime.replace(
+                'Z', '+00:00')) if isinstance(start_datetime, str) else start_datetime
+            end_dt = datetime.fromisoformat(end_datetime.replace(
+                'Z', '+00:00')) if isinstance(end_datetime, str) else end_datetime
+
+            # Fetch data for all lines and time range
+            results = linefill_service.fetch_multiple_linefill(
+                selected_lines, start_dt, end_dt, frequency, batch_boundary
+            )
+
+            if not results:
+                return False, dmc.Notification(
+                    title="No Data Found",
+                    message="No linefill data found for the selected criteria.",
+                    color="yellow",
+                    autoClose=5000,
+                    action="show",
+                    icon=BootstrapIcon("exclamation-triangle")
+                ), False
+
+            # Convert results to the format expected for saving
+            data_store = {}
+            for line_no, line_results in results.items():
+                for timestamp, data in line_results:
+                    if data:  # Only include if there's actual data
+                        # Create tab title like "Line_101 - 2024-01-15 14:30"
+                        tab_title = f"Line_{line_no} - {timestamp.strftime('%Y-%m-%d %H:%M')}"
+                        
+                        # Format data with proper line breaks
+                        formatted_data = "\n".join(data)
+                        
+                        # Store in the format expected by save modal (with batch boundary info)
+                        data_store[tab_title] = {
+                            'content': formatted_data,
+                            'batch_boundary': batch_boundary
+                        }
+
+        # If still no data, return error
+        if not data_store:
+            return False, dmc.Notification(
+                title="No Data to Save",
+                message="No data available for saving.",
+                color="yellow",
+                autoClose=5000,
+                action="show",
+                icon=BootstrapIcon("exclamation-triangle")
+            ), False
+
         saved_files = []
         for tab_title, data_info in data_store.items():
             # Handle both old format (string) and new format (dict)
@@ -937,10 +1070,25 @@ def save_all_files(n_clicks, directory_path, data_store):
                 content = data_info
                 batch_boundary = "LAB"  # Default
 
-            # Clean filename - remove special characters and add "L" prefix
-            filename = tab_title.replace(
-                " - ", "_").replace(":", "").replace("/", "-")
-            filename = f"L{filename}.inc"  # Add "L" at the beginning
+            # Extract line number and datetime from tab_title for proper filename
+            parts = tab_title.split(" - ")
+            if len(parts) >= 2:
+                line_part = parts[0]  # e.g., "Line_101"
+                datetime_str = parts[1]  # e.g., "2024-01-15 14:30"
+                
+                # Extract just the number from "Line_101" -> "101"
+                line_number = line_part.replace("Line_", "")
+                
+                # Clean datetime string for filename
+                clean_datetime = datetime_str.replace(":", "").replace(" ", "_").replace("/", "-")
+                
+                # Create proper filename: L101_2024-01-15_1430.inc
+                filename = f"L{line_number}_{clean_datetime}.inc"
+            else:
+                # Fallback - clean the full tab_title and add L prefix
+                filename = tab_title.replace(" - ", "_").replace(":", "").replace("/", "-")
+                filename = f"L{filename}.inc"
+                
             filepath = os.path.join(directory_path, filename)
 
             # Extract line and datetime from tab_title to create proper header
@@ -975,24 +1123,24 @@ def save_all_files(n_clicks, directory_path, data_store):
             title="Files Saved Successfully",
             message=f"Saved {len(saved_files)} files to {directory_path}",
             color="green",
-            action="show",
             autoClose=5000,
+            action="show",
             icon=BootstrapIcon("check-circle-fill")
         )
 
-        return False, success_notification
+        return False, success_notification, False
 
     except Exception as e:
         error_notification = dmc.Notification(
             title="Save Error",
             message=f"Failed to save files: {str(e)}",
             color="red",
-            action="show",
             autoClose=5000,
+            action="show",
             icon=BootstrapIcon("exclamation-triangle-fill")
         )
 
-        return False, error_notification
+        return False, error_notification, False
 
 
 # Add notification container for save operations

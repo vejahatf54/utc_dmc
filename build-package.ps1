@@ -136,7 +136,10 @@ function Test-Environment {
         @{name = "flask"; import = "flask" },
         @{name = "sqlalchemy"; import = "sqlalchemy" },
         @{name = "pyodbc"; import = "pyodbc" },
-        @{name = "requests"; import = "requests" }
+        @{name = "requests"; import = "requests" },
+        @{name = "cryptography"; import = "cryptography" },
+        @{name = "oracledb"; import = "oracledb" },
+        @{name = "psutil"; import = "psutil" }
     )
     
     foreach ($package in $requiredPackages) {
@@ -174,6 +177,59 @@ function Test-Environment {
     }
     else {
         throw "PyInstaller not available. Install with: pip install PyInstaller"
+    }
+    
+    # Test cryptography specifically for oracledb compatibility
+    Write-Info "Testing cryptography modules for oracledb compatibility..."
+    $cryptoTest = & $PythonExe -c "
+try:
+    import cryptography
+    from cryptography.hazmat.primitives.kdf import pbkdf2
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.backends import default_backend
+    print('Cryptography modules: OK')
+except ImportError as e:
+    print(f'Cryptography import failed: {e}')
+    raise
+" 2>&1
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "Cryptography modules: OK"
+        Write-Info $cryptoTest
+    }
+    else {
+        Write-Warning "Cryptography modules test failed: $cryptoTest"
+        Write-Warning "This may cause Oracle database connection issues in the built executable"
+    }
+    
+    # Test oracledb thin mode specifically
+    Write-Info "Testing oracledb thin mode compatibility..."
+    $oracleTest = & $PythonExe -c "
+try:
+    import oracledb
+    # Test that thin mode can be initialized (this is where the crypto error occurs)
+    oracledb.init_oracle_client()  # This should work even without Oracle client
+    print('oracledb thin mode: OK')
+except Exception as e:
+    if 'cryptography' in str(e):
+        print(f'oracledb cryptography issue: {e}')
+        raise
+    else:
+        print(f'oracledb note: {e} (this is expected without Oracle client)')
+" 2>&1
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "oracledb thin mode: OK"
+        Write-Info $oracleTest
+    }
+    else {
+        if ($oracleTest -match "cryptography") {
+            Write-Error-Custom "oracledb cryptography test failed: $oracleTest"
+            throw "Critical: oracledb cryptography dependency issue detected"
+        }
+        else {
+            Write-Info "oracledb test result: $oracleTest"
+        }
     }
     
     # Check PyWin32 (required for Windows functionality)

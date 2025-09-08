@@ -22,7 +22,7 @@ class FetchArchiveService:
         """Initialize the FetchArchiveService."""
         # Get configuration manager
         self.config_manager = get_config_manager()
-        
+
         # Load initial configuration
         self._load_config()
 
@@ -30,14 +30,15 @@ class FetchArchiveService:
         """Load configuration settings from the config manager."""
         # Get archive configuration
         archive_config = self.config_manager.get_archive_config()
-        
+
         # UNC path for archive backup repository
         self.archive_base_path = self.config_manager.get_archive_base_path()
-        
+
         # Timeout for large file operations
         self.timeout = self.config_manager.get_archive_timeout()
-        
-        logger.info(f"Archive configuration loaded - Base path: {self.archive_base_path}, Timeout: {self.timeout}s")
+
+        logger.info(
+            f"Archive configuration loaded - Base path: {self.archive_base_path}, Timeout: {self.timeout}s")
 
     def _check_unc_path_accessible(self) -> bool:
         """
@@ -76,7 +77,8 @@ class FetchArchiveService:
                 item_path = os.path.join(self.archive_base_path, item)
                 if os.path.isdir(item_path):
                     lines.append({
-                        'label': f"Line {item}",
+                        # Use folder name as-is (e.g., "l01", "l02")
+                        'label': item,
                         'value': item
                     })
 
@@ -321,7 +323,7 @@ class FetchArchiveService:
                     zip_filename = os.path.basename(zip_file_path)
                     # Get zip name without extension for renaming
                     zip_name_base = os.path.splitext(zip_filename)[0]
-                    
+
                     logger.info(
                         f"Extracting {zip_filename} to {line_output_path}")
 
@@ -331,22 +333,22 @@ class FetchArchiveService:
                             # Skip directories
                             if member.endswith('/'):
                                 continue
-                                
+
                             # Extract the file to memory first
                             file_data = zip_ref.read(member)
-                            
+
                             # Get the original file extension
                             original_name = os.path.basename(member)
                             _, original_ext = os.path.splitext(original_name)
-                            
+
                             # Create new filename: zip_name + original_extension
                             new_filename = f"{zip_name_base}{original_ext}"
                             new_file_path = line_output_path / new_filename
-                            
+
                             # Write the file with the new name
                             with open(new_file_path, 'wb') as f:
                                 f.write(file_data)
-                            
+
                             # Record the extracted file
                             extracted_files.append({
                                 'original_zip': zip_filename,
@@ -356,10 +358,12 @@ class FetchArchiveService:
                                 'size_bytes': new_file_path.stat().st_size
                             })
                             total_extracted += 1
-                            
-                            logger.debug(f"Renamed {original_name} to {new_filename}")
 
-                    logger.info(f"Successfully extracted and renamed files from {zip_filename}")
+                            logger.debug(
+                                f"Renamed {original_name} to {new_filename}")
+
+                    logger.info(
+                        f"Successfully extracted and renamed files from {zip_filename}")
 
                 except Exception as e:
                     logger.error(f"Error extracting {zip_file_path}: {e}")

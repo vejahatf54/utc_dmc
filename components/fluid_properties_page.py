@@ -122,7 +122,7 @@ def create_fluid_properties_page():
                             dmc.Stack([
                                 dmc.Group([
                                     BootstrapIcon(icon="droplet", width=20),
-                                    dmc.Text("Fluid Selection",
+                                    dmc.Text("Fluid Selection (Multiple)",
                                              fw=500, size="md")
                                 ], gap="xs"),
 
@@ -136,13 +136,15 @@ def create_fluid_properties_page():
                                     id="fluid-names-loading",
                                     type="default",
                                     children=[
-                                        dmc.Autocomplete(
+                                        dmc.TagsInput(
                                             id="fluid-properties-fluid-selection",
-                                            placeholder="Select a fluid name...",
+                                            placeholder="Type to search and add fluid names...",
                                             data=[],
                                             clearable=True,
-                                            selectFirstOptionOnChange=True,
-                                            style={"width": "100%"}
+                                            style={"width": "100%"},
+                                            maxDropdownHeight=200,
+                                            splitChars=[",", " ", ";"],
+                                            acceptValueOnBlur=True
                                         )
                                     ]
                                 )
@@ -302,7 +304,8 @@ def create_fluid_properties_page():
 
         # Hidden stores for data
         dcc.Store(id="fluid-properties-data-store"),
-        dcc.Store(id="fluid-properties-current-mode-store", data="Properties")
+        dcc.Store(id="fluid-properties-current-mode-store", data="Properties"),
+        dcc.Store(id="available-fluids-store", data=[])
     ])
 
 
@@ -333,8 +336,9 @@ def toggle_property_controls(data_type):
 
 
 @callback(
-    Output("fluid-properties-fluid-selection", "data"),
-    Output("fluid-names-error-message", "children"),
+    [Output("fluid-properties-fluid-selection", "data"),
+     Output("fluid-names-error-message", "children"),
+     Output("available-fluids-store", "data")],
     Input("fluid-properties-fluid-selection", "id"),  # Trigger on page load
     prevent_initial_call=False
 )
@@ -351,12 +355,12 @@ def load_fluid_names(_):
                 color="yellow",
                 icon=BootstrapIcon("exclamation-triangle")
             )
-            return [], error_msg
+            return [], error_msg, []
 
         # Convert to select options format
         options = [{"value": fluid, "label": fluid} for fluid in fluids]
         
-        return options, no_update
+        return options, no_update, fluids
 
     except Exception as e:
         error_msg = dmc.Alert(
@@ -365,7 +369,49 @@ def load_fluid_names(_):
             color="red",
             icon=BootstrapIcon("exclamation-triangle")
         )
-        return [], error_msg
+        return [], error_msg, []
+
+
+@callback(
+    [Output("fluid-properties-fluid-selection", "value"),
+     Output("fluid-properties-notifications", "children", allow_duplicate=True)],
+    Input("fluid-properties-fluid-selection", "value"),
+    State("available-fluids-store", "data"),
+    prevent_initial_call=True
+)
+def validate_and_capitalize_fluid_selection(selected_fluids, available_fluids):
+    """Validate and capitalize fluid selections."""
+    if not selected_fluids or not available_fluids:
+        return no_update, no_update
+    
+    # Capitalize all inputs
+    capitalized_fluids = [fluid.upper() for fluid in selected_fluids]
+    
+    # Check for invalid fluids
+    invalid_fluids = []
+    valid_fluids = []
+    
+    for fluid in capitalized_fluids:
+        if fluid in available_fluids:
+            valid_fluids.append(fluid)
+        else:
+            invalid_fluids.append(fluid)
+    
+    # If there are invalid fluids, show error notification
+    if invalid_fluids:
+        error_notification = dmc.Notification(
+            title="Invalid Fluid Names",
+            message=f"The following fluid names are not available: {', '.join(invalid_fluids)}. Please select from the available list.",
+            color="red",
+            icon=BootstrapIcon("exclamation-triangle"),
+            action="show",
+            autoClose=5000
+        )
+        # Return only valid fluids and show error
+        return valid_fluids, error_notification
+    
+    # All fluids are valid, return capitalized version
+    return capitalized_fluids, no_update
 
 
 @callback(
@@ -466,18 +512,29 @@ def fetch_fluid_data(n_clicks, data_type, start_date, end_date, fluid_name, prop
         # Show loading
         if data_type == "Properties":
             # Validate property-specific inputs
-            if not fluid_name:
+            if not fluid_name or len(fluid_name) == 0:
                 error_notification = dmc.Notification(
                     title="Input Error",
-                    message="Please select a fluid name for properties data",
+                    message="Please select at least one fluid name for properties data",
                     color="red",
                     icon=BootstrapIcon("exclamation-triangle"),
                     action="show"
                 )
                 return no_update, False, no_update, no_update, error_notification
 
-            # Fetch properties data
-            df = fluid_service.fetch_properties_data(start_dt, end_dt, fluid_name, property_type)
+            # Fetch properties data for multiple fluids
+            all_data = []
+            for fluid in fluid_name:
+                df = fluid_service.fetch_properties_data(start_dt, end_dt, fluid, property_type)
+                if not df.empty:
+                    all_data.append(df)
+            
+            if all_data:
+                df = pd.concat(all_data, ignore_index=True)
+                # Sort by commodity_id and sample_date for better organization
+                df = df.sort_values(['COMMODITY_ID', 'SAMPLE_DATE'], ignore_index=True)
+            else:
+                df = pd.DataFrame()  # Empty dataframe if no data found
         else:
             # Fetch commodities data
             df = fluid_service.fetch_commodities_data(start_dt, end_dt)
@@ -544,9 +601,13 @@ def fetch_fluid_data(n_clicks, data_type, start_date, end_date, fluid_name, prop
             )
         ], style={"height": "calc(100vh - 320px)", "minHeight": "420px", "display": "flex", "flexDirection": "column"})
 
+        success_message = f"Successfully fetched {len(df)} records"
+        if data_type == "Properties" and fluid_name:
+            success_message += f" for {len(fluid_name)} fluid(s): {', '.join(fluid_name)}"
+        
         success_notification = dmc.Notification(
             title="Success",
-            message=f"Successfully fetched {len(df)} records",
+            message=success_message,
             color="green",
             icon=BootstrapIcon("check-circle"),
             action="show"

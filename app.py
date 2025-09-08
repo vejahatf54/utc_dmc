@@ -6,6 +6,7 @@ from components.home_page import create_home_page
 from components.fluid_id_page import create_fluid_id_page
 from components.sps_time_converter_page import create_sps_time_converter_page
 from components.csv_to_rtu_page import create_csv_to_rtu_page
+from components.fluid_properties_page import create_fluid_properties_page
 import components.fetch_archive_page as fetch_archive_page
 import components.fetch_rtu_data_page as fetch_rtu_data_page
 import components.elevation_page as elevation_page
@@ -105,6 +106,8 @@ def render_page(pathname: str):
         return create_sps_time_converter_page()
     elif pathname == "/csv-to-rtu":
         return create_csv_to_rtu_page()
+    elif pathname == "/fluid-properties":
+        return create_fluid_properties_page()
     elif pathname == "/fetch-archive":
         return fetch_archive_page.layout
     elif pathname == "/fetch-rtu-data":

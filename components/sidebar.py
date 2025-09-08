@@ -63,6 +63,12 @@ def build_sidebar():
                                 html.Span(
                                     "Linefill Data", className="nav-label sb-label"),
                             ], href="/linefill", className="nav-link"),
+                            html.A([
+                                BootstrapIcon(icon="droplet", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "Fluid Properties", className="nav-label sb-label"),
+                            ], href="/fluid-properties", className="nav-link"),
                         ],
                     ),
 

@@ -23,6 +23,18 @@
         },
         "timeout": 30
     },
+    "fluid_properties": {
+        "test_ids": {
+            "density": [50, 71, 106, 158, 160, 229, 274, 277, 279],
+            "viscosity": [65, 66, 67, 68, 69, 222, 224, 226, 228, 230, 232, 300, 301, 302, 303, 304],
+            "vapor_pressure": [58, 161, 299, 309, 242, 249, 254, 256, 266, 284, 292]
+        },
+        "units": {
+            "density": "kg/m3",
+            "viscosity": "cSt",
+            "vapor_pressure": "kPa"
+        }
+    },
     "app": {
         "debug": true,
         "port": 8050,

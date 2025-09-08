@@ -343,6 +343,33 @@ class ConfigManager:
         """
         return self.get('oracle.timeout', 30)
 
+    def get_fluid_properties_config(self) -> Dict[str, Any]:
+        """
+        Get fluid properties specific configuration.
+
+        Returns:
+            Dictionary containing fluid properties configuration
+        """
+        return self.get('fluid_properties', {})
+
+    def get_fluid_properties_test_ids(self) -> Dict[str, Any]:
+        """
+        Get fluid properties test IDs configuration.
+
+        Returns:
+            Dictionary containing test IDs for each property type
+        """
+        return self.get('fluid_properties.test_ids', {})
+
+    def get_fluid_properties_units(self) -> Dict[str, Any]:
+        """
+        Get fluid properties units configuration.
+
+        Returns:
+            Dictionary containing units for each property type
+        """
+        return self.get('fluid_properties.units', {})
+
     def get_all_config(self) -> Dict[str, Any]:
         """
         Get the entire configuration dictionary.

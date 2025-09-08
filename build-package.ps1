@@ -130,7 +130,13 @@ function Test-Environment {
         @{name = "dash"; import = "dash" },
         @{name = "dash-mantine-components"; import = "dash_mantine_components" },
         @{name = "dash-ag-grid"; import = "dash_ag_grid" },
-        @{name = "pandas"; import = "pandas" }
+        @{name = "pandas"; import = "pandas" },
+        @{name = "numpy"; import = "numpy" },
+        @{name = "plotly"; import = "plotly" },
+        @{name = "flask"; import = "flask" },
+        @{name = "sqlalchemy"; import = "sqlalchemy" },
+        @{name = "pyodbc"; import = "pyodbc" },
+        @{name = "requests"; import = "requests" }
     )
     
     foreach ($package in $requiredPackages) {
@@ -192,6 +198,25 @@ function Test-Environment {
     }
     Write-Success "Config file found: $ConfigFile"
     
+    # Verify SQL files exist
+    Write-Info "Checking SQL files..."
+    $sqlPath = Join-Path $ProjectRoot "sql"
+    if (Test-Path $sqlPath) {
+        $sqlFiles = Get-ChildItem $sqlPath -Filter "*.sql"
+        if ($sqlFiles.Count -gt 0) {
+            Write-Success "Found $($sqlFiles.Count) SQL files"
+            foreach ($sqlFile in $sqlFiles) {
+                Write-Info "  - $($sqlFile.Name)"
+            }
+        }
+        else {
+            Write-Warning "No SQL files found in sql directory"
+        }
+    }
+    else {
+        Write-Warning "SQL directory not found: $sqlPath"
+    }
+    
     # Test DMC components
     Write-Info "Testing DMC application components..."
     $testResult = & $PythonExe -c "
@@ -203,6 +228,7 @@ import components.fetch_archive_page
 import components.fetch_rtu_data_page
 import components.sps_time_converter_page
 import components.elevation_page
+import components.linefill_page
 import components.custom_theme
 import components.directory_selector
 import components.bootstrap_icon
@@ -224,12 +250,14 @@ print('All components imported successfully')
     $serviceTestResult = & $PythonExe -c "
 import services.config_manager
 import services.csv_to_rtu_service
+import services.date_range_service
 import services.elevation_data_service
 import services.exceptions
 import services.fetch_archive_service
 import services.fetch_rtu_data_service
 import services.sps_time_converter_service
 import services.fluid_id_service
+import services.linefill_service
 import services.onesource_service
 import services.pipe_analysis_service
 print('All services imported successfully')

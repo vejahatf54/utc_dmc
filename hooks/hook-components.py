@@ -21,10 +21,13 @@ component_modules = [
     'components.directory_selector',
     'components.elevation_page',
     'components.fetch_archive_page',
+    'components.fetch_rtu_data_page',
     'components.fluid_id_page',
     'components.home_page',
     'components.icon_mapping',
+    'components.linefill_page',
     'components.sidebar',
+    'components.sps_time_converter_page',
     'components.theme_switch',
 ]
 hiddenimports.extend(component_modules)

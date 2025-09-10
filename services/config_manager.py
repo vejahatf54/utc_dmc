@@ -34,13 +34,13 @@ class ConfigManager:
                 # Running as a PyInstaller bundle
                 executable_dir = Path(sys.executable).parent
                 config_file_path = executable_dir / "config.json"
-                logger.info(
+                logger.debug(
                     f"Running as packaged app, looking for config at: {config_file_path}")
             else:
                 # Running in development mode
                 app_root = Path(__file__).parent.parent
                 config_file_path = app_root / "config.json"
-                logger.info(
+                logger.debug(
                     f"Running in development mode, looking for config at: {config_file_path}")
 
         self.config_file_path = Path(config_file_path)
@@ -79,7 +79,7 @@ class ConfigManager:
                 self._config = self._merge_configs(default_config, new_config)
                 self._last_modified = current_modified
 
-                logger.info(
+                logger.debug(
                     f"Configuration loaded successfully from {self.config_file_path}")
                 return True
 

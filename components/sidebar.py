@@ -81,6 +81,12 @@ def build_sidebar():
                                 html.Span(
                                     "Fluid Properties", className="nav-label sb-label"),
                             ], href="/fluid-properties", className="nav-link"),
+                            html.A([
+                                BootstrapIcon(icon="search-heart", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "Replace Text", className="nav-label sb-label"),
+                            ], href="/replace-text", className="nav-link"),
                         ],
                     ),
 

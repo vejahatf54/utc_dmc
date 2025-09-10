@@ -37,7 +37,7 @@ class FetchArchiveService:
         # Timeout for large file operations
         self.timeout = self.config_manager.get_archive_timeout()
 
-        logger.info(
+        logger.debug(
             f"Archive configuration loaded - Base path: {self.archive_base_path}, Timeout: {self.timeout}s")
 
     def _check_unc_path_accessible(self) -> bool:

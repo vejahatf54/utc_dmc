@@ -40,7 +40,7 @@ class FetchRtuDataService:
         # Timeout for large file operations
         self.timeout = self.config_manager.get_rtudata_timeout()
         
-        logger.info(f"RTU data configuration loaded - Base path: {self.rtudata_base_path}, Default output: {self.default_output_path}, Timeout: {self.timeout}s")
+        logger.debug(f"RTU data configuration loaded - Base path: {self.rtudata_base_path}, Default output: {self.default_output_path}, Timeout: {self.timeout}s")
 
     def _check_unc_path_accessible(self) -> bool:
         """

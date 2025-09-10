@@ -46,6 +46,12 @@ def build_sidebar():
                                     "RTU to CSV", className="nav-label sb-label"),
                             ], href="/rtu-to-csv", className="nav-link"),
                             html.A([
+                                BootstrapIcon(icon="file-earmark-code", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "Review to CSV", className="nav-label sb-label"),
+                            ], href="/review-to-csv", className="nav-link"),
+                            html.A([
                                 BootstrapIcon(icon="cloud-download", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(

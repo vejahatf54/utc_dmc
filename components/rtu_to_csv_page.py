@@ -1,6 +1,6 @@
 """
 RTU to CSV Converter page component for DMC application.
-Converts RTU files to CSV format with peek file filtering and sequential processing.
+Converts RTU files to CSV format with peek file filtering and parallel processing.
 """
 
 import dash_mantine_components as dmc
@@ -12,18 +12,21 @@ import io
 import pandas as pd
 import os
 import threading
+import time
+import logging
 from typing import List, Dict, Any
 from datetime import datetime, timedelta, date
 from components.directory_selector import create_directory_selector, create_directory_selector_callback
 from services.rtu_to_csv_service import RtuFileService
-import asyncio
 import tempfile
 
+# Set up logging
+logger = logging.getLogger(__name__)
 
-# RTU File Service Wrapper for handling async operations
+
+# RTU File Service Wrapper for handling background operations
 class RtuServiceWrapper:
     def __init__(self):
-        self._cancel_event = threading.Event()
         self._background_thread = None
         self._current_service = None
     
@@ -34,6 +37,7 @@ class RtuServiceWrapper:
                                 end_datetime: str,
                                 frequency_minutes: float,
                                 id_width: int,
+                                max_workers: int = 4,
                                 task_manager = None) -> str:
         """
         Start RTU processing in background thread using the new RtuFileService.
@@ -47,7 +51,7 @@ class RtuServiceWrapper:
         self._background_thread = threading.Thread(
             target=self._background_process_wrapper,
             args=(task_id, rtu_folder_path, peek_file, start_datetime, 
-                  end_datetime, frequency_minutes, id_width, task_manager),
+                  end_datetime, frequency_minutes, id_width, max_workers, task_manager),
             daemon=True
         )
         self._background_thread.start()
@@ -56,63 +60,16 @@ class RtuServiceWrapper:
     
     def _background_process_wrapper(self, task_id: str, rtu_folder_path: str, 
                                    peek_file: Dict, start_datetime: str, end_datetime: str,
-                                   frequency_minutes: float, id_width: int, 
+                                   frequency_minutes: float, id_width: int, max_workers: int,
                                    task_manager):
-        """Wrapper to handle async operations in background thread."""
+        """Wrapper to handle synchronous operations in background thread."""
+        temp_peek_path = None
         try:
             # Update task manager progress if available
             if task_manager:
                 task_manager.update_progress("Initializing RTU file processing...")
             
-            # Do synchronous setup first (this should be fast)
-            setup_result = self._prepare_processing(
-                rtu_folder_path, peek_file, start_datetime, end_datetime,
-                frequency_minutes, id_width, task_manager
-            )
-            
-            if not setup_result['success']:
-                if task_manager:
-                    task_manager.complete_task(setup_result)
-                return
-            
-            # Now run the async processing
-            result = asyncio.run(self._run_async_processing(setup_result, task_manager))
-            
-            # Update task manager with completion
-            if task_manager:
-                task_manager.complete_task(result)
-                
-        except Exception as e:
-            # Return error result to completion callback
-            error_result = {
-                'success': False,
-                'error': f"Background processing failed: {str(e)}",
-                'task_id': task_id
-            }
-            
-            if task_manager:
-                task_manager.complete_task(error_result)
-    
-    def _prepare_processing(self, rtu_folder_path: str, peek_file: Dict, 
-                           start_datetime: str, end_datetime: str,
-                           frequency_minutes: float, id_width: int, 
-                           task_manager):
-        """Fast synchronous preparation - should complete quickly."""
-        try:
-            # Find .dt files in the folder (fast operation)
-            dt_files = []
-            for file in os.listdir(rtu_folder_path):
-                if file.lower().endswith('.dt'):
-                    dt_files.append(file)  # Just filename, not full path
-            
-            if not dt_files:
-                return {
-                    'success': False,
-                    'error': 'No .dt files found in the selected folder',
-                    'files_processed': 0
-                }
-            
-            # Create temporary peek file (fast operation)
+            # Create temporary peek file
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as temp_peek:
                 if 'tags' in peek_file:
                     temp_peek.write('\n'.join(peek_file['tags']))
@@ -121,7 +78,7 @@ class RtuServiceWrapper:
                     temp_peek.write(content)
                 temp_peek_path = temp_peek.name
             
-            # Parse datetime strings (fast operation)
+            # Parse datetime strings
             def parse_datetime(dt_str):
                 formats = [
                     '%Y-%m-%d %H:%M:%S',
@@ -139,81 +96,53 @@ class RtuServiceWrapper:
             start_dt = parse_datetime(start_datetime)
             end_dt = parse_datetime(end_datetime)
             
-            return {
-                'success': True,
-                'rtu_folder_path': rtu_folder_path,
-                'dt_files': dt_files,
-                'temp_peek_path': temp_peek_path,
-                'start_dt': start_dt,
-                'end_dt': end_dt,
-                'id_width': int(id_width)
-            }
-            
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e),
-                'files_processed': 0
-            }
-    
-    async def _run_async_processing(self, setup_data, task_manager):
-        """Run the actual async processing - this is where the time is spent."""
-        temp_peek_path = setup_data['temp_peek_path']
-        
-        try:
-            # Update progress
             if task_manager:
-                task_manager.update_progress(f"Processing {len(setup_data['dt_files'])} RTU files...")
+                task_manager.update_progress("Setting up RTU file service...")
             
             # Create RtuFileService instance
-            rtu_service = RtuFileService(
-                dir_path=setup_data['rtu_folder_path'],
-                id_width=setup_data['id_width']
+            self._current_service = RtuFileService(
+                dir_path=rtu_folder_path,
+                id_width=id_width,
+                max_workers=max_workers
             )
             
-            # Store service for cancellation
-            self._current_service = rtu_service
+            # Set up the service
+            self._current_service.set_rtu_files()
+            self._current_service.set_peek_file(temp_peek_path)
             
-            # Set peek file and RTU files
-            rtu_service.set_peek_file(temp_peek_path)
-            rtu_service.set_rtu_files(setup_data['dt_files'])
-            
-            # Check for cancellation before processing
-            if self._cancel_event.is_set():
-                rtu_service.cancel_processing()
-                raise asyncio.CancelledError("Processing cancelled by user")
+            if task_manager:
+                task_manager.update_progress("Processing RTU files...")
             
             # Process the files (this is the time-consuming part)
-            await rtu_service.fetch_rtu_file_data(
-                start_time=setup_data['start_dt'],
-                end_time=setup_data['end_dt']
-            )
+            self._current_service.fetch_rtu_file_data(start_dt, end_dt)
             
-            return {
+            # Success result
+            result = {
                 'success': True,
-                'files_processed': len(setup_data['dt_files']),
-                'output_directory': setup_data['rtu_folder_path'],
-                'output_files': ['MergedDataFrame.csv']  # Always produces merged CSV
+                'task_id': task_id,
+                'output_directory': rtu_folder_path,
+                'message': 'RTU files converted successfully'
             }
             
-        except asyncio.CancelledError:
-            return {
-                'success': False,
-                'error': 'Processing cancelled by user',
-                'files_processed': 0,
-                'cancelled': True
-            }
+            if task_manager:
+                task_manager.complete_task(result)
+                
         except Exception as e:
-            return {
+            # Error result
+            logger.error(f"RTU processing failed: {str(e)}", exc_info=True)
+            error_result = {
                 'success': False,
-                'error': str(e),
-                'files_processed': 0
+                'error': f"Processing failed: {str(e)}",
+                'task_id': task_id
             }
+            
+            if task_manager:
+                task_manager.complete_task(error_result)
         finally:
             # Clear service reference
             self._current_service = None
             # Clean up temporary peek file
-            if os.path.exists(temp_peek_path):
+            if temp_peek_path and os.path.exists(temp_peek_path):
                 try:
                     os.unlink(temp_peek_path)
                 except:
@@ -221,10 +150,8 @@ class RtuServiceWrapper:
     
     def cancel_processing(self):
         """Cancel the current RTU processing operation."""
-        self._cancel_event.set()
-        # Also cancel the actual service if it exists
-        if hasattr(self, '_current_service') and self._current_service:
-            self._current_service.cancel_processing()
+        if self._current_service:
+            self._current_service.cancel()
 
 # Initialize the service wrapper
 rtu_csv_service = RtuServiceWrapper()
@@ -297,6 +224,9 @@ def create_rtu_to_csv_page():
         dcc.Store(id='background-task-store', data={'task_id': None, 'status': 'idle'}),
         dcc.Store(id=rtu_directory_ids['store'], data={'path': ''}),
         
+        # Notification container for this page
+        html.Div(id='rtu-csv-notifications'),
+        
         # Interval component for polling background task progress
         dcc.Interval(
             id='rtu-csv-background-task-interval',
@@ -333,7 +263,8 @@ def create_rtu_to_csv_page():
                         dmc.GridCol([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="info-circle", width=20),
+                                    BootstrapIcon(icon="info-circle", width=16),
+                                    dmc.Space(w="sm"),
                                     dmc.Text("Requirements", fw=500)
                                 ], gap="xs"),
                                 dmc.List([
@@ -348,7 +279,8 @@ def create_rtu_to_csv_page():
                         dmc.GridCol([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="lightbulb", width=20),
+                                    BootstrapIcon(icon="lightbulb", width=16),
+                                    dmc.Space(w="sm"),
                                     dmc.Text("Process", fw=500)
                                 ], gap="xs"),
                                 dmc.List([
@@ -384,7 +316,8 @@ def create_rtu_to_csv_page():
                         dmc.Paper([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="file-text", width=20),
+                                    BootstrapIcon(icon="file-text", width=16),
+                                    dmc.Space(w="sm"),
                                     dmc.Text("Peek File Upload", fw=500, size="md")
                                 ], gap="xs"),
 
@@ -430,54 +363,55 @@ def create_rtu_to_csv_page():
                         dmc.Paper([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="calendar3", width=20),
+                                    BootstrapIcon(icon="calendar3", width=16),
+                                    dmc.Space(w="sm"),
                                     dmc.Text("Date Range Selection", fw=500, size="md")
                                 ], gap="xs"),
 
                                 dmc.Divider(size="xs"),
 
-                                dmc.Stack([
-                                    dmc.Text("Start Date & Time", size="sm", fw=500),
-                                    dmc.DateTimePicker(
-                                        id="rtu-csv-start-datetime",
-                                        value=datetime.now() - timedelta(days=7),
-                                        style={"width": "100%"},
-                                        size="md",
-                                        clearable=False,
-                                        withSeconds=True,
-                                        valueFormat="YYYY/MM/DD HH:mm:ss"
-                                    )
-                                ], gap="xs"),
-                                
-                                dmc.Stack([
-                                    dmc.Text("End Date & Time", size="sm", fw=500),
-                                    dmc.DateTimePicker(
-                                        id="rtu-csv-end-datetime",
-                                        value=datetime.now(),
-                                        style={"width": "100%"},
-                                        size="md",
-                                        clearable=False,
-                                        withSeconds=True,
-                                        valueFormat="YYYY/MM/DD HH:mm:ss"
-                                    )
-                                ], gap="xs")
+                                dmc.Group([
+                                    dmc.Stack([
+                                        dmc.Text("Start Date & Time", size="sm", fw=500),
+                                        dmc.DateTimePicker(
+                                            id="rtu-csv-start-datetime",
+                                            value=datetime.now() - timedelta(days=7),
+                                            style={"width": "100%"},
+                                            size="md",
+                                            clearable=False,
+                                            withSeconds=True,
+                                            valueFormat="YYYY/MM/DD HH:mm:ss"
+                                        )
+                                    ], gap="xs", style={"flex": 1}),
+                                    
+                                    dmc.Stack([
+                                        dmc.Text("End Date & Time", size="sm", fw=500),
+                                        dmc.DateTimePicker(
+                                            id="rtu-csv-end-datetime",
+                                            value=datetime.now(),
+                                            style={"width": "100%"},
+                                            size="md",
+                                            clearable=False,
+                                            withSeconds=True,
+                                            valueFormat="YYYY/MM/DD HH:mm:ss"
+                                        )
+                                    ], gap="xs", style={"flex": 1})
+                                ], gap="md", grow=True)
                             ], gap="sm", p="sm")
                         ], shadow="sm", radius="md", withBorder=True),
 
                     ], gap="md")
                 ], span=4),
 
-                # Center spacer column (2 columns)
-                dmc.GridCol([], span=2),
-
-                # Right side - Configuration and Processing (4 columns)
+                # Right side - Configuration and Processing (5 columns)
                 dmc.GridCol([
                     dmc.Stack([
                         # Processing Options
                         dmc.Paper([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="gear", width=20),
+                                    BootstrapIcon(icon="gear", width=16),
+                                    dmc.Space(w="sm"),
                                     dmc.Text("Processing Options", fw=500, size="md")
                                 ], gap="xs"),
 
@@ -519,19 +453,33 @@ def create_rtu_to_csv_page():
                                     ], gap="sm")
                                 ], gap="xs"),
 
-                                # ID Width
-                                dmc.Stack([
-                                    dmc.Text("ID Width", size="sm", fw=500),
-                                    dmc.NumberInput(
-                                        id="id-width-input",
-                                        value=30,
-                                        min=1,
-                                        max=50,
-                                        step=1,
-                                        style={"width": "100%"},
-                                        size="md"
-                                    )
-                                ], gap="xs")
+                        # Max Workers
+                        dmc.Stack([
+                            dmc.Text("Max Workers", size="sm", fw=500),
+                            dmc.NumberInput(
+                                id="max-workers-input",
+                                value=4,
+                                min=1,
+                                max=8,
+                                step=1,
+                                style={"width": "100%"},
+                                size="md"
+                            )
+                        ], gap="xs"),
+
+                        # ID Width
+                        dmc.Stack([
+                            dmc.Text("ID Width", size="sm", fw=500),
+                            dmc.NumberInput(
+                                id="id-width-input",
+                                value=30,
+                                min=1,
+                                max=50,
+                                step=1,
+                                style={"width": "100%"},
+                                size="md"
+                            )
+                        ], gap="xs")
 
                             ], gap="sm", p="sm")
                         ], shadow="sm", radius="md", withBorder=True),
@@ -540,7 +488,8 @@ def create_rtu_to_csv_page():
                         dmc.Paper([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="info-circle", width=20),
+                                    BootstrapIcon(icon="info-circle", width=16),
+                                    dmc.Space(w="sm"),
                                     dmc.Text("Processing Information", fw=500, size="md")
                                 ], gap="xs"),
 
@@ -548,9 +497,10 @@ def create_rtu_to_csv_page():
 
                                 dmc.List([
                                     dmc.ListItem("All .dt files in the selected folder will be processed"),
-                                    dmc.ListItem("CSV files will be saved in the same folder as .dt files"),
-                                    dmc.ListItem("Processing will be done sequentially for better stability"),
-                                    dmc.ListItem("Peek file filters which tags to extract")
+                                    dmc.ListItem("CSV files will be merged into MergedDataFrame.csv"),
+                                    dmc.ListItem("Processing uses parallel workers for better performance"),
+                                    dmc.ListItem("Peek file filters which tags to extract"),
+                                    dmc.ListItem("You can cancel processing at any time")
                                 ], size="sm")
 
                             ], gap="sm", p="sm")
@@ -560,7 +510,8 @@ def create_rtu_to_csv_page():
                         dmc.Paper([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="arrow-repeat", width=20),
+                                    BootstrapIcon(icon="arrow-repeat", width=16),
+                                    dmc.Space(w="sm"),
                                     dmc.Text("CSV Conversion", fw=500, size="md")
                                 ], gap="xs", justify="center"),
 
@@ -569,34 +520,34 @@ def create_rtu_to_csv_page():
                                 # Conversion button and status
                                 dmc.Stack([
                                     dmc.Group([
-                                        dcc.Loading(
-                                            id='convert-csv-loading',
-                                            type='default',
-                                            children=[
-                                                dmc.Button([
-                                                    BootstrapIcon(icon="download", width=20),
-                                                    "Convert to CSV"
-                                                ], id='convert-csv-btn', size="lg", disabled=True, className="px-4", variant="filled")
-                                            ]
-                                        ),
+                                        dmc.Button([
+                                            BootstrapIcon(icon="download", width=16),
+                                            dmc.Space(w="sm"),
+                                            "Write to CSV"
+                                        ], id='convert-csv-btn', size="lg", disabled=True, variant="filled", 
+                                          style={'minWidth': '160px'}),
                                         
                                         dmc.Button([
-                                            BootstrapIcon(icon="x-circle", width=20),
+                                            BootstrapIcon(icon="x-circle", width=16),
+                                            dmc.Space(w="sm"),
                                             "Cancel"
-                                        ], id='cancel-csv-btn', size="lg", disabled=True, className="px-4", variant="outline", color="red")
-                                    ], gap="sm", justify="center"),
+                                        ], id='cancel-csv-btn', size="lg", disabled=True, variant="outline", color="red",
+                                          style={'minWidth': '120px'})
+                                    ], gap="md", justify="center"),
 
                                     html.Div(
-                                        id='csv-processing-status',
-                                        style={'minHeight': '20px',
-                                               'textAlign': 'center'}
+                                        id='csv-processing-alert',
+                                        style={'minHeight': '20px'}
                                     )
                                 ], align="center", gap="sm")
 
                             ], gap="sm", p="sm")
                         ], shadow="sm", radius="md", withBorder=True)
                     ], gap="md")
-                ], span=4),
+                ], span=5),
+
+                # Center spacer column (2 columns)
+                dmc.GridCol([], span=2),
 
                 # Right offset column (1 column)
                 dmc.GridCol([], span=1),
@@ -604,7 +555,7 @@ def create_rtu_to_csv_page():
             ])
 
         ], gap="md")
-    ], size="xl", p="sm")
+    ], fluid=True, p="sm")
 
 
 # Help modal callback
@@ -624,7 +575,8 @@ def toggle_help_modal(n, opened):
     [Output('peek-file-store', 'data'),
      Output('peek-file-status', 'children')],
     [Input('peek-file-upload', 'contents')],
-    [State('peek-file-upload', 'filename')]
+    [State('peek-file-upload', 'filename')],
+    prevent_initial_call=True
 )
 def handle_peek_file_upload(content, filename):
     """Handle peek file upload."""
@@ -693,12 +645,12 @@ def update_convert_button_state(peek_file, rtu_folder):
 
 # Convert to CSV callback - immediate UI feedback
 @callback(
-    [Output('csv-processing-status', 'children'),
+    [Output('csv-processing-alert', 'children'),
      Output('rtu-processing-store', 'data'),
-     Output('convert-csv-btn', 'children'),
      Output('cancel-csv-btn', 'disabled', allow_duplicate=True),
      Output('rtu-csv-background-task-interval', 'disabled', allow_duplicate=True),
-     Output('convert-csv-btn', 'disabled', allow_duplicate=True)],
+     Output('convert-csv-btn', 'disabled', allow_duplicate=True),
+     Output('rtu-csv-notifications', 'children')],
     [Input('convert-csv-btn', 'n_clicks')],
     [State('peek-file-store', 'data'),
      State('rtu-csv-start-datetime', 'value'),
@@ -706,54 +658,56 @@ def update_convert_button_state(peek_file, rtu_folder):
      State('data-frequency-preset', 'value'),
      State('data-frequency-custom', 'value'),
      State('id-width-input', 'value'),
+     State('max-workers-input', 'value'),
      State(rtu_directory_ids['store'], 'data')],
     prevent_initial_call=True
 )
 def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime, 
-                      frequency_preset, frequency_custom, id_width, rtu_folder):
+                      frequency_preset, frequency_custom, id_width, max_workers, rtu_folder):
     """Process RTU files and convert to CSV format."""
     
-    # Default button content
-    default_button_content = [
-        BootstrapIcon(icon="download", width=20),
-        "Convert to CSV"
-    ]
-    
-    # Processing button content
-    processing_button_content = [
-        BootstrapIcon(icon="clock", width=20),
-        "Processing..."
-    ]
-    
     if not n_clicks:
-        return "", {'status': 'idle'}, default_button_content, True, True, False
+        return "", {'status': 'idle'}, True, True, False, ""
     
     try:
         # Quick validation first - these should be instant
         if not peek_file.get('filename'):
-            error_msg = dmc.Alert(
-                "Error: No peek file uploaded",
+            error_notification = dmc.Notification(
+                title="Error",
+                message="No peek file uploaded",
                 color="red",
-                variant="light",
-                icon=BootstrapIcon(icon="exclamation-triangle")
+                autoClose=5000,
+                action="show"
             )
-            return error_msg, {'status': 'error', 'error': 'No peek file'}, default_button_content, True, True, False
+            return "", {'status': 'error', 'error': 'No peek file'}, True, True, False, error_notification
             
         if not rtu_folder.get('path'):
-            error_msg = dmc.Alert(
-                "Error: No RTU folder selected",
+            error_notification = dmc.Notification(
+                title="Error", 
+                message="No RTU folder selected",
                 color="red",
-                variant="light", 
-                icon=BootstrapIcon(icon="exclamation-triangle")
+                autoClose=5000,
+                action="show"
             )
-            return error_msg, {'status': 'error', 'error': 'No RTU folder'}, default_button_content, True, True, False
+            return "", {'status': 'error', 'error': 'No RTU folder'}, True, True, False, error_notification
         
-        # Show processing status IMMEDIATELY - no heavy processing before this
-        processing_status = dmc.Alert(
-            "Starting RTU file processing... This may take several minutes.",
+        # Show processing alert below buttons
+        processing_alert = dmc.Alert([
+            dmc.Group([
+                BootstrapIcon(icon="clock", width=16),
+                dmc.Text("RTU file processing started. This may take several minutes...", size="sm")
+            ], gap="xs"),
+            dmc.Space(h="xs"),
+            dmc.Progress(value=100, animated=True, color="blue", size="sm")
+        ], color="blue", variant="light")
+        
+        # Show processing notification IMMEDIATELY
+        processing_notification = dmc.Notification(
+            title="Processing Started",
+            message="RTU file processing started. This may take several minutes.",
             color="blue",
-            variant="light",
-            icon=BootstrapIcon(icon="clock")
+            autoClose=False,
+            action="show"
         )
         
         # Quick preparation of parameters - minimal processing
@@ -771,6 +725,7 @@ def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime,
             end_datetime=end_datetime_str,
             frequency_minutes=frequency_minutes,
             id_width=int(id_width),
+            max_workers=int(max_workers),
             task_manager=background_task_manager
         )
         
@@ -778,25 +733,27 @@ def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime,
         background_task_manager.start_task(task_id)
         
         # Return immediately with processing UI state
-        return processing_status, {'status': 'processing', 'task_id': task_id}, processing_button_content, False, False, True
+        return processing_alert, {'status': 'processing', 'task_id': task_id}, False, False, True, processing_notification
             
     except Exception as e:
-        error_message = dmc.Alert(
-            f"Error during conversion: {str(e)}",
+        error_notification = dmc.Notification(
+            title="Conversion Error",
+            message=f"Error during conversion: {str(e)}",
             color="red",
-            variant="light",
-            icon=BootstrapIcon(icon="exclamation-triangle")
+            autoClose=5000,
+            action="show"
         )
-        return error_message, {'status': 'error', 'error': str(e)}, default_button_content, True, True, False
+        return "", {'status': 'error', 'error': str(e)}, True, True, False, error_notification
 
 
 # Cancel processing callback
 @callback(
-    [Output('csv-processing-status', 'children', allow_duplicate=True),
+    [Output('csv-processing-alert', 'children', allow_duplicate=True),
      Output('rtu-processing-store', 'data', allow_duplicate=True),
      Output('cancel-csv-btn', 'disabled', allow_duplicate=True),
      Output('rtu-csv-background-task-interval', 'disabled', allow_duplicate=True),
-     Output('convert-csv-btn', 'disabled', allow_duplicate=True)],
+     Output('convert-csv-btn', 'disabled', allow_duplicate=True),
+     Output('rtu-csv-notifications', 'children', allow_duplicate=True)],
     [Input('cancel-csv-btn', 'n_clicks')],
     [State('rtu-processing-store', 'data')],
     prevent_initial_call=True
@@ -812,15 +769,16 @@ def cancel_rtu_processing(n_clicks, current_store):
     # Reset background task manager
     background_task_manager.reset()
     
-    # Show cancellation message
-    cancel_message = dmc.Alert(
-        "Processing cancelled by user. Cleaning up...",
+    # Create cancel notification
+    cancel_notification = dmc.Notification(
+        title="Processing Cancelled",
+        message="RTU processing has been cancelled",
         color="orange",
-        variant="light",
-        icon=BootstrapIcon(icon="exclamation-triangle")
+        autoClose=3000,
+        action="show"
     )
     
-    return cancel_message, {'status': 'cancelled'}, True, True, False
+    return "", {'status': 'cancelled'}, True, True, False, cancel_notification
 
 
 # RTU Directory selector callback
@@ -830,10 +788,11 @@ create_directory_selector_callback(
 
 
 @callback(
-    [Output('csv-processing-status', 'children', allow_duplicate=True),
+    [Output('csv-processing-alert', 'children', allow_duplicate=True),
      Output('convert-csv-btn', 'disabled', allow_duplicate=True),
      Output('cancel-csv-btn', 'disabled', allow_duplicate=True),
-     Output('rtu-csv-background-task-interval', 'disabled', allow_duplicate=True)],
+     Output('rtu-csv-background-task-interval', 'disabled', allow_duplicate=True),
+     Output('rtu-csv-notifications', 'children', allow_duplicate=True)],
     [Input('rtu-csv-background-task-interval', 'n_intervals')],
     prevent_initial_call=True
 )
@@ -843,45 +802,61 @@ def update_background_task_status(n_intervals):
         task_status = background_task_manager.get_status()
         
         if task_status['status'] == 'idle':
-            return "Ready", False, True, True
+            return "", False, True, True, ""
         elif task_status['status'] == 'running':
-            progress_message = dmc.Alert(
-                task_status['progress'],
-                color="blue",
-                variant="light",
-                icon=BootstrapIcon(icon="clock")
-            )
-            return progress_message, True, False, False  # Convert disabled, Cancel enabled, Interval running
+            progress_alert = dmc.Alert([
+                dmc.Group([
+                    BootstrapIcon(icon="clock", width=16),
+                    dmc.Text(task_status['progress'], size="sm")
+                ], gap="xs"),
+                dmc.Space(h="xs"),
+                dmc.Progress(value=100, animated=True, color="blue", size="sm")
+            ], color="blue", variant="light")
+            return progress_alert, True, False, False, ""  # Convert disabled, Cancel enabled, Interval running
         elif task_status['status'] == 'completed':
             # Reset the manager and return final status
             result = task_status['result']
             background_task_manager.reset()
             
             if result and result.get('success'):
-                success_message = dmc.Alert(
-                    f"Successfully converted {result.get('files_processed', 0)} RTU files to CSV. "
-                    f"Output saved to the RTU folder.",
+                success_alert = dmc.Alert(
+                    "RTU files converted successfully! Output saved as MergedDataFrame.csv in the RTU folder.",
                     color="green",
                     variant="light",
-                    icon=BootstrapIcon(icon="check-circle")
+                    icon=BootstrapIcon(icon="check-circle", width=16)
                 )
-                return success_message, False, True, True  # Convert enabled, Cancel disabled, Interval stopped
+                success_notification = dmc.Notification(
+                    title="Conversion Successful",
+                    message="RTU files converted successfully! Output saved as MergedDataFrame.csv in the RTU folder.",
+                    color="green",
+                    autoClose=5000,
+                    action="show"
+                )
+                return success_alert, False, True, True, success_notification  # Convert enabled, Cancel disabled, Interval stopped
             else:
                 error_msg = result.get('error', 'Unknown error') if result else 'Processing failed'
-                error_message = dmc.Alert(
+                error_alert = dmc.Alert(
                     f"Conversion failed: {error_msg}",
                     color="red",
                     variant="light",
-                    icon=BootstrapIcon(icon="exclamation-triangle")
+                    icon=BootstrapIcon(icon="exclamation-triangle", width=16)
                 )
-                return error_message, False, True, True  # Convert enabled, Cancel disabled, Interval stopped
+                error_notification = dmc.Notification(
+                    title="Conversion Failed",
+                    message=f"Conversion failed: {error_msg}",
+                    color="red",
+                    autoClose=5000,
+                    action="show"
+                )
+                return error_alert, False, True, True, error_notification  # Convert enabled, Cancel disabled, Interval stopped
         
-        return "Ready", False, True, True
+        return "", False, True, True, ""
     except Exception as e:
-        error_message = dmc.Alert(
-            f"Error monitoring task: {str(e)}",
+        error_notification = dmc.Notification(
+            title="Task Monitoring Error",
+            message=f"Error monitoring task: {str(e)}",
             color="red",
-            variant="light",
-            icon=BootstrapIcon(icon="exclamation-triangle")
+            autoClose=5000,
+            action="show"
         )
-        return error_message, False, True, True
+        return "", False, True, True, error_notification

@@ -1,175 +1,151 @@
 import os
 import glob
-import asyncio
 import subprocess
 from datetime import datetime
 from collections import defaultdict
-import pandas as pd
-import logging
+from pathlib import Path
 import threading
+import time
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import pandas as pd
+import psutil  # pip install psutil
 
 logger = logging.getLogger(__name__)
 
 
 class RtuFileService:
-    def __init__(self, dir_path: str, peek_list: str = "", id_width: int = 4):
-        self.dir_path = dir_path
+    def __init__(self, dir_path: str, peek_list: str = "", id_width: int = 4, max_workers: int = 4):
+        self.dir_path = Path(dir_path)
         self.peek_list_argument = peek_list
-        self.rtu_file_names = []
+        self.rtu_file_names = []  # .dt files
         self.id_width = id_width
-        self._cancel_event = threading.Event()
-        self._active_processes = []
-        self._process_lock = threading.Lock()
+        self.max_workers = max_workers
 
-    def set_rtu_files(self, rtu_file_names):
-        """Set the RTU filenames to process."""
-        self.rtu_file_names = rtu_file_names
+        # Cancellation and process tracking
+        self._cancel_event = threading.Event()
+        self._processes = []
+
+        # Executor tracking
+        self._executor = None
+        self._futures = []
+
+    # ------------------------------
+    # Setup methods
+    # ------------------------------
+    def set_rtu_files(self):
+        self.rtu_file_names = list(self.dir_path.glob("*.dt"))
+        if not self.rtu_file_names:
+            logger.warning(
+                "No .dt files found in directory: %s", self.dir_path)
 
     def set_peek_file(self, peek_file):
-        """Reads peek file and prepares argument string."""
-        with open(peek_file, "r") as f:
-            lines = [l.strip() for l in f if not l.startswith("#")]
-        self.peek_list_argument = ",".join(lines)
-    
-    def cancel_processing(self):
-        """Cancel all active processing operations."""
-        self._cancel_event.set()
-        
-        # Kill all active drtu.exe processes
-        with self._process_lock:
-            for process in self._active_processes[:]:  # Copy list to avoid modification during iteration
-                try:
-                    if process.poll() is None:  # Process is still running
-                        process.terminate()
-                        # Give it a moment to terminate gracefully
-                        try:
-                            process.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            process.kill()  # Force kill if it doesn't terminate
-                except Exception as e:
-                    logger.warning(f"Error terminating process: {str(e)}")
-            self._active_processes.clear()
-    
-    def reset_cancel_state(self):
-        """Reset the cancellation state for new processing."""
-        self._cancel_event.clear()
-        with self._process_lock:
-            self._active_processes.clear()
+        try:
+            with open(peek_file, "r") as f:
+                lines = [l.strip()
+                         for l in f if l.strip() and not l.startswith("#")]
+            self.peek_list_argument = ",".join(lines)
+        except Exception as ex:
+            logger.error("Failed to read peek file %s: %s", peek_file, ex)
+            raise
 
+    # ------------------------------
+    # Core methods
+    # ------------------------------
     def write_rtu_data_file_to_csv(self, rtu_file, start_time, end_time):
-        """Run drtu.exe with arguments to generate .rtu file from .dt input."""
-        # Check for cancellation before starting
         if self._cancel_event.is_set():
-            raise asyncio.CancelledError("Processing was cancelled")
-        
-        base_name = os.path.splitext(rtu_file)[0]
-        out_file = os.path.join(self.dir_path, base_name + ".rtu")
+            logger.info("Skipping %s (cancel requested)", rtu_file)
+            return
 
-        # Format datetime strings to match drtu.exe expected format 'yy/mm/dd HH:MM:SS'
-        start_str = start_time.strftime("'%y/%m/%d %H:%M:%S'")
-        end_str = end_time.strftime("'%y/%m/%d %H:%M:%S'")
-        
-        # Construct command string
-        cmd_string = (
-            f'drtu.exe "{os.path.join(self.dir_path, rtu_file)}" '
-            f'-match=({self.peek_list_argument}) -IDWIDTH={self.id_width} '
-            f'-TBEGIN={start_str} -TEND={end_str} > "{out_file}"'
-        )
-        
+        rtu_file = Path(rtu_file)
+        out_file = self.dir_path / (rtu_file.stem + ".rtu")
+
+        cmd = (f'cmd.exe /C "drtu.exe "{rtu_file}" ' f'-match=({self.peek_list_argument}) -IDWIDTH={self.id_width} ' f'-TBEGIN={start_time:%y/%m/%d_%H:%M:%S} ' f'-TEND={end_time:%y/%m/%d_%H:%M:%S} > "{out_file}""')
+
+        proc = None
         try:
-            # Use Popen to track the process for cancellation
-            process = subprocess.Popen(
-                cmd_string, 
-                shell=True, 
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            
-            # Track the process for cancellation
-            with self._process_lock:
-                self._active_processes.append(process)
-            
-            try:
-                # Wait for process with periodic cancellation checks
-                stdout, stderr = process.communicate(timeout=300)  # 5 minute timeout
-                
-                # Remove from active processes
-                with self._process_lock:
-                    if process in self._active_processes:
-                        self._active_processes.remove(process)
-                
-                # Check if cancelled during processing
+            # Start process without shell=True for safer PID tracking
+            proc = subprocess.Popen(cmd, shell=True)
+            self._processes.append(proc)
+
+            while proc.poll() is None:
                 if self._cancel_event.is_set():
-                    raise asyncio.CancelledError("Processing was cancelled")
-                
-                if process.returncode != 0:
-                    logger.error(f"drtu.exe failed for {rtu_file}: {stderr}")
-                    raise subprocess.CalledProcessError(process.returncode, cmd_string, stderr)
-                    
-            except subprocess.TimeoutExpired:
-                process.terminate()
-                with self._process_lock:
-                    if process in self._active_processes:
-                        self._active_processes.remove(process)
-                raise subprocess.CalledProcessError(1, cmd_string, "Process timeout")
-                
-        except subprocess.CalledProcessError as e:
-            logger.error(f"drtu.exe failed for {rtu_file}: {e}")
+                    logger.info(
+                        "Cancellation requested, terminating %s", rtu_file)
+                    self._kill_process_tree(proc.pid)
+                    return
+                time.sleep(0.1)
+
+            if proc.returncode != 0:
+                stdout, stderr = proc.communicate()
+                raise RuntimeError(
+                    f"drtu.exe failed for {rtu_file}:\n{stderr.decode()}")
+
+            logger.info("Successfully processed %s", rtu_file)
+
+        except Exception as ex:
+            logger.error("Error running drtu.exe for %s: %s", rtu_file, ex)
             raise
+        finally:
+            if proc and proc in self._processes:
+                self._processes.remove(proc)
 
-    async def fetch_rtu_file_data(self, start_time, end_time):
-        """Async entrypoint to process RTU files and merge them into a single CSV."""
+    def fetch_rtu_file_data(self, start_time, end_time):
+        self._cancel_event.clear()
+        self._executor = ThreadPoolExecutor(max_workers=self.max_workers)
+
         try:
-            # Reset cancel state for new processing
-            self.reset_cancel_state()
-            
-            # Check for cancellation before starting
-            if self._cancel_event.is_set():
-                raise asyncio.CancelledError("Processing was cancelled")
-            
-            # Process files with cancellation support
-            tasks = []
-            for f in self.rtu_file_names:
+            self._futures = [
+                self._executor.submit(
+                    self.write_rtu_data_file_to_csv, f, start_time, end_time)
+                for f in self.rtu_file_names
+            ]
+
+            for future in as_completed(self._futures):
                 if self._cancel_event.is_set():
+                    logger.info("Fetch stopped due to cancellation")
                     break
-                task = asyncio.to_thread(
-                    self.write_rtu_data_file_to_csv, f, start_time, end_time
-                )
-                tasks.append(task)
-            
-            if tasks:
-                await asyncio.gather(*tasks)
+                future.result()  # propagate exceptions
 
-            # Check for cancellation before tabulation
-            if self._cancel_event.is_set():
-                raise asyncio.CancelledError("Processing was cancelled")
+            if not self._cancel_event.is_set():
+                files = list(self.dir_path.glob("*.rtu"))
+                if files:
+                    self.tabulate_data(files)
+                else:
+                    logger.warning("No .rtu files generated to tabulate")
 
-            files = glob.glob(os.path.join(self.dir_path, "*.rtu"))
-
-            # Always tabulate data - merge all RTU files into single CSV
-            if files:
-                self.tabulate_data(files)
-
-        except asyncio.CancelledError:
-            logger.info("RTU processing was cancelled")
-            # Clean up any partial .rtu files
-            for f in glob.glob(os.path.join(self.dir_path, "*.rtu")):
-                try:
-                    os.remove(f)
-                except:
-                    pass
+        except Exception as ex:
+            logger.error("Error during fetch_rtu_file_data: %s",
+                         ex, exc_info=True)
             raise
-        except Exception as e:
-            logger.error("Error fetching RTU file data", exc_info=True)
-            raise
+        finally:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+            self._futures.clear()
 
-    def tabulate_data(self, files):
-        """Parse .rtu files -> deduplicate -> CSV -> merged dataframe."""
-        dict_data = defaultdict(list)
+    def cancel(self):
+        logger.warning("Cancelling all running tasks...")
+        self._cancel_event.set()
 
-        for file in files:
+        for f in self._futures:
+            f.cancel()
+
+        for proc in list(self._processes):
             try:
+                self._kill_process_tree(proc.pid)
+            except Exception as ex:
+                logger.error("Error terminating process %s: %s", proc.pid, ex)
+
+        self._processes.clear()
+        self._cleanup_partial_files()
+
+    # ------------------------------
+    # Data handling
+    # ------------------------------
+    def tabulate_data(self, files):
+        try:
+            dict_data = defaultdict(list)
+            for file in files:
                 with open(file, "r") as f:
                     lines = f.readlines()[1:]  # skip header
 
@@ -179,75 +155,57 @@ class RtuFileService:
                         continue
                     try:
                         timestamp = datetime.strptime(
-                            f"{fields[1]} {fields[2]}", "%y/%m/%d %H:%M:%S"
-                        )
+                            f"{fields[1]} {fields[2]}", "%y/%m/%d %H:%M:%S")
                         value = fields[4] if fields[5] == "GOOD" else "NaN"
-                        dict_data[fields[3]].append(f"{timestamp:%Y/%m/%d %H:%M:%S},{value}")
-                    except (ValueError, IndexError) as e:
-                        logger.warning(f"Error parsing line in {file}: {e}")
-                        continue
-            except Exception as e:
-                logger.error(f"Error reading file {file}: {e}")
-                continue
+                        dict_data[fields[3]].append(
+                            f"{timestamp:%Y/%m/%d %H:%M:%S},{value}")
+                    except Exception as ex:
+                        logger.warning(
+                            "Skipping malformed line in %s: %s", file, ex)
 
-        if not dict_data:
-            logger.warning("No data found in RTU files")
-            return
+            unique_dict = self.get_distinct_rows_dictionary(dict_data)
+            self.write_unique_dict_to_csv(unique_dict)
 
-        unique_dict = self.get_distinct_rows_dictionary(dict_data)
-        self.write_unique_dict_to_csv(unique_dict)
+            for f in files:
+                f.unlink()
 
-        # delete .rtu after processing
-        for f in glob.glob(os.path.join(self.dir_path, "*.rtu")):
-            try:
-                os.remove(f)
-            except Exception as e:
-                logger.warning(f"Could not remove {f}: {e}")
+            # merge CSVs
+            csv_files = list(self.dir_path.glob("*.csv"))
+            frames = []
+            for file in csv_files:
+                try:
+                    df = pd.read_csv(file).sort_values("timestamp")
+                    df.set_index("timestamp", inplace=True)
+                    frames.append(df)
+                except Exception as ex:
+                    logger.error("Failed to load CSV %s: %s", file, ex)
 
-        # merge all CSVs
-        csv_files = glob.glob(os.path.join(self.dir_path, "*.csv"))
-        if not csv_files:
-            logger.warning("No CSV files generated")
-            return
-            
-        frames = []
+            if frames:
+                merged = pd.concat(frames, axis=1).ffill().dropna(how="all")
+                merged.to_csv(self.dir_path / "MergedDataFrame.csv")
 
-        for file in csv_files:
-            try:
-                df = pd.read_csv(file).sort_values("timestamp")
-                df.set_index("timestamp", inplace=True)
-                frames.append(df)
-            except Exception as e:
-                logger.error(f"Error reading CSV {file}: {e}")
-                continue
-
-        if frames:
-            merged = pd.concat(frames, axis=1).ffill().dropna(how="all")
-            merged.to_csv(os.path.join(self.dir_path, "MergedDataFrame.csv"))
-
-            # cleanup intermediate CSVs
             for f in csv_files:
-                if "MergedDataFrame" not in f:
-                    try:
-                        os.remove(f)
-                    except Exception as e:
-                        logger.warning(f"Could not remove {f}: {e}")
-        else:
-            logger.error("No valid CSV files to merge")
+                if "MergedDataFrame" not in f.name:
+                    f.unlink()
+
+        except Exception as ex:
+            logger.error("Tabulation failed: %s", ex, exc_info=True)
+            raise
 
     def write_unique_dict_to_csv(self, unique_dict):
-        """Write dictionary to CSVs (one per key)."""
         for key, values in unique_dict.items():
-            values = sorted(set(values))
-            header = f"timestamp,{key}"
-            values.insert(0, header)
-            out_path = os.path.join(self.dir_path, f"{key}.csv")
-            with open(out_path, "w") as f:
-                f.write("\n".join(values))
+            try:
+                values = sorted(set(values))
+                header = f"timestamp,{key}"
+                values.insert(0, header)
+                out_path = self.dir_path / f"{key}.csv"
+                with open(out_path, "w") as f:
+                    f.write("\n".join(values))
+            except Exception as ex:
+                logger.error("Failed to write CSV for %s: %s", key, ex)
 
     @staticmethod
     def get_distinct_rows_dictionary(dict_data):
-        """Deduplicate rows by timestamp (last value wins)."""
         unique_dict = {}
         for key, items in dict_data.items():
             val_dict = {}
@@ -255,8 +213,28 @@ class RtuFileService:
                 ts_str, val = item.split(",")
                 ts = datetime.strptime(ts_str, "%Y/%m/%d %H:%M:%S")
                 val_dict[ts] = val
-            new_list = [
-                f"{ts:%Y/%m/%d %H:%M:%S},{val}" for ts, val in sorted(val_dict.items())
-            ]
+            new_list = [f"{ts:%Y/%m/%d %H:%M:%S},{val}" for ts,
+                        val in sorted(val_dict.items())]
             unique_dict[key] = new_list
         return unique_dict
+
+    # ------------------------------
+    # Cleanup
+    # ------------------------------
+    def _cleanup_partial_files(self):
+        for ext in ("*.rtu", "*.csv"):
+            for f in self.dir_path.glob(ext):
+                try:
+                    f.unlink()
+                    logger.info("Removed partial file %s", f)
+                except Exception:
+                    pass
+
+    @staticmethod
+    def _kill_process_tree(pid):
+        """Kill process and all children using psutil."""
+        parent = psutil.Process(pid)
+        for child in parent.children(recursive=True):
+            child.kill()
+        parent.kill()
+        logger.info("Killed process tree for PID %s", pid)

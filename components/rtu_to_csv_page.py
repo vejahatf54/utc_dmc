@@ -13,15 +13,15 @@ import pandas as pd
 import os
 import threading
 import time
-import logging
 from typing import List, Dict, Any
 from datetime import datetime, timedelta, date
 from components.directory_selector import create_directory_selector, create_directory_selector_callback
 from services.rtu_to_csv_service import RtuFileService
 import tempfile
+from logging_config import get_logger
 
 # Set up logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # RTU File Service Wrapper for handling background operations

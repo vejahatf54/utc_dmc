@@ -8,15 +8,15 @@ This restores the complex logic from the working repository including:
 - Proper data processing and column mapping
 """
 
-import logging
 import pandas as pd
 import numpy as np
 from typing import Optional
 from sqlalchemy import create_engine, text
 from services.config_manager import get_config_manager
 from services.exceptions import DatabaseError, DataNotFoundError
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class OneSourceService:
@@ -25,7 +25,7 @@ class OneSourceService:
     def __init__(self, config_manager=None):
         self.config_manager = config_manager or get_config_manager()
         self._engine = None
-        self.logger = logging.getLogger(f"{__name__}.OneSourceService")
+        self.logger = get_logger(f"{__name__}.OneSourceService")
         
         # Constants from original repository
         self.STATION_LOOKBACK = 5

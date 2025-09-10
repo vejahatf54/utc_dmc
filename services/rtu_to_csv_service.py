@@ -6,13 +6,13 @@ from collections import defaultdict
 from pathlib import Path
 import threading
 import time
-import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 import psutil  # pip install psutil
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RtuFileService:

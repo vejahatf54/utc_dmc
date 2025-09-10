@@ -12,15 +12,15 @@ import base64
 import io
 import pandas as pd
 import os
-import logging
 from typing import List, Dict, Any
 from datetime import datetime
 from components.directory_selector import create_directory_selector, create_directory_selector_callback
 from services.replace_text_service import ReplaceTextService
 import tempfile
+from logging_config import get_logger
 
 # Set up logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Create directory selector component for target folder
 target_directory_component, target_directory_ids = create_directory_selector(

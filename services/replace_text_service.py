@@ -2,12 +2,11 @@ import csv
 import os
 import re
 from pathlib import Path
-import logging
 from typing import List
+from logging_config import get_logger
 
 # Setup logger
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = get_logger(__name__)
 
 class ReplaceTextService:
     def __init__(self):

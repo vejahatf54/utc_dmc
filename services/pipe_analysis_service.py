@@ -9,8 +9,8 @@ for better separation of concerns and testability.
 import numpy as np
 import pandas as pd
 from typing import List, Tuple, Optional, Union
-import logging
 from dataclasses import dataclass
+from logging_config import get_logger
 
 from services.exceptions import ServiceError, DataProcessingError
 
@@ -44,7 +44,7 @@ class PipeAnalysisService:
 
     def __init__(self):
         """Initialize the pipe analysis service."""
-        self.logger = logging.getLogger(f"{__name__}.PipeAnalysisService")
+        self.logger = get_logger(f"{__name__}.PipeAnalysisService")
 
     def nps_to_actual_od(self, nps: float) -> float:
         """

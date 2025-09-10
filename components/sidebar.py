@@ -87,6 +87,12 @@ def build_sidebar():
                                 html.Span(
                                     "Replace Text", className="nav-label sb-label"),
                             ], href="/replace-text", className="nav-link"),
+                            html.A([
+                                BootstrapIcon(icon="play-circle", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "Replay Poke Extractor", className="nav-label sb-label"),
+                            ], href="/replay-poke-extractor", className="nav-link"),
                         ],
                     ),
 

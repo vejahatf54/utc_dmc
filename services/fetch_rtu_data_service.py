@@ -4,15 +4,15 @@ Adapted from FetchArchiveService for RTU data requirements - accessing UNC paths
 """
 
 import os
-import logging
 import re
 import zipfile
 from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime, date, timedelta
 from .config_manager import get_config_manager
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FetchRtuDataService:

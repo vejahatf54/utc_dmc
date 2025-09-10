@@ -9,6 +9,7 @@ from components.csv_to_rtu_page import create_csv_to_rtu_page
 from components.rtu_to_csv_page import create_rtu_to_csv_page
 from components.review_to_csv_page import create_review_to_csv_page
 from components.replace_text_page import create_replace_text_page
+from components.replay_file_poke_page import create_replay_file_poke_page
 from components.fluid_properties_page import create_fluid_properties_page
 import components.fetch_archive_page as fetch_archive_page
 import components.fetch_rtu_data_page as fetch_rtu_data_page
@@ -16,6 +17,11 @@ import components.elevation_page as elevation_page
 import components.linefill_page as linefill_page
 from components.custom_theme import theme_controls, theme_name_mapping, size_name_mapping
 from services.config_manager import initialize_config_manager
+from logging_config import setup_logging
+
+# Set up file-based logging before anything else
+log_filepath = setup_logging()
+print(f"Logging to: {log_filepath}")
 
 # Add Mantine figure templates for Plotly
 dmc.add_figure_templates()
@@ -115,6 +121,8 @@ def render_page(pathname: str):
         return create_review_to_csv_page()
     elif pathname == "/replace-text":
         return create_replace_text_page()
+    elif pathname == "/replay-poke-extractor":
+        return create_replay_file_poke_page()
     elif pathname == "/fluid-properties":
         return create_fluid_properties_page()
     elif pathname == "/fetch-archive":

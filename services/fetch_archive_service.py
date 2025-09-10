@@ -4,15 +4,15 @@ Adapted from LDUTC for DMC requirements - accessing UNC paths and decompressing 
 """
 
 import os
-import logging
 import zipfile
 import shutil
 from pathlib import Path
 from typing import Dict, Any, List
 from datetime import datetime
 from .config_manager import get_config_manager
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FetchArchiveService:

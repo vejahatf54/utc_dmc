@@ -7,9 +7,9 @@ import dash_mantine_components as dmc
 from dash import html, Input, Output, callback, callback_context
 from components.bootstrap_icon import BootstrapIcon
 import os
-import logging
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def create_directory_selector(

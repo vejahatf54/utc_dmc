@@ -8,20 +8,20 @@ Fixes:
 """
 import os
 import re
-import logging
 import pandas as pd
 import numpy as np
 from typing import Optional, Dict, Any
 from services.exceptions import ServiceError, DataProcessingError
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ElevationDataService:
     """Service for handling MBS elevation data processing and validation."""
     
     def __init__(self):
-        self.logger = logging.getLogger(f"{__name__}.ElevationDataService")
+        self.logger = get_logger(f"{__name__}.ElevationDataService")
 
 
 def extract_elevation_profile(folder_path: str) -> Optional[pd.DataFrame]:
@@ -40,7 +40,7 @@ def extract_elevation_profile(folder_path: str) -> Optional[pd.DataFrame]:
         ServiceError: If critical processing errors occur
         DataProcessingError: If data format/validation issues occur
     """
-    service_logger = logging.getLogger(f"{__name__}.extract_elevation_profile")
+    service_logger = get_logger(f"{__name__}.extract_elevation_profile")
     
     try:
         service_logger.info(f"Starting elevation profile extraction from: {folder_path}")
@@ -197,7 +197,7 @@ def _infer_units_from_inprep(folder_path: str) -> Dict[str, str]:
     Raises:
         ServiceError: If file reading fails unexpectedly
     """
-    service_logger = logging.getLogger(f"{__name__}._infer_units_from_inprep")
+    service_logger = get_logger(f"{__name__}._infer_units_from_inprep")
     
     try:
         inprep_path = os.path.join(folder_path, "inprep.txt")
@@ -250,7 +250,7 @@ def fetch_elevation_profile(folder_path: str) -> Optional[pd.DataFrame]:
         ServiceError: For critical processing errors
         DataProcessingError: For data validation/format issues
     """
-    service_logger = logging.getLogger(f"{__name__}.fetch_elevation_profile")
+    service_logger = get_logger(f"{__name__}.fetch_elevation_profile")
     
     try:
         service_logger.info(f"Fetching elevation profile from: {folder_path}")
@@ -356,7 +356,7 @@ def validate_elevation_data(df: pd.DataFrame) -> bool:
     Returns:
         True if valid, False otherwise
     """
-    service_logger = logging.getLogger(f"{__name__}.validate_elevation_data")
+    service_logger = get_logger(f"{__name__}.validate_elevation_data")
     
     try:
         if df is None:

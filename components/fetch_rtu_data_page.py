@@ -7,15 +7,15 @@ import dash
 from dash import html, dcc, Input, Output, State, callback, no_update
 import dash_mantine_components as dmc
 from datetime import datetime, date
-import logging
 import os
+from logging_config import get_logger
 
 from components.bootstrap_icon import BootstrapIcon
 from components.directory_selector import create_directory_selector, create_directory_selector_callback
 from services.fetch_rtu_data_service import FetchRtuDataService
 from services.config_manager import get_config_manager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Initialize services
 fetch_rtu_service = FetchRtuDataService()

@@ -3,12 +3,12 @@ import subprocess
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
-import logging
 import threading
 import time
 import psutil  # pip install psutil
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ReviewCsvService:

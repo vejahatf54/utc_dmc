@@ -8,9 +8,9 @@ from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Union, Optional
 from enum import Enum
 import calendar
-import logging
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FrequencyType(Enum):

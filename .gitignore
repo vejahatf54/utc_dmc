@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Log files
+*.log
+logs/
+
 # LDUTC project folder (not part of this project)
 LDUTC/
 

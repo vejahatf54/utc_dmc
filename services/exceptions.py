@@ -2,9 +2,9 @@
 Custom exception classes for the DMC application services.
 """
 
-import logging
+from logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DMCError(Exception):

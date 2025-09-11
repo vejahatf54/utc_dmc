@@ -21,7 +21,6 @@ from logging_config import setup_logging
 
 # Set up file-based logging before anything else
 log_filepath = setup_logging()
-print(f"Logging to: {log_filepath}")
 
 # Add Mantine figure templates for Plotly
 dmc.add_figure_templates()

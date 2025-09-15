@@ -46,6 +46,12 @@ def build_sidebar():
                                     "RTU to CSV", className="nav-label sb-label"),
                             ], href="/rtu-to-csv", className="nav-link"),
                             html.A([
+                                BootstrapIcon(icon="scissors", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "RTU Resizer", className="nav-label sb-label"),
+                            ], href="/rtu-resizer", className="nav-link"),
+                            html.A([
                                 BootstrapIcon(icon="file-earmark-code", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(

@@ -21,9 +21,15 @@ USE CASES AND COMBINATIONS:
    - Uses memory-mapped I/O for efficient reading
 
 2. RESIZE RTU FILE:
-   service.resize_rtu(input_file, output_file, start_time=None, end_time=None)
+   a) Basic time range extraction:
+      service.resize_rtu(input_file, output_file, start_time="25/08/16 20:00:00", end_time="25/08/16 21:00:00")
+   
+   b) Resize with tag renaming using CSV mapping file:
+      service.resize_rtu(input_file, output_file, start_time="25/08/16 20:00:00", end_time="25/08/16 21:00:00", tag_mapping_file="mappings.csv")
+   
    - Extract time range from RTU file to new RTU file using vectorized extraction
    - Uses threaded producer-consumer pattern with direct RTUGEN streaming
+   - Optionally apply tag renaming during resize using CSV mapping file (format: old_tag,new_tag)
    - If start_time/end_time not provided, copies entire file
 
 3. EXPORT TO CSV - FLAT FORMAT:
@@ -62,6 +68,7 @@ PARAMETERS:
 - start_time: Start time string "yy/mm/dd HH:MM:SS" or "yyyy/mm/dd HH:MM:SS" (optional)
 - end_time: End time string "yy/mm/dd HH:MM:SS" or "yyyy/mm/dd HH:MM:SS" (optional)
 - tags_file: Path to text file with tag names (one per line) for filtering (optional)
+- tag_mapping_file: Path to CSV file with tag mappings (old_tag,new_tag format) for renaming (optional)
 - enable_sampling: Boolean to enable/disable time-based sampling (default: False)
 - sample_interval: Sampling interval in seconds (default: 60, used only if enable_sampling=True)
 - sample_mode: "actual" (closest real data) or "interpolated" (exact intervals) (default: "actual")
@@ -69,7 +76,7 @@ PARAMETERS:
 METHODS:
 ========
 - get_file_info(input_file) -> dict
-- resize_rtu(input_file, output_file, start_time=None, end_time=None) -> int
+- resize_rtu(input_file, output_file, start_time=None, end_time=None, tag_mapping_file=None) -> int
 - export_csv_flat(input_file, output_file, **kwargs) -> int
 - export_csv_dataframe(input_file, output_file, **kwargs) -> int
 
@@ -90,6 +97,7 @@ from __future__ import annotations
 import os
 import struct
 import logging
+from logging_config import get_logger
 import mmap
 import subprocess
 import csv
@@ -121,7 +129,7 @@ CUSTOM_EPOCH_UTC = datetime(1967, 12, 31, tzinfo=timezone.utc)
 DEFAULT_ENDIAN = '<'
 
 # Setup logging
-logger = logging.getLogger("rtu_service_refactored")
+logger = get_logger(__name__)
 
 # ---------------- helper functions ----------------
 
@@ -275,11 +283,11 @@ class RtuHeader:
             self.Dictionary.append(name)
 
     def Print(self):
-        """Print header information."""
-        print("DataLocDisk:", self.DataLocDisk)
-        print("PointsPerRecord:", self.PointsPerRecord)
-        print("TotalPoints:", self.TotalPoints)
-        print("Dictionary count:", len(self.Dictionary))
+        """Log header information."""
+        logger.debug(f"DataLocDisk: {self.DataLocDisk}")
+        logger.debug(f"PointsPerRecord: {self.PointsPerRecord}")
+        logger.debug(f"TotalPoints: {self.TotalPoints}")
+        logger.debug(f"Dictionary count: {len(self.Dictionary)}")
 
 
 class StringPool:
@@ -559,9 +567,10 @@ class RtuResizer:
         time_mask = (valid_times >= start_sec) & (valid_times <= end_sec)
         return int(np.sum(time_mask))
 
-    def extract_range(self, start_sec: int, end_sec: int, out_file: str) -> int:
+    def extract_range(self, start_sec: int, end_sec: int, out_file: str, tag_mapping: Dict[str, str] = None) -> int:
         """
         Ultra-optimized vectorized extraction using threaded producer-consumer pattern.
+        Optionally applies tag renaming using the provided mapping dictionary.
         """
         self._load_all_points()
         ids = self._ids
@@ -598,12 +607,12 @@ class RtuResizer:
 
         # Use threaded producer-consumer pattern for optimal performance
         written = self._write_threaded(
-            out_file, count, match_ids, match_times, match_values, dict_list, dict_len)
+            out_file, count, match_ids, match_times, match_values, dict_list, dict_len, tag_mapping)
         return written
 
     def _write_threaded(self, out_file: str, count: int, match_ids: np.ndarray,
                         match_times: np.ndarray, match_values: np.ndarray,
-                        dict_list: List[str], dict_len: int) -> int:
+                        dict_list: List[str], dict_len: int, tag_mapping: Dict[str, str] = None) -> int:
         """Multi-threaded producer-consumer pattern using ThreadPoolExecutor for optimal performance."""
 
         # Pre-compute all data vectorized
@@ -637,9 +646,18 @@ class RtuResizer:
             chunk_local_dts = [dt.astimezone(local_tz).replace(tzinfo=None)
                                for dt in chunk_dts]
 
-            # Use list comprehension for faster string building
+            # Use list comprehension for faster string building with optional tag renaming
+            def get_tag_name(nid):
+                if 1 <= nid <= dict_len:
+                    original_tag = dict_list[int(nid)-1]
+                    if tag_mapping and original_tag in tag_mapping:
+                        return tag_mapping[original_tag]
+                    return original_tag
+                else:
+                    return f'UNKNOWN_{nid}'
+
             lines = [
-                f"{dt_local:%y/%m/%d %H:%M:%S}  {dict_list[int(nid)-1] if 1 <= nid <= dict_len else f'UNKNOWN_{nid}'}      {
+                f"{dt_local:%y/%m/%d %H:%M:%S}  {get_tag_name(nid)}      {
                     val:.4f}  {quality_map[qid]}\n"
                 for dt_local, nid, val, qid in zip(
                     chunk_local_dts, chunk_nameids, chunk_values, chunk_qualids
@@ -651,7 +669,7 @@ class RtuResizer:
 
         # Start RTUGEN process
         cmd = ["RTUGEN", out_file, f"-MAXPTS={count}"]
-        logger.info(f"Running RTUGEN command: {' '.join(cmd)}")
+        logger.debug(f"Running RTUGEN command: {' '.join(cmd)}")
 
         process = subprocess.Popen(
             cmd,
@@ -1350,17 +1368,8 @@ class RTUService:
             endian: Byte order for RTU file reading ('<' for little-endian)
         """
         self.endian = endian
-        self._setup_logging()
 
-    def _setup_logging(self):
-        """Setup logging configuration if not already configured."""
-        if not logger.handlers:
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                '%(asctime)s %(levelname)-8s [RTUService] %(message)s')
-            handler.setFormatter(formatter)
-            logger.addHandler(handler)
-            logger.setLevel(logging.INFO)
+
 
     def _validate_input_file(self, input_file: str) -> None:
         """Validate that input file exists and is readable."""
@@ -1375,6 +1384,63 @@ class RTUService:
         """Validate that tags file exists and is readable."""
         if tags_file and not os.path.isfile(tags_file):
             raise FileNotFoundError(f"Tags file not found: {tags_file}")
+
+    def _load_tag_mapping(self, mapping_file: str) -> Dict[str, str]:
+        """
+        Load tag mapping from CSV file with format: old_tag,new_tag
+
+        Args:
+            mapping_file: Path to CSV file containing tag mappings
+
+        Returns:
+            Dictionary mapping old tag names to new tag names
+
+        Raises:
+            FileNotFoundError: If mapping file doesn't exist
+            ValueError: If CSV format is invalid
+        """
+        if not os.path.isfile(mapping_file):
+            raise FileNotFoundError(f"Tag mapping file not found: {mapping_file}")
+
+        tag_mapping = {}
+        try:
+            import csv
+            with open(mapping_file, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                header = next(reader, None)  # Skip header if present
+                
+                # Check if first row looks like a header
+                if header and len(header) >= 2 and (
+                    'old' in header[0].lower() or 'tag' in header[0].lower() or
+                    'old' in header[1].lower() or 'new' in header[1].lower()
+                ):
+                    logger.debug(f"Detected header row in mapping file: {header}")
+                else:
+                    # First row is data, not header
+                    if header and len(header) >= 2:
+                        old_tag, new_tag = header[0].strip(), header[1].strip()
+                        if old_tag and new_tag:
+                            tag_mapping[old_tag] = new_tag
+                            logger.debug(f"Tag mapping: '{old_tag}' -> '{new_tag}'")
+
+                # Process remaining rows
+                for row_num, row in enumerate(reader, start=2):
+                    if len(row) < 2:
+                        logger.warning(f"Skipping row {row_num}: insufficient columns")
+                        continue
+                    
+                    old_tag, new_tag = row[0].strip(), row[1].strip()
+                    if old_tag and new_tag:
+                        tag_mapping[old_tag] = new_tag
+                        logger.debug(f"Tag mapping: '{old_tag}' -> '{new_tag}'")
+                    else:
+                        logger.warning(f"Skipping row {row_num}: empty tag names")
+
+            logger.info(f"Loaded {len(tag_mapping)} tag mappings from {mapping_file}")
+            return tag_mapping
+
+        except Exception as e:
+            raise ValueError(f"Failed to parse tag mapping file '{mapping_file}': {e}")
 
     def _parse_time_range(self, start_time: str = None, end_time: str = None) -> tuple[int, int]:
         """Parse and validate time range strings."""
@@ -1499,7 +1565,7 @@ class RTUService:
         """
         self._validate_input_file(input_file)
 
-        logger.info(f"Getting file info for: {input_file}")
+        logger.debug(f"Getting file info for: {input_file}")
 
         resizer = None
         try:
@@ -1552,24 +1618,28 @@ class RTUService:
                 resizer.close()
 
     def resize_rtu(self, input_file: str, output_file: str = None,
-                   start_time: str = None, end_time: str = None) -> int:
+                   start_time: str = None, end_time: str = None,
+                   tag_mapping_file: str = None) -> int:
         """
         Resize (extract time range from) an RTU file to create a new RTU file.
         Uses ultra-optimized vectorized extraction with threaded producer-consumer pattern
         and direct pipe streaming to RTUGEN for unlimited point capacity.
+
+        Optionally applies tag renaming during the resize process using a CSV mapping file.
 
         Args:
             input_file: Path to input .dt file
             output_file: Path to output .dt file (if None, auto-generated)
             start_time: Start time string "yy/mm/dd HH:MM:SS" or "yyyy/mm/dd HH:MM:SS"
             end_time: End time string "yy/mm/dd HH:MM:SS" or "yyyy/mm/dd HH:MM:SS"
+            tag_mapping_file: Path to CSV file with tag mappings (old_tag,new_tag format)
 
         Returns:
             Number of points written to output file
 
         Raises:
-            FileNotFoundError: If input file doesn't exist
-            ValueError: If time format is invalid or start >= end
+            FileNotFoundError: If input file or tag mapping file doesn't exist
+            ValueError: If time format is invalid, start >= end, or mapping file format is invalid
             RuntimeError: If extraction fails
         """
         self._validate_input_file(input_file)
@@ -1583,6 +1653,11 @@ class RTUService:
         if start_sec is None or end_sec is None:
             raise ValueError(
                 "Both start_time and end_time are required for RTU resizing")
+
+        # Load tag mapping if provided
+        tag_mapping = None
+        if tag_mapping_file:
+            tag_mapping = self._load_tag_mapping(tag_mapping_file)
 
         logger.info(f"Resizing RTU file from {input_file} to {output_file}")
         logger.info(f"Time range: {start_time} to {end_time}")
@@ -1607,7 +1682,7 @@ class RTUService:
                 f"Found {count} points in time range - using threaded producer-consumer pattern")
 
             # Extract range with optimized threaded streaming to RTUGEN
-            written = resizer.extract_range(start_sec, end_sec, output_file)
+            written = resizer.extract_range(start_sec, end_sec, output_file, tag_mapping)
 
             logger.info(
                 f"Successfully resized RTU file: {written} points written to {output_file}")
@@ -1790,14 +1865,16 @@ def get_rtu_info(input_file: str) -> Dict[str, Any]:
 
 
 def resize_rtu_file(input_file: str, output_file: str = None,
-                    start_time: str = None, end_time: str = None) -> int:
+                    start_time: str = None, end_time: str = None,
+                    tag_mapping_file: str = None) -> int:
     """
     Convenience function to resize RTU file.
     Uses vectorized extraction with threaded producer-consumer pattern
     and direct RTUGEN streaming for unlimited capacity.
+    Optionally applies tag renaming using CSV mapping file.
     """
     service = RTUService()
-    return service.resize_rtu(input_file, output_file, start_time, end_time)
+    return service.resize_rtu(input_file, output_file, start_time, end_time, tag_mapping_file)
 
 
 def export_to_flat_csv(input_file: str, output_file: str = None, **kwargs) -> int:
@@ -1830,22 +1907,22 @@ def get_performance_capabilities() -> Dict[str, Any]:
 
 if __name__ == "__main__":
     # This module is designed to be imported and used as a class, not run directly
-    print("RTU Service Refactored - High-Performance Class-based RTU processing library")
-    print("=" * 80)
-    print("PERFORMANCE FEATURES:")
-    print("✓ Memory-mapped I/O ✓ Vectorized operations ✓ Multi-threading")
-    print("✓ Multi-processing ✓ Direct RTUGEN streaming ✓ JIT compilation")
-    print("✓ Chunked processing ✓ String pooling ✓ Pre-allocated arrays")
-    print("=" * 80)
-    print("")
-    print("Usage: from rtu_service_refactored import RTUService")
-    print("")
-    print("Example usage:")
-    print("  service = RTUService()")
-    print("  info = service.get_file_info('input.dt')")
-    print("  performance = service.get_performance_info()")
-    print("  service.export_csv_flat('input.dt', 'output.csv')")
-    print("  service.export_csv_dataframe('input.dt', 'output.csv', enable_sampling=True)")
-    print("  service.resize_rtu('input.dt', 'output.dt', '25/08/16 20:00:00', '25/08/16 21:00:00')")
-    print("")
-    print("All methods automatically use optimal performance settings based on dataset size.")
+    logger.info("RTU Service Refactored - High-Performance Class-based RTU processing library")
+    logger.info("=" * 80)
+    logger.info("PERFORMANCE FEATURES:")
+    logger.info("✓ Memory-mapped I/O ✓ Vectorized operations ✓ Multi-threading")
+    logger.info("✓ Multi-processing ✓ Direct RTUGEN streaming ✓ JIT compilation")
+    logger.info("✓ Chunked processing ✓ String pooling ✓ Pre-allocated arrays")
+    logger.info("=" * 80)
+    logger.info("")
+    logger.info("Usage: from rtu_service_refactored import RTUService")
+    logger.info("")
+    logger.info("Example usage:")
+    logger.info("  service = RTUService()")
+    logger.info("  info = service.get_file_info('input.dt')")
+    logger.info("  performance = service.get_performance_info()")
+    logger.info("  service.export_csv_flat('input.dt', 'output.csv')")
+    logger.info("  service.export_csv_dataframe('input.dt', 'output.csv', enable_sampling=True)")
+    logger.info("  service.resize_rtu('input.dt', 'output.dt', '25/08/16 20:00:00', '25/08/16 21:00:00')")
+    logger.info("")
+    logger.info("All methods automatically use optimal performance settings based on dataset size.")

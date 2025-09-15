@@ -49,7 +49,7 @@ def build_sidebar():
                                 BootstrapIcon(icon="scissors", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(
-                                    "RTU Resizer", className="nav-label sb-label"),
+                                    "RTU Resizer | Retagger", className="nav-label sb-label"),
                             ], href="/rtu-resizer", className="nav-link"),
                             html.A([
                                 BootstrapIcon(icon="file-earmark-code", width=24,

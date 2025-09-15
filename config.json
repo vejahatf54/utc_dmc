@@ -35,6 +35,13 @@
             "vapor_pressure": "kPa"
         }
     },
+    "pymbsd": {
+        "packages_path": "\\\\lp.local\\common\\LD_General\\software\\DotNetApps\\UTC\\PymbsdPackages\\UAT",
+        "test_packages_path": "c:\\temp\\pymbsd_test_packages",
+        "service_installation_path": "D:\\Enbridge\\pyMBSd",
+        "timeout": 30,
+        "use_test_mode": true
+    },
     "app": {
         "debug": true,
         "port": 8050,

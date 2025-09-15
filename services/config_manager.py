@@ -370,6 +370,60 @@ class ConfigManager:
         """
         return self.get('fluid_properties.units', {})
 
+    def get_pymbsd_config(self) -> Dict[str, Any]:
+        """
+        Get PyMBSd service configuration.
+
+        Returns:
+            Dictionary containing PyMBSd configuration
+        """
+        return self.get('pymbsd', {})
+
+    def get_pymbsd_packages_path(self) -> str:
+        """
+        Get PyMBSd packages UNC path.
+
+        Returns:
+            UNC path for PyMBSd service packages
+        """
+        return self.get('pymbsd.packages_path', '')
+
+    def get_pymbsd_service_installation_path(self) -> str:
+        """
+        Get PyMBSd service installation path.
+
+        Returns:
+            Local path where PyMBSd services should be installed
+        """
+        return self.get('pymbsd.service_installation_path', '')
+
+    def get_pymbsd_timeout(self) -> int:
+        """
+        Get PyMBSd operation timeout.
+
+        Returns:
+            Timeout in seconds for PyMBSd operations
+        """
+        return self.get('pymbsd.timeout', 30)
+
+    def get_pymbsd_test_packages_path(self) -> str:
+        """
+        Get PyMBSd test packages path for development.
+
+        Returns:
+            Local test path for PyMBSd service packages
+        """
+        return self.get('pymbsd.test_packages_path', '')
+
+    def get_pymbsd_use_test_mode(self) -> bool:
+        """
+        Get whether to use test mode for PyMBSd.
+
+        Returns:
+            True if test mode should be used
+        """
+        return self.get('pymbsd.use_test_mode', False)
+
     def get_all_config(self) -> Dict[str, Any]:
         """
         Get the entire configuration dictionary.

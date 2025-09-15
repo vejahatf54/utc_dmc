@@ -12,6 +12,7 @@ from components.review_to_csv_page import create_review_to_csv_page
 from components.replace_text_page import create_replace_text_page
 from components.replay_file_poke_page import create_replay_file_poke_page
 from components.fluid_properties_page import create_fluid_properties_page
+from components.pymbsd_page import create_pymbsd_page
 import components.fetch_archive_page as fetch_archive_page
 import components.fetch_rtu_data_page as fetch_rtu_data_page
 import components.elevation_page as elevation_page
@@ -135,6 +136,8 @@ def render_page(pathname: str):
         return elevation_page.create_elevation_page()
     elif pathname == "/linefill":
         return linefill_page.create_linefill_page()
+    elif pathname == "/pymbsd-services":
+        return create_pymbsd_page()
     elif pathname == "/settings":
         # Redirect settings to home page since we use a modal now
         return create_home_page()

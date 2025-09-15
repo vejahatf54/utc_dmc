@@ -259,3 +259,189 @@
   background: var(--mantine-color-dark-6);
   border-color: var(--mantine-color-dark-4);
 }
+
+/* PyMBSd Service Management Styles */
+.service-list-container {
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Multi-column layout for services */
+.service-multi-column-container {
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 8px;
+  column-count: 2;
+  column-gap: 20px;
+  column-fill: auto;
+}
+
+@media (max-width: 1200px) {
+  .service-multi-column-container {
+    column-count: 1;
+  }
+}
+
+/* Compact service item styles */
+.service-item-wrapper {
+  break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  border: 1px solid var(--mantine-color-gray-3);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.service-item-wrapper:hover {
+  background-color: var(--mantine-color-gray-0);
+  border-color: var(--mantine-color-blue-4);
+  transform: translateY(-1px);
+}
+
+.service-compact-item {
+  width: 100%;
+}
+
+.service-card {
+  transition: all 0.2s ease;
+  border-left: 4px solid transparent;
+}
+
+.service-card:hover {
+  transform: translateX(2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+  border-left-color: var(--mantine-color-blue-5);
+}
+
+/* Service status specific styling */
+.service-card[data-status="running"] {
+  border-left-color: var(--mantine-color-green-5);
+}
+
+.service-card[data-status="stopped"] {
+  border-left-color: var(--mantine-color-red-5);
+}
+
+.service-card[data-status="starting"] {
+  border-left-color: var(--mantine-color-blue-5);
+}
+
+.service-card[data-status="stopping"] {
+  border-left-color: var(--mantine-color-orange-5);
+}
+
+.service-card[data-status="not_found"] {
+  border-left-color: var(--mantine-color-gray-5);
+}
+
+.service-card[data-status="error"] {
+  border-left-color: var(--mantine-color-red-7);
+}
+
+/* Custom scrollbar for service list */
+.service-list-container::-webkit-scrollbar,
+.service-multi-column-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.service-list-container::-webkit-scrollbar-track,
+.service-multi-column-container::-webkit-scrollbar-track {
+  background: var(--mantine-color-gray-1);
+  border-radius: 3px;
+}
+
+.service-list-container::-webkit-scrollbar-thumb,
+.service-multi-column-container::-webkit-scrollbar-thumb {
+  background: var(--mantine-color-gray-4);
+  border-radius: 3px;
+}
+
+.service-list-container::-webkit-scrollbar-thumb:hover,
+.service-multi-column-container::-webkit-scrollbar-thumb:hover {
+  background: var(--mantine-color-gray-6);
+}
+
+/* Dark mode scrollbar */
+:root[data-mantine-color-scheme='dark'] .service-list-container::-webkit-scrollbar-track,
+:root[data-mantine-color-scheme='dark'] .service-multi-column-container::-webkit-scrollbar-track {
+  background: var(--mantine-color-dark-6);
+}
+
+:root[data-mantine-color-scheme='dark'] .service-list-container::-webkit-scrollbar-thumb,
+:root[data-mantine-color-scheme='dark'] .service-multi-column-container::-webkit-scrollbar-thumb {
+  background: var(--mantine-color-dark-4);
+}
+
+:root[data-mantine-color-scheme='dark'] .service-list-container::-webkit-scrollbar-thumb:hover,
+:root[data-mantine-color-scheme='dark'] .service-multi-column-container::-webkit-scrollbar-thumb:hover {
+  background: var(--mantine-color-dark-3);
+}
+
+/* Dark mode compact service items */
+:root[data-mantine-color-scheme='dark'] .service-item-wrapper {
+  border-color: var(--mantine-color-dark-4);
+}
+
+:root[data-mantine-color-scheme='dark'] .service-item-wrapper:hover {
+  background-color: var(--mantine-color-dark-5);
+  border-color: var(--mantine-color-blue-4);
+}
+
+/* Pulse animation for loading states */
+@keyframes pulse-icon {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.service-status-loading {
+  animation: spin 1s linear infinite;
+}
+
+/* Bootstrap-like color classes for service status icons */
+.text-success {
+  color: #198754 !important;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+
+.text-primary {
+  color: #0d6efd !important;
+}
+
+.text-warning {
+  color: #fd7e14 !important;
+}
+
+.text-muted {
+  color: #6c757d !important;
+}
+
+/* Dark mode color adjustments */
+:root[data-mantine-color-scheme='dark'] .text-success {
+  color: #51cf66 !important;
+}
+
+:root[data-mantine-color-scheme='dark'] .text-danger {
+  color: #ff8787 !important;
+}
+
+:root[data-mantine-color-scheme='dark'] .text-primary {
+  color: #74c0fc !important;
+}
+
+:root[data-mantine-color-scheme='dark'] .text-warning {
+  color: #ffa94d !important;
+}
+
+:root[data-mantine-color-scheme='dark'] .text-muted {
+  color: #868e96 !important;
+}

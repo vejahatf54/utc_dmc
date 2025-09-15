@@ -99,6 +99,12 @@ def build_sidebar():
                                 html.Span(
                                     "Replay Poke Extractor", className="nav-label sb-label"),
                             ], href="/replay-poke-extractor", className="nav-link"),
+                            html.A([
+                                BootstrapIcon(icon="gear-fill", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "PyMBSd Services", className="nav-label sb-label"),
+                            ], href="/pymbsd-services", className="nav-link"),
                         ],
                     ),
 

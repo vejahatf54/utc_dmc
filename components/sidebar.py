@@ -34,13 +34,13 @@ def build_sidebar():
                                     "SPS Time Converter", className="nav-label sb-label"),
                             ], href="/sps-time-converter", className="nav-link"),
                             html.A([
-                                BootstrapIcon(icon="file-text", width=24,
+                                BootstrapIcon(icon="file-binary", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(
                                     "CSV to RTU", className="nav-label sb-label"),
                             ], href="/csv-to-rtu", className="nav-link"),
                             html.A([
-                                BootstrapIcon(icon="file-earmark-spreadsheet", width=24,
+                                BootstrapIcon(icon="filetype-csv", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(
                                     "RTU to CSV", className="nav-label sb-label"),
@@ -52,7 +52,7 @@ def build_sidebar():
                                     "RTU Resizer | Retagger", className="nav-label sb-label"),
                             ], href="/rtu-resizer", className="nav-link"),
                             html.A([
-                                BootstrapIcon(icon="file-earmark-code", width=24,
+                                BootstrapIcon(icon="filetype-csv", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(
                                     "Review to CSV", className="nav-label sb-label"),
@@ -64,13 +64,13 @@ def build_sidebar():
                                     "Fetch Archive", className="nav-label sb-label"),
                             ], href="/fetch-archive", className="nav-link"),
                             html.A([
-                                BootstrapIcon(icon="database", width=24,
+                                BootstrapIcon(icon="cloud-download-fill", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(
                                     "Fetch RTU Data", className="nav-label sb-label"),
                             ], href="/fetch-rtu-data", className="nav-link"),
                             html.A([
-                                BootstrapIcon(icon="activity", width=24,
+                                BootstrapIcon(icon="graph-up", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(
                                     "Elevation Tool", className="nav-label sb-label"),
@@ -94,13 +94,13 @@ def build_sidebar():
                                     "Replace Text", className="nav-label sb-label"),
                             ], href="/replace-text", className="nav-link"),
                             html.A([
-                                BootstrapIcon(icon="play-circle", width=24,
+                                BootstrapIcon(icon="funnel-fill", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(
                                     "Replay Poke Extractor", className="nav-label sb-label"),
                             ], href="/replay-poke-extractor", className="nav-link"),
                             html.A([
-                                BootstrapIcon(icon="gear-fill", width=24,
+                                BootstrapIcon(icon="gear-wide-connected", width=24,
                                               height=24, className="nav-icon"),
                                 html.Span(
                                     "PyMBSd Services", className="nav-label sb-label"),

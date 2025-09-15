@@ -406,24 +406,6 @@ class ConfigManager:
         """
         return self.get('pymbsd.timeout', 30)
 
-    def get_pymbsd_test_packages_path(self) -> str:
-        """
-        Get PyMBSd test packages path for development.
-
-        Returns:
-            Local test path for PyMBSd service packages
-        """
-        return self.get('pymbsd.test_packages_path', '')
-
-    def get_pymbsd_use_test_mode(self) -> bool:
-        """
-        Get whether to use test mode for PyMBSd.
-
-        Returns:
-            True if test mode should be used
-        """
-        return self.get('pymbsd.use_test_mode', False)
-
     def get_all_config(self) -> Dict[str, Any]:
         """
         Get the entire configuration dictionary.

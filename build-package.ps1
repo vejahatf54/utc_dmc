@@ -620,6 +620,14 @@ function Show-BuildSummary {
     Write-Host "Package location: $DistPath" -ForegroundColor $Cyan
     Write-Host "Ready to deploy to offline servers!" -ForegroundColor $Yellow
     Write-Host ""
+    Write-Host "UPDATES IN THIS BUILD:" -ForegroundColor $Green
+    Write-Host "- Updated PyMBSd service management with 3-column layout" -ForegroundColor $Green
+    Write-Host "- Added loading indicators for better UX" -ForegroundColor $Green
+    Write-Host "- Optimized service status loading (5-second auto-refresh)" -ForegroundColor $Green
+    Write-Host "- Moved Select All checkbox below service list" -ForegroundColor $Green
+    Write-Host "- Fixed Refresh List button styling" -ForegroundColor $Green
+    Write-Host "- Removed test mode configuration for cleaner setup" -ForegroundColor $Green
+    Write-Host ""
     Write-Host "NOTES:" -ForegroundColor $Yellow
     Write-Host "- config.json is external and can be modified without rebuilding" -ForegroundColor $Yellow
     Write-Host "- Application will detect config changes and reload automatically" -ForegroundColor $Yellow

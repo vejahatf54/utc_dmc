@@ -272,12 +272,26 @@
   max-height: 600px;
   overflow-y: auto;
   padding-right: 8px;
-  column-count: 2;
-  column-gap: 20px;
+  column-count: 4;
+  column-gap: 6px;
   column-fill: auto;
 }
 
+@media (max-width: 1600px) {
+  .service-multi-column-container {
+    column-count: 3;
+    column-gap: 6px;
+  }
+}
+
 @media (max-width: 1200px) {
+  .service-multi-column-container {
+    column-count: 2;
+    column-gap: 10px;
+  }
+}
+
+@media (max-width: 800px) {
   .service-multi-column-container {
     column-count: 1;
   }
@@ -288,10 +302,12 @@
   break-inside: avoid;
   display: inline-block;
   width: 100%;
+  max-width: 280px;
   border: 1px solid var(--mantine-color-gray-3);
   border-radius: 4px;
   transition: all 0.2s ease;
   cursor: pointer;
+  margin-bottom: 2px;
 }
 
 .service-item-wrapper:hover {
@@ -302,6 +318,7 @@
 
 .service-compact-item {
   width: 100%;
+  max-width: 280px;
 }
 
 .service-card {
@@ -398,6 +415,11 @@
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Service status loading animation */
+.service-status-loading {
+  animation: spin 1s linear infinite;
 }
 
 .service-status-loading {

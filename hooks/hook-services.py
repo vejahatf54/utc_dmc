@@ -22,9 +22,15 @@ service_modules = [
     'services.fetch_archive_service',
     'services.fetch_rtu_data_service',
     'services.fluid_id_service',
+    'services.fluid_properties_service',
     'services.linefill_service',
     'services.onesource_service',
     'services.pipe_analysis_service',
+    'services.pymbsd_service',
+    'services.replace_text_service',
+    'services.replay_file_poke_service',
+    'services.review_to_csv_service',
+    'services.rtu_service',
     'services.sps_time_converter_service',
 ]
 hiddenimports.extend(service_modules)

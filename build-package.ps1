@@ -254,6 +254,26 @@ except Exception as e:
     }
     Write-Success "Config file found: $ConfigFile"
     
+    # Check for external tool dependencies (informational warnings)
+    Write-Info "Checking for external tool dependencies..."
+    $externalTools = @(
+        @{name = "dreview.exe"; purpose = "Review to CSV conversion"; location = "Should be in system PATH or working directory" },
+        @{name = "pymbsd_*.exe"; purpose = "PyMBSd service executables"; location = "Downloaded from service packages" }
+    )
+    
+    foreach ($tool in $externalTools) {
+        $toolFound = Get-Command $tool.name -ErrorAction SilentlyContinue
+        if ($toolFound) {
+            Write-Success "$($tool.name): Found at $($toolFound.Source)"
+        }
+        else {
+            Write-Warning "$($tool.name): Not found in PATH"
+            Write-Info "  Purpose: $($tool.purpose)"
+            Write-Info "  Location: $($tool.location)"
+            Write-Info "  Note: This tool is optional and loaded dynamically when needed"
+        }
+    }
+    
     # Verify SQL files exist
     Write-Info "Checking SQL files..."
     $sqlPath = Join-Path $ProjectRoot "sql"
@@ -286,6 +306,12 @@ import components.fetch_rtu_data_page
 import components.sps_time_converter_page
 import components.elevation_page
 import components.linefill_page
+import components.pymbsd_page
+import components.replace_text_page
+import components.replay_file_poke_page
+import components.review_to_csv_page
+import components.rtu_resizer_page
+import components.rtu_to_csv_page
 import components.custom_theme
 import components.directory_selector
 import components.bootstrap_icon
@@ -317,6 +343,11 @@ import services.fluid_properties_service
 import services.linefill_service
 import services.onesource_service
 import services.pipe_analysis_service
+import services.pymbsd_service
+import services.replace_text_service
+import services.replay_file_poke_service
+import services.review_to_csv_service
+import services.rtu_service
 import services.sps_time_converter_service
 print('All services imported successfully')
 " 2>&1
@@ -431,6 +462,7 @@ SYSTEM REQUIREMENTS:
 - No Python installation required
 - No internet connection required (fully offline capable)
 - Complete self-contained executable
+- Some features may require external tools (see EXTERNAL DEPENDENCIES below)
 
 PACKAGE CONTENTS:
 - DMC.exe - Main application ($(([math]::Round((Get-Item $exePath).Length / 1MB, 0)))MB)
@@ -440,10 +472,18 @@ PACKAGE CONTENTS:
 
 FEATURES INCLUDED:
 - CSV to RTU file conversion
+- RTU to CSV file conversion
 - Fluid ID converter (37-basis conversion system)
 - Archive data fetching and management
 - RTU data fetching and management
+- RTU resizer utility for modifying RTU file data ranges
 - SPS time converter utility
+- PyMBSd service management for Windows services
+- Text replacement utility for batch file processing
+- Replay file poke extractor for simulation data
+- Review to CSV converter for data analysis
+- Elevation data analysis and visualization
+- Linefill calculations and reporting
 - Interactive data visualization with dash_ag_grid
 - All themes and assets bundled for offline operation
 - Hot reloading when config.json is modified
@@ -457,6 +497,28 @@ without rebuilding the executable:
 
 The application will automatically detect changes to config.json and
 reload the configuration during runtime.
+
+EXTERNAL DEPENDENCIES:
+Some advanced features require external tools that are loaded dynamically:
+
+1. Review to CSV Conversion:
+   - Requires: dreview.exe
+   - Location: Must be in system PATH or working directory
+   - Purpose: Converts review files to CSV format
+
+2. PyMBSd Service Management:
+   - Requires: pymbsd_*.exe executables
+   - Location: Downloaded from UNC service packages
+   - Purpose: Windows service installation and management
+   - Note: Requires network access to UNC paths for service downloads
+
+3. Archive Data Access:
+   - May require: Network access to archive servers
+   - Configuration: Set in config.json
+
+These external dependencies are optional and only required when using
+their specific features. The core application functionality works
+without these tools.
 
 For technical support or questions, refer to the main project documentation.
 "@
@@ -506,10 +568,18 @@ echo     http://127.0.0.1:8050
 echo.
 echo Loading DMC services...
 echo * CSV to RTU conversion service
+echo * RTU to CSV conversion service
 echo * Fluid ID converter service  
 echo * Archive fetching service
 echo * RTU data fetching service
+echo * RTU resizer service
 echo * SPS time converter service
+echo * PyMBSd service management
+echo * Text replacement service
+echo * Replay file poke extraction service
+echo * Review to CSV conversion service
+echo * Elevation data service
+echo * Linefill calculation service
 echo * Configuration manager
 echo.
 echo Please wait for the "Starting server on:" message...
@@ -554,6 +624,9 @@ function Show-BuildSummary {
     Write-Host "- config.json is external and can be modified without rebuilding" -ForegroundColor $Yellow
     Write-Host "- Application will detect config changes and reload automatically" -ForegroundColor $Yellow
     Write-Host "- No CDN dependencies - fully offline capable" -ForegroundColor $Yellow
+    Write-Host "- Some features require external tools (dreview.exe, pymbsd executables)" -ForegroundColor $Yellow
+    Write-Host "- External tools are loaded dynamically when their features are used" -ForegroundColor $Yellow
+    Write-Host "- UNC path access may be required for PyMBSd service management" -ForegroundColor $Yellow
 }
 
 # Execute main build process

@@ -1198,7 +1198,7 @@ class RtuResizer:
 
         return df_data
 
-    def export_to_csv_flat_parallel(self, csv_file: str, start_sec: int = None, end_sec: int = None) -> int:
+    def export_to_csv_flat_parallel(self, csv_file: str, start_sec: int = None, end_sec: int = None, peek_file: str = None) -> int:
         """Parallel version of CSV export for very large datasets."""
         self._load_all_points()
         ids = self._ids
@@ -1369,8 +1369,6 @@ class RTUService:
         """
         self.endian = endian
 
-
-
     def _validate_input_file(self, input_file: str) -> None:
         """Validate that input file exists and is readable."""
         if not os.path.isfile(input_file):
@@ -1400,7 +1398,8 @@ class RTUService:
             ValueError: If CSV format is invalid
         """
         if not os.path.isfile(mapping_file):
-            raise FileNotFoundError(f"Tag mapping file not found: {mapping_file}")
+            raise FileNotFoundError(
+                f"Tag mapping file not found: {mapping_file}")
 
         tag_mapping = {}
         try:
@@ -1408,39 +1407,46 @@ class RTUService:
             with open(mapping_file, 'r', encoding='utf-8') as f:
                 reader = csv.reader(f)
                 header = next(reader, None)  # Skip header if present
-                
+
                 # Check if first row looks like a header
                 if header and len(header) >= 2 and (
                     'old' in header[0].lower() or 'tag' in header[0].lower() or
                     'old' in header[1].lower() or 'new' in header[1].lower()
                 ):
-                    logger.debug(f"Detected header row in mapping file: {header}")
+                    logger.debug(
+                        f"Detected header row in mapping file: {header}")
                 else:
                     # First row is data, not header
                     if header and len(header) >= 2:
                         old_tag, new_tag = header[0].strip(), header[1].strip()
                         if old_tag and new_tag:
                             tag_mapping[old_tag] = new_tag
-                            logger.debug(f"Tag mapping: '{old_tag}' -> '{new_tag}'")
+                            logger.debug(
+                                f"Tag mapping: '{old_tag}' -> '{new_tag}'")
 
                 # Process remaining rows
                 for row_num, row in enumerate(reader, start=2):
                     if len(row) < 2:
-                        logger.warning(f"Skipping row {row_num}: insufficient columns")
+                        logger.warning(
+                            f"Skipping row {row_num}: insufficient columns")
                         continue
-                    
+
                     old_tag, new_tag = row[0].strip(), row[1].strip()
                     if old_tag and new_tag:
                         tag_mapping[old_tag] = new_tag
-                        logger.debug(f"Tag mapping: '{old_tag}' -> '{new_tag}'")
+                        logger.debug(
+                            f"Tag mapping: '{old_tag}' -> '{new_tag}'")
                     else:
-                        logger.warning(f"Skipping row {row_num}: empty tag names")
+                        logger.warning(
+                            f"Skipping row {row_num}: empty tag names")
 
-            logger.info(f"Loaded {len(tag_mapping)} tag mappings from {mapping_file}")
+            logger.info(
+                f"Loaded {len(tag_mapping)} tag mappings from {mapping_file}")
             return tag_mapping
 
         except Exception as e:
-            raise ValueError(f"Failed to parse tag mapping file '{mapping_file}': {e}")
+            raise ValueError(
+                f"Failed to parse tag mapping file '{mapping_file}': {e}")
 
     def _parse_time_range(self, start_time: str = None, end_time: str = None) -> tuple[int, int]:
         """Parse and validate time range strings."""
@@ -1682,7 +1688,8 @@ class RTUService:
                 f"Found {count} points in time range - using threaded producer-consumer pattern")
 
             # Extract range with optimized threaded streaming to RTUGEN
-            written = resizer.extract_range(start_sec, end_sec, output_file, tag_mapping)
+            written = resizer.extract_range(
+                start_sec, end_sec, output_file, tag_mapping)
 
             logger.info(
                 f"Successfully resized RTU file: {written} points written to {output_file}")
@@ -1761,14 +1768,17 @@ class RTUService:
                 total_points = len(resizer.valid_phys) if len(
                     resizer.valid_phys) > 0 else resizer.total_points
 
-                # Use parallel processing for datasets > 1M points
-                if total_points > 1000000:
+                # Use parallel processing for datasets > 1M points only if no tag filtering is required
+                if total_points > 1000000 and not tags_file:
                     logger.info(
                         f"Large dataset ({total_points} points) - using parallel processing")
-                    return resizer.export_to_csv_flat_parallel(output_file, start_sec, end_sec)
+                    return resizer.export_to_csv_flat_parallel(output_file, start_sec, end_sec, peek_file=tags_file)
                 else:
                     # Use standard optimized flat export with memory mapping and vectorized operations
-                    return resizer.export_to_csv_flat(output_file, start_sec, end_sec, tags_file)
+                    if tags_file:
+                        logger.info(
+                            f"Tag filtering enabled - using standard export for optimal filtering")
+                    return resizer.export_to_csv_flat(output_file, start_sec, end_sec, peek_file=tags_file)
 
         except Exception as e:
             logger.error(f"Failed to export flat CSV: {e}")
@@ -1907,7 +1917,8 @@ def get_performance_capabilities() -> Dict[str, Any]:
 
 if __name__ == "__main__":
     # This module is designed to be imported and used as a class, not run directly
-    logger.info("RTU Service Refactored - High-Performance Class-based RTU processing library")
+    logger.info(
+        "RTU Service Refactored - High-Performance Class-based RTU processing library")
     logger.info("=" * 80)
     logger.info("PERFORMANCE FEATURES:")
     logger.info("✓ Memory-mapped I/O ✓ Vectorized operations ✓ Multi-threading")
@@ -1922,7 +1933,10 @@ if __name__ == "__main__":
     logger.info("  info = service.get_file_info('input.dt')")
     logger.info("  performance = service.get_performance_info()")
     logger.info("  service.export_csv_flat('input.dt', 'output.csv')")
-    logger.info("  service.export_csv_dataframe('input.dt', 'output.csv', enable_sampling=True)")
-    logger.info("  service.resize_rtu('input.dt', 'output.dt', '25/08/16 20:00:00', '25/08/16 21:00:00')")
+    logger.info(
+        "  service.export_csv_dataframe('input.dt', 'output.csv', enable_sampling=True)")
+    logger.info(
+        "  service.resize_rtu('input.dt', 'output.dt', '25/08/16 20:00:00', '25/08/16 21:00:00')")
     logger.info("")
-    logger.info("All methods automatically use optimal performance settings based on dataset size.")
+    logger.info(
+        "All methods automatically use optimal performance settings based on dataset size.")

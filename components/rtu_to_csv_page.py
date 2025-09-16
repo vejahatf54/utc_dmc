@@ -29,22 +29,22 @@ class RtuServiceWrapper:
         self._background_thread = None
         self._current_service = None
         self._cancel_requested = False
-    
-    def process_rtu_folder_with_new_service_async(self, 
-                                                 processing_params: Dict,
-                                                 task_manager = None) -> str:
+
+    def process_rtu_folder_with_new_service_async(self,
+                                                  processing_params: Dict,
+                                                  task_manager=None) -> str:
         """
         Start RTU processing in background thread using the new RTUService.
-        
+
         Args:
             processing_params: Dictionary containing all processing parameters
             task_manager: Optional task manager for progress updates
-            
+
         Returns:
             Task ID for tracking the background operation
         """
         task_id = f"rtu_task_{int(datetime.now().timestamp())}"
-        
+
         # Start background thread
         self._background_thread = threading.Thread(
             target=self._background_process_with_new_service,
@@ -52,25 +52,26 @@ class RtuServiceWrapper:
             daemon=True
         )
         self._background_thread.start()
-        
+
         return task_id
-    
+
     def _background_process_with_new_service(self, task_id: str, processing_params: Dict, task_manager):
         """Process RTU files using the new RTU service."""
         temp_tags_file = None
         try:
             from services.rtu_service import RTUService
             import glob
-            
+
             # Reset cancel flag
             self._cancel_requested = False
-            
+
             if task_manager:
-                task_manager.update_progress("Initializing RTU processing with new service...")
-            
+                task_manager.update_progress(
+                    "Initializing RTU processing with new service...")
+
             # Create RTU service instance
             self._current_service = RTUService()
-            
+
             rtu_folder_path = processing_params['rtu_folder_path']
             start_datetime = processing_params['start_datetime']
             end_datetime = processing_params['end_datetime']
@@ -80,15 +81,16 @@ class RtuServiceWrapper:
             enable_sampling = processing_params['enable_sampling']
             sampling_interval = processing_params['sampling_interval']
             sampling_type = processing_params['sampling_type']
-            
+
             # Get all .dt files in the folder
             dt_files = glob.glob(os.path.join(rtu_folder_path, "*.dt"))
             if not dt_files:
                 raise ValueError("No .dt files found in the selected folder")
-            
+
             if task_manager:
-                task_manager.update_progress(f"Found {len(dt_files)} .dt files to process...")
-            
+                task_manager.update_progress(
+                    f"Found {len(dt_files)} .dt files to process...")
+
             # Handle tags file creation if needed
             if peek_selection == "SELECTED_PEEKS":
                 # Create temporary tags file from peek file
@@ -96,69 +98,79 @@ class RtuServiceWrapper:
                     if 'tags' in peek_file:
                         temp_tags.write('\n'.join(peek_file['tags']))
                     elif 'content' in peek_file:
-                        content = base64.b64decode(peek_file['content']).decode('utf-8')
+                        content = base64.b64decode(
+                            peek_file['content']).decode('utf-8')
                         temp_tags.write(content)
                     temp_tags_file = temp_tags.name
-            
+
             # Format datetime strings for the service
             def format_datetime_for_service(dt):
                 if isinstance(dt, str):
                     # Try to parse and reformat
-                    parsed = datetime.fromisoformat(dt.replace('Z', '+00:00')) if 'T' in dt else datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
+                    parsed = datetime.fromisoformat(dt.replace(
+                        'Z', '+00:00')) if 'T' in dt else datetime.strptime(dt, '%Y-%m-%d %H:%M:%S')
                     return parsed.strftime('%y/%m/%d %H:%M:%S')
                 else:
                     return dt.strftime('%y/%m/%d %H:%M:%S')
-            
+
             start_time_str = format_datetime_for_service(start_datetime)
             end_time_str = format_datetime_for_service(end_datetime)
-            
+
             # Process each .dt file
             output_files = []
             total_files = len(dt_files)
-            
+
             for i, dt_file in enumerate(dt_files, 1):
                 if self._cancel_requested:
                     logger.info("Processing cancelled by user")
                     break
-                
-                if task_manager:
-                    task_manager.update_progress(f"Processing file {i}/{total_files}: {os.path.basename(dt_file)}")
-                
+
+                # Update progress less frequently to reduce overhead
+                if task_manager and (i == 1 or i % 5 == 0 or i == total_files):
+                    task_manager.update_progress(
+                        f"Processing file {i}/{total_files}: {os.path.basename(dt_file)}")
+
                 # Generate output file name
                 base_name = os.path.splitext(os.path.basename(dt_file))[0]
-                output_file = os.path.join(rtu_folder_path, f"{base_name}_export.csv")
-                
+                output_file = os.path.join(
+                    rtu_folder_path, f"{base_name}_export.csv")
+
                 # Prepare service call parameters
                 export_kwargs = {
                     'start_time': start_time_str,
                     'end_time': end_time_str
                 }
-                
-                # Add tags file if using selected tags
+
+                # Add tags file if using selected tags - ensure it's passed for both formats
                 if peek_selection == "SELECTED_PEEKS" and temp_tags_file:
                     export_kwargs['tags_file'] = temp_tags_file
-                
+
                 # Add sampling parameters if enabled
                 if enable_sampling:
                     export_kwargs['enable_sampling'] = True
                     export_kwargs['sample_interval'] = sampling_interval
                     export_kwargs['sample_mode'] = sampling_type
-                
+
                 # Call the appropriate export method based on CSV format
                 try:
                     if csv_format == "flat-csv":
-                        points_exported = self._current_service.export_csv_flat(dt_file, output_file, **export_kwargs)
+                        points_exported = self._current_service.export_csv_flat(
+                            dt_file, output_file, **export_kwargs)
                     else:  # dataframe-csv
-                        points_exported = self._current_service.export_csv_dataframe(dt_file, output_file, **export_kwargs)
-                    
+                        points_exported = self._current_service.export_csv_dataframe(
+                            dt_file, output_file, **export_kwargs)
+
                     output_files.append(output_file)
-                    logger.info(f"Exported {points_exported} points from {dt_file} to {output_file}")
-                    
+                    # Reduce logging frequency for performance
+                    if i == 1 or i % 10 == 0 or i == total_files:
+                        logger.info(
+                            f"Exported {points_exported} points from {dt_file} to {output_file}")
+
                 except Exception as e:
                     logger.error(f"Failed to process {dt_file}: {str(e)}")
                     # Continue with next file instead of failing completely
                     continue
-            
+
             if self._cancel_requested:
                 result = {
                     'success': False,
@@ -170,10 +182,12 @@ class RtuServiceWrapper:
                 merged_file = None
                 try:
                     if task_manager:
-                        task_manager.update_progress("Merging CSV files by timestamp...")
-                    
-                    merged_file = self._merge_csv_files(output_files, rtu_folder_path)
-                    
+                        task_manager.update_progress(
+                            "Merging CSV files by timestamp...")
+
+                    merged_file = self._merge_csv_files(
+                        output_files, rtu_folder_path)
+
                     # Success result with merged file
                     result = {
                         'success': True,
@@ -185,7 +199,8 @@ class RtuServiceWrapper:
                         'message': f'Successfully processed {len(output_files)} RTU files and merged into {os.path.basename(merged_file)}'
                     }
                 except Exception as merge_error:
-                    logger.error(f"Failed to merge CSV files: {str(merge_error)}")
+                    logger.error(
+                        f"Failed to merge CSV files: {str(merge_error)}")
                     # Still report success for individual files, but note merge failure
                     result = {
                         'success': True,
@@ -202,10 +217,10 @@ class RtuServiceWrapper:
                     'error': 'No files were successfully processed',
                     'task_id': task_id
                 }
-            
+
             if task_manager:
                 task_manager.complete_task(result)
-                
+
         except Exception as e:
             # Error result
             logger.error(f"RTU processing failed: {str(e)}", exc_info=True)
@@ -214,7 +229,7 @@ class RtuServiceWrapper:
                 'error': f"Processing failed: {str(e)}",
                 'task_id': task_id
             }
-            
+
             if task_manager:
                 task_manager.complete_task(error_result)
         finally:
@@ -226,95 +241,117 @@ class RtuServiceWrapper:
                     os.unlink(temp_tags_file)
                 except:
                     pass  # Ignore cleanup errors
-    
+
     def _merge_csv_files(self, csv_files, output_directory):
         """
         Merge multiple CSV files into one, sorted by timestamp.
-        
+
         Args:
             csv_files: List of CSV file paths to merge
             output_directory: Directory where to save the merged file
-            
+
         Returns:
             Path to the merged CSV file
         """
         import pandas as pd
         from datetime import datetime
-        
+
         if not csv_files:
             raise ValueError("No CSV files to merge")
-        
+
         logger.info(f"Merging {len(csv_files)} CSV files...")
-        
+
         # Read all CSV files
         dataframes = []
         for csv_file in csv_files:
             try:
                 df = pd.read_csv(csv_file)
-                
+
                 # Add source file column
                 df['source_file'] = os.path.basename(csv_file)
-                
+
                 dataframes.append(df)
                 logger.debug(f"Read {len(df)} rows from {csv_file}")
-                
+
             except Exception as e:
                 logger.warning(f"Failed to read {csv_file}: {str(e)}")
                 continue
-        
+
         if not dataframes:
             raise ValueError("No valid CSV files could be read")
-        
+
         # Combine all dataframes
         merged_df = pd.concat(dataframes, ignore_index=True)
-        logger.info(f"Combined {len(merged_df)} total rows from {len(dataframes)} files")
-        
+        logger.info(
+            f"Combined {len(merged_df)} total rows from {len(dataframes)} files")
+
         # Try to find timestamp column and sort by it
         timestamp_columns = []
         for col in merged_df.columns:
             col_lower = col.lower()
             if any(keyword in col_lower for keyword in ['time', 'date', 'timestamp', 'ts']):
                 timestamp_columns.append(col)
-        
+
         if timestamp_columns:
             # Use the first timestamp column found
             timestamp_col = timestamp_columns[0]
             logger.info(f"Sorting by timestamp column: {timestamp_col}")
-            
+
             try:
                 # Try to convert to datetime if it's not already
                 if merged_df[timestamp_col].dtype == 'object':
-                    merged_df[timestamp_col] = pd.to_datetime(merged_df[timestamp_col], errors='coerce')
-                
+                    merged_df[timestamp_col] = pd.to_datetime(
+                        merged_df[timestamp_col], errors='coerce')
+
                 # Sort by timestamp
-                merged_df = merged_df.sort_values(by=timestamp_col).reset_index(drop=True)
+                merged_df = merged_df.sort_values(
+                    by=timestamp_col).reset_index(drop=True)
                 logger.info("Successfully sorted by timestamp")
-                
+
             except Exception as e:
-                logger.warning(f"Failed to sort by timestamp column {timestamp_col}: {str(e)}")
+                logger.warning(
+                    f"Failed to sort by timestamp column {timestamp_col}: {str(e)}")
                 # Continue without sorting
         else:
-            logger.warning("No timestamp column found, files will be merged without sorting")
-        
+            logger.warning(
+                "No timestamp column found, files will be merged without sorting")
+
         # Generate output filename
         merged_filename = f"MergedDataFrame_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         merged_filepath = os.path.join(output_directory, merged_filename)
-        
+
         # Save merged file
         merged_df.to_csv(merged_filepath, index=False)
-        logger.info(f"Saved merged CSV file: {merged_filepath} ({len(merged_df)} rows)")
-        
+        logger.info(
+            f"Saved merged CSV file: {merged_filepath} ({len(merged_df)} rows)")
+
+        # Clean up individual CSV files after successful merge
+        for csv_file in csv_files:
+            try:
+                if os.path.exists(csv_file):
+                    os.remove(csv_file)
+                    logger.debug(f"Deleted individual file: {csv_file}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to delete individual file {csv_file}: {str(e)}")
+
+        logger.info(
+            f"Cleaned up {len(csv_files)} individual CSV files after merge")
+
         return merged_filepath
-    
+
     def cancel_processing(self):
         """Cancel the current RTU processing operation."""
         self._cancel_requested = True
         logger.info("RTU processing cancellation requested")
 
+
 # Initialize the service wrapper
 rtu_csv_service = RtuServiceWrapper()
 
 # Background task manager
+
+
 class BackgroundTaskManager:
     def __init__(self):
         self.current_task_id = None
@@ -322,19 +359,19 @@ class BackgroundTaskManager:
         self.task_result = None
         self.progress_message = ""
         self.lock = threading.Lock()
-    
+
     def start_task(self, task_id):
         with self.lock:
             self.current_task_id = task_id
             self.task_status = 'running'
             self.task_result = None
             self.progress_message = "Starting processing..."
-    
+
     def update_progress(self, message):
         with self.lock:
             if self.task_status == 'running':  # Only update if still running
                 self.progress_message = message
-    
+
     def complete_task(self, result):
         with self.lock:
             self.task_result = result
@@ -342,9 +379,10 @@ class BackgroundTaskManager:
             if result and result.get('success'):
                 self.progress_message = "Processing completed successfully"
             else:
-                error_msg = result.get('error', 'Unknown error') if result else 'Processing failed'
+                error_msg = result.get(
+                    'error', 'Unknown error') if result else 'Processing failed'
                 self.progress_message = f"Processing failed: {error_msg}"
-    
+
     def get_status(self):
         with self.lock:
             return {
@@ -353,13 +391,14 @@ class BackgroundTaskManager:
                 'result': self.task_result,
                 'progress': self.progress_message
             }
-    
+
     def reset(self):
         with self.lock:
             self.current_task_id = None
             self.task_status = 'idle'
             self.task_result = None
             self.progress_message = ""
+
 
 background_task_manager = BackgroundTaskManager()
 
@@ -379,12 +418,13 @@ def create_rtu_to_csv_page():
         # Data stores
         dcc.Store(id='peek-file-store', data={}),
         dcc.Store(id='rtu-processing-store', data={'status': 'idle'}),
-        dcc.Store(id='background-task-store', data={'task_id': None, 'status': 'idle'}),
+        dcc.Store(id='background-task-store',
+                  data={'task_id': None, 'status': 'idle'}),
         dcc.Store(id=rtu_directory_ids['store'], data={'path': ''}),
-        
+
         # Notification container for this page
         html.Div(id='rtu-csv-notifications'),
-        
+
         # Interval component for polling background task progress
         dcc.Interval(
             id='rtu-csv-background-task-interval',
@@ -398,9 +438,11 @@ def create_rtu_to_csv_page():
             dmc.Center([
                 dmc.Stack([
                     dmc.Group([
-                        dmc.Title("RTU to CSV Converter", order=2, ta="center"),
+                        dmc.Title("RTU to CSV Converter",
+                                  order=2, ta="center"),
                         dmc.ActionIcon(
-                            BootstrapIcon(icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
+                            BootstrapIcon(
+                                icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
                             id="rtu-csv-help-modal-btn",
                             variant="light",
                             color="blue",
@@ -422,39 +464,51 @@ def create_rtu_to_csv_page():
                             dmc.GridCol([
                                 dmc.Stack([
                                     dmc.Group([
-                                        BootstrapIcon(icon="info-circle", width=16),
+                                        BootstrapIcon(
+                                            icon="info-circle", width=16),
                                         dmc.Space(w="sm"),
                                         dmc.Text("Requirements", fw=500)
                                     ], gap="xs"),
                                     dmc.List([
-                                        dmc.ListItem("Folder containing RTU files (.dt extension)"),
-                                        dmc.ListItem("Peek text file with one tag per line (optional)"),
-                                        dmc.ListItem("Read permissions to RTU folder"),
-                                        dmc.ListItem("Write permissions to RTU folder for CSV output")
+                                        dmc.ListItem(
+                                            "Folder containing RTU files (.dt extension)"),
+                                        dmc.ListItem(
+                                            "Peek text file with one tag per line (optional)"),
+                                        dmc.ListItem(
+                                            "Read permissions to RTU folder"),
+                                        dmc.ListItem(
+                                            "Write permissions to RTU folder for CSV output")
                                     ], size="sm")
                                 ])
                             ], span=6),
                             dmc.GridCol([
                                 dmc.Stack([
                                     dmc.Group([
-                                        BootstrapIcon(icon="lightbulb", width=16),
+                                        BootstrapIcon(
+                                            icon="lightbulb", width=16),
                                         dmc.Space(w="sm"),
                                         dmc.Text("Process", fw=500)
                                     ], gap="xs"),
                                     dmc.List([
-                                        dmc.ListItem("Select folder containing .dt files"),
-                                        dmc.ListItem("Choose tag selection: All Tags or Selected Tags"),
-                                        dmc.ListItem("Upload peek file if using Selected Tags"),
-                                        dmc.ListItem("Select date range for data extraction"),
-                                        dmc.ListItem("Choose CSV export format and sampling options"),
-                                        dmc.ListItem("Click 'Write to CSV' to process all .dt files")
+                                        dmc.ListItem(
+                                            "Select folder containing .dt files"),
+                                        dmc.ListItem(
+                                            "Choose tag selection: All Tags or Selected Tags"),
+                                        dmc.ListItem(
+                                            "Upload peek file if using Selected Tags"),
+                                        dmc.ListItem(
+                                            "Select date range for data extraction"),
+                                        dmc.ListItem(
+                                            "Choose CSV export format and sampling options"),
+                                        dmc.ListItem(
+                                            "Click 'Write to CSV' to process all .dt files")
                                     ], size="sm")
                                 ])
                             ], span=6)
                         ]),
-                        
+
                         dmc.Divider(variant="dashed"),
-                        
+
                         dmc.Stack([
                             dmc.Group([
                                 BootstrapIcon(icon="gear", width=16),
@@ -462,15 +516,24 @@ def create_rtu_to_csv_page():
                                 dmc.Text("Processing Details", fw=500)
                             ], gap="xs"),
                             dmc.List([
-                                dmc.ListItem("All .dt files in the selected folder will be processed sequentially"),
-                                dmc.ListItem("Output files are created in the same folder as input files with '_export.csv' suffix"),
-                                dmc.ListItem("Each .dt file creates one corresponding CSV file (e.g., 'data.dt' → 'data_export.csv')"),
-                                dmc.ListItem("After processing, all CSV files are automatically merged into 'MergedDataFrame_YYYYMMDD_HHMMSS.csv'"),
-                                dmc.ListItem("The merged file is sorted by timestamp column if found"),
-                                dmc.ListItem("Flat CSV creates one file per tag, DataFrame CSV creates structured data"),
-                                dmc.ListItem("Peek file filters specify which tags to extract (one tag per line)"),
-                                dmc.ListItem("Sampling options allow data interpolation at regular intervals"),
-                                dmc.ListItem("Processing runs in background and can be cancelled at any time")
+                                dmc.ListItem(
+                                    "All .dt files in the selected folder will be processed sequentially"),
+                                dmc.ListItem(
+                                    "Output files are created in the same folder as input files with '_export.csv' suffix"),
+                                dmc.ListItem(
+                                    "Each .dt file creates one corresponding CSV file (e.g., 'data.dt' → 'data_export.csv')"),
+                                dmc.ListItem(
+                                    "After processing, all CSV files are automatically merged into 'MergedDataFrame_YYYYMMDD_HHMMSS.csv'"),
+                                dmc.ListItem(
+                                    "The merged file is sorted by timestamp column if found"),
+                                dmc.ListItem(
+                                    "Flat CSV creates one file per tag, DataFrame CSV creates structured data"),
+                                dmc.ListItem(
+                                    "Peek file filters specify which tags to extract (one tag per line)"),
+                                dmc.ListItem(
+                                    "Sampling options allow data interpolation at regular intervals"),
+                                dmc.ListItem(
+                                    "Processing runs in background and can be cancelled at any time")
                             ], size="sm")
                         ])
                     ], gap="md")
@@ -498,25 +561,29 @@ def create_rtu_to_csv_page():
                                 dmc.Group([
                                     BootstrapIcon(icon="file-text", width=16),
                                     dmc.Space(w="sm"),
-                                    dmc.Text("PEEK Selection", fw=500, size="md")
+                                    dmc.Text("PEEK Selection",
+                                             fw=500, size="md")
                                 ], gap="xs"),
 
                                 dmc.Divider(size="xs"),
 
                                 # Radio buttons for PEEK selection
                                 dmc.Stack([
-                                    dmc.Text("Tag Selection:", size="sm", fw=500),
+                                    dmc.Text("Tag Selection:",
+                                             size="sm", fw=500),
                                     dmc.RadioGroup(
                                         children=dmc.Group([
-                                            dmc.Radio("All Tags", value="ALL_PEEKS"),
-                                            dmc.Radio("Selected Tags", value="SELECTED_PEEKS")
+                                            dmc.Radio(
+                                                "All Tags", value="ALL_PEEKS"),
+                                            dmc.Radio("Selected Tags",
+                                                      value="SELECTED_PEEKS")
                                         ], gap="xl"),
                                         id="peek-selection-radio",
                                         value="ALL_PEEKS",
                                         size="sm"
                                     )
                                 ], gap="xs"),
-                                
+
                                 dmc.Space(h="sm"),
 
                                 # Upload area for peek file - initially hidden
@@ -526,10 +593,13 @@ def create_rtu_to_csv_page():
                                             id='peek-file-upload',
                                             children=dmc.Stack([
                                                 dmc.Center([
-                                                    BootstrapIcon(icon="file-text", width=36, height=36, color="var(--mantine-color-green-6)")
+                                                    BootstrapIcon(
+                                                        icon="file-text", width=36, height=36, color="var(--mantine-color-green-6)")
                                                 ]),
-                                                dmc.Text('Drop Peek File', size="sm", fw=500, ta="center"),
-                                                dmc.Text('(one tag per line)', size="xs", c="dimmed", ta="center")
+                                                dmc.Text(
+                                                    'Drop Peek File', size="sm", fw=500, ta="center"),
+                                                dmc.Text(
+                                                    '(one tag per line)', size="xs", c="dimmed", ta="center")
                                             ], gap="xs", p="lg", align="center"),
                                             style={
                                                 'width': '100%',
@@ -563,7 +633,8 @@ def create_rtu_to_csv_page():
                                 dmc.Group([
                                     BootstrapIcon(icon="calendar3", width=16),
                                     dmc.Space(w="sm"),
-                                    dmc.Text("Date Range Selection", fw=500, size="md")
+                                    dmc.Text("Date Range Selection",
+                                             fw=500, size="md")
                                 ], gap="xs"),
 
                                 dmc.Divider(size="xs"),
@@ -574,17 +645,20 @@ def create_rtu_to_csv_page():
                                     html.Div([
                                         dmc.Center([
                                             dmc.Stack([
-                                                dmc.Loader(color="blue", size="sm"),
-                                                dmc.Text("Scanning .dt files for date ranges...", size="sm", c="dimmed", ta="center")
+                                                dmc.Loader(
+                                                    color="blue", size="sm"),
+                                                dmc.Text(
+                                                    "Scanning .dt files for date ranges...", size="sm", c="dimmed", ta="center")
                                             ], gap="sm", align="center")
                                         ], style={"padding": "20px"})
                                     ], id="date-loading-container", style={'display': 'none'}),
-                                    
+
                                     # Date inputs container
                                     html.Div([
                                         dmc.Group([
                                             dmc.Stack([
-                                                dmc.Text("Start Date & Time", size="sm", fw=500),
+                                                dmc.Text(
+                                                    "Start Date & Time", size="sm", fw=500),
                                                 dmc.DateTimePicker(
                                                     id="rtu-csv-start-datetime",
                                                     value=datetime.now() - timedelta(days=7),
@@ -595,9 +669,10 @@ def create_rtu_to_csv_page():
                                                     valueFormat="YYYY/MM/DD HH:mm:ss"
                                                 )
                                             ], gap="xs", style={"flex": 1}),
-                                            
+
                                             dmc.Stack([
-                                                dmc.Text("End Date & Time", size="sm", fw=500),
+                                                dmc.Text(
+                                                    "End Date & Time", size="sm", fw=500),
                                                 dmc.DateTimePicker(
                                                     id="rtu-csv-end-datetime",
                                                     value=datetime.now(),
@@ -609,7 +684,7 @@ def create_rtu_to_csv_page():
                                                 )
                                             ], gap="xs", style={"flex": 1})
                                         ], gap="md", grow=True),
-                                        
+
                                         # Status message for loaded dates
                                         html.Div(
                                             id='date-range-status',
@@ -632,18 +707,22 @@ def create_rtu_to_csv_page():
                                 dmc.Group([
                                     BootstrapIcon(icon="gear", width=16),
                                     dmc.Space(w="sm"),
-                                    dmc.Text("Processing Options", fw=500, size="md")
+                                    dmc.Text("Processing Options",
+                                             fw=500, size="md")
                                 ], gap="xs"),
 
                                 dmc.Divider(size="xs"),
 
                                 # CSV Export Format
                                 dmc.Stack([
-                                    dmc.Text("CSV Export Format", size="sm", fw=500),
+                                    dmc.Text("CSV Export Format",
+                                             size="sm", fw=500),
                                     dmc.RadioGroup(
                                         children=dmc.Group([
-                                            dmc.Radio("Flat CSV", value="flat-csv"),
-                                            dmc.Radio("DataFrame CSV", value="dataframe-csv")
+                                            dmc.Radio(
+                                                "Flat CSV", value="flat-csv"),
+                                            dmc.Radio("DataFrame CSV",
+                                                      value="dataframe-csv")
                                         ], gap="xl"),
                                         id="csv-format-radio",
                                         value="flat-csv",
@@ -655,7 +734,8 @@ def create_rtu_to_csv_page():
 
                                 # Sampling Options
                                 dmc.Stack([
-                                    dmc.Text("Data Sampling", size="sm", fw=500),
+                                    dmc.Text("Data Sampling",
+                                             size="sm", fw=500),
                                     dmc.Switch(
                                         id="enable-sampling-switch",
                                         label="Enable Sampling",
@@ -671,7 +751,8 @@ def create_rtu_to_csv_page():
                                     dmc.Stack([
                                         # Sampling Interval
                                         dmc.Stack([
-                                            dmc.Text("Sampling Interval (seconds)", size="sm", fw=500),
+                                            dmc.Text(
+                                                "Sampling Interval (seconds)", size="sm", fw=500),
                                             dmc.NumberInput(
                                                 id="sampling-interval-input",
                                                 value=60,
@@ -687,11 +768,14 @@ def create_rtu_to_csv_page():
 
                                         # Sampling Type
                                         dmc.Stack([
-                                            dmc.Text("Sampling Type", size="sm", fw=500),
+                                            dmc.Text("Sampling Type",
+                                                     size="sm", fw=500),
                                             dmc.RadioGroup(
                                                 children=dmc.Group([
-                                                    dmc.Radio("Actual", value="actual"),
-                                                    dmc.Radio("Interpolated", value="interpolated")
+                                                    dmc.Radio(
+                                                        "Actual", value="actual"),
+                                                    dmc.Radio(
+                                                        "Interpolated", value="interpolated")
                                                 ], gap="xl"),
                                                 id="sampling-type-radio",
                                                 value="actual",
@@ -703,14 +787,16 @@ def create_rtu_to_csv_page():
 
                             ], gap="md", p="sm")
                         ], shadow="sm", radius="md", withBorder=True),
-                        
+
                         # Conversion Section
                         dmc.Paper([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="arrow-repeat", width=16),
+                                    BootstrapIcon(
+                                        icon="arrow-repeat", width=16),
                                     dmc.Space(w="sm"),
-                                    dmc.Text("CSV Conversion", fw=500, size="md")
+                                    dmc.Text("CSV Conversion",
+                                             fw=500, size="md")
                                 ], gap="xs", justify="center"),
 
                                 dmc.Divider(size="xs"),
@@ -719,18 +805,20 @@ def create_rtu_to_csv_page():
                                 dmc.Stack([
                                     dmc.Group([
                                         dmc.Button([
-                                            BootstrapIcon(icon="download", width=16),
+                                            BootstrapIcon(
+                                                icon="download", width=16),
                                             dmc.Space(w="sm"),
                                             "Write to CSV"
-                                        ], id='convert-csv-btn', size="lg", disabled=True, variant="filled", 
-                                          style={'minWidth': '160px'}),
-                                        
+                                        ], id='convert-csv-btn', size="lg", disabled=True, variant="filled",
+                                            style={'minWidth': '160px'}),
+
                                         dmc.Button([
-                                            BootstrapIcon(icon="x-circle", width=16),
+                                            BootstrapIcon(
+                                                icon="x-circle", width=16),
                                             dmc.Space(w="sm"),
                                             "Cancel"
                                         ], id='cancel-csv-btn', size="lg", disabled=True, variant="outline", color="red",
-                                          style={'minWidth': '120px'})
+                                            style={'minWidth': '120px'})
                                     ], gap="md", justify="center"),
 
                                     html.Div(
@@ -780,32 +868,33 @@ def handle_peek_file_upload(content, filename):
     """Handle peek file upload."""
     if not content or not filename:
         return {}, ""
-    
+
     try:
         # Decode file content
         content_type, content_string = content.split(',')
         decoded = base64.b64decode(content_string)
-        
+
         # Parse as text file
         content_text = decoded.decode('utf-8')
-        tags = [line.strip() for line in content_text.split('\n') if line.strip()]
-        
+        tags = [line.strip()
+                for line in content_text.split('\n') if line.strip()]
+
         file_info = {
             'filename': filename,
             'content': content_string,
             'tags': tags,
             'tag_count': len(tags)
         }
-        
+
         status_message = dmc.Alert(
             f"Loaded '{filename}' with {len(tags)} tags",
             color="green",
             variant="light",
             icon=BootstrapIcon(icon="check-circle")
         )
-        
+
         return file_info, status_message
-        
+
     except Exception as e:
         error_message = dmc.Alert(
             f"Error loading peek file: {str(e)}",
@@ -857,16 +946,16 @@ def auto_scan_dt_files_for_dates(rtu_folder):
     """Automatically scan all .dt files in the selected folder to find min/max date ranges."""
     if not rtu_folder.get('path'):
         # Reset to default state when no folder selected
-        return (datetime.now() - timedelta(days=7), datetime.now(), 
+        return (datetime.now() - timedelta(days=7), datetime.now(),
                 {'display': 'none'}, {'display': 'block'}, "", "")
-    
+
     try:
         from services.rtu_service import RTUService
         import glob
-        
+
         rtu_folder_path = rtu_folder['path']
         dt_files = glob.glob(os.path.join(rtu_folder_path, "*.dt"))
-        
+
         if not dt_files:
             error_notification = dmc.Notification(
                 title="No .dt Files Found",
@@ -875,48 +964,52 @@ def auto_scan_dt_files_for_dates(rtu_folder):
                 autoClose=5000,
                 action="show"
             )
-            return (no_update, no_update, 
-                    {'display': 'none'}, {'display': 'block'}, 
-                    dmc.Alert("No .dt files found in the selected folder", color="orange", variant="light"),
+            return (no_update, no_update,
+                    {'display': 'none'}, {'display': 'block'},
+                    dmc.Alert("No .dt files found in the selected folder",
+                              color="orange", variant="light"),
                     error_notification)
-        
+
         # Show loading state immediately
         # Note: This will be overridden by the final return, but helps show the loading state briefly
-        
+
         # Create RTU service instance
         rtu_service = RTUService()
-        
+
         min_start_time = None
         max_end_time = None
         successful_files = 0
-        
+
         # Scan all .dt files to find min/max date ranges
         for dt_file in dt_files:
             try:
                 file_info = rtu_service.get_file_info(dt_file)
-                
+
                 if file_info['first_timestamp'] and file_info['last_timestamp']:
                     file_start = file_info['first_timestamp']
                     file_end = file_info['last_timestamp']
-                    
+
                     # Convert to datetime objects if they're strings
                     if isinstance(file_start, str):
-                        file_start = datetime.fromisoformat(file_start.replace('Z', '+00:00')) if 'T' in file_start else datetime.strptime(file_start, '%Y-%m-%d %H:%M:%S')
+                        file_start = datetime.fromisoformat(file_start.replace(
+                            'Z', '+00:00')) if 'T' in file_start else datetime.strptime(file_start, '%Y-%m-%d %H:%M:%S')
                     if isinstance(file_end, str):
-                        file_end = datetime.fromisoformat(file_end.replace('Z', '+00:00')) if 'T' in file_end else datetime.strptime(file_end, '%Y-%m-%d %H:%M:%S')
-                    
+                        file_end = datetime.fromisoformat(file_end.replace(
+                            'Z', '+00:00')) if 'T' in file_end else datetime.strptime(file_end, '%Y-%m-%d %H:%M:%S')
+
                     # Update min/max dates
                     if min_start_time is None or file_start < min_start_time:
                         min_start_time = file_start
                     if max_end_time is None or file_end > max_end_time:
                         max_end_time = file_end
-                    
+
                     successful_files += 1
-                    
+
             except Exception as e:
-                logger.warning(f"Failed to get date info from {dt_file}: {str(e)}")
+                logger.warning(
+                    f"Failed to get date info from {dt_file}: {str(e)}")
                 continue
-        
+
         if successful_files > 0 and min_start_time and max_end_time:
             # Success - found date ranges
             status_message = dmc.Alert(
@@ -925,7 +1018,7 @@ def auto_scan_dt_files_for_dates(rtu_folder):
                 variant="light",
                 icon=BootstrapIcon(icon="check-circle", width=16)
             )
-            
+
             success_notification = dmc.Notification(
                 title="Date Ranges Loaded",
                 message=f"Scanned {successful_files} .dt files successfully",
@@ -933,9 +1026,9 @@ def auto_scan_dt_files_for_dates(rtu_folder):
                 autoClose=3000,
                 action="show"
             )
-            
+
             return (min_start_time, max_end_time,
-                    {'display': 'none'}, {'display': 'block'}, 
+                    {'display': 'none'}, {'display': 'block'},
                     status_message, success_notification)
         else:
             # No valid date ranges found
@@ -945,7 +1038,7 @@ def auto_scan_dt_files_for_dates(rtu_folder):
                 variant="light",
                 icon=BootstrapIcon(icon="exclamation-triangle", width=16)
             )
-            
+
             warning_notification = dmc.Notification(
                 title="No Valid Data",
                 message="No valid timestamps found in the .dt files",
@@ -953,11 +1046,11 @@ def auto_scan_dt_files_for_dates(rtu_folder):
                 autoClose=5000,
                 action="show"
             )
-            
+
             return (no_update, no_update,
                     {'display': 'none'}, {'display': 'block'},
                     warning_message, warning_notification)
-    
+
     except Exception as e:
         error_notification = dmc.Notification(
             title="Error Scanning Files",
@@ -966,14 +1059,14 @@ def auto_scan_dt_files_for_dates(rtu_folder):
             autoClose=5000,
             action="show"
         )
-        
+
         error_message = dmc.Alert(
             f"Error scanning .dt files: {str(e)}",
             color="red",
             variant="light",
             icon=BootstrapIcon(icon="exclamation-triangle", width=16)
         )
-        
+
         return (no_update, no_update,
                 {'display': 'none'}, {'display': 'block'},
                 error_message, error_notification)
@@ -1007,7 +1100,7 @@ def show_date_loading_immediately(rtu_folder):
 def update_convert_button_state(peek_file, rtu_folder, peek_selection):
     """Enable convert button when all requirements are met."""
     has_rtu_folder = bool(rtu_folder.get('path'))
-    
+
     # If "ALL_PEEKS" is selected, we don't need a peek file
     if peek_selection == "ALL_PEEKS":
         return not has_rtu_folder
@@ -1021,7 +1114,8 @@ def update_convert_button_state(peek_file, rtu_folder, peek_selection):
     [Output('csv-processing-alert', 'children'),
      Output('rtu-processing-store', 'data'),
      Output('cancel-csv-btn', 'disabled', allow_duplicate=True),
-     Output('rtu-csv-background-task-interval', 'disabled', allow_duplicate=True),
+     Output('rtu-csv-background-task-interval',
+            'disabled', allow_duplicate=True),
      Output('convert-csv-btn', 'disabled', allow_duplicate=True),
      Output('rtu-csv-notifications', 'children')],
     [Input('convert-csv-btn', 'n_clicks')],
@@ -1036,26 +1130,26 @@ def update_convert_button_state(peek_file, rtu_folder, peek_selection):
      State(rtu_directory_ids['store'], 'data')],
     prevent_initial_call=True
 )
-def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime, 
-                      peek_selection, csv_format, enable_sampling, sampling_interval, 
-                      sampling_type, rtu_folder):
+def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime,
+                       peek_selection, csv_format, enable_sampling, sampling_interval,
+                       sampling_type, rtu_folder):
     """Process RTU files and convert to CSV format using the new RTU service."""
-    
+
     if not n_clicks:
         return "", {'status': 'idle'}, True, True, False, ""
-    
+
     try:
         # Quick validation first - these should be instant
         if not rtu_folder.get('path'):
             error_notification = dmc.Notification(
-                title="Error", 
+                title="Error",
                 message="No RTU folder selected",
                 color="red",
                 autoClose=5000,
                 action="show"
             )
             return "", {'status': 'error', 'error': 'No RTU folder'}, True, True, False, error_notification
-        
+
         # Validate peek file if SELECTED_PEEKS is chosen
         if peek_selection == "SELECTED_PEEKS" and not peek_file.get('filename'):
             error_notification = dmc.Notification(
@@ -1066,17 +1160,18 @@ def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime,
                 action="show"
             )
             return "", {'status': 'error', 'error': 'No peek file'}, True, True, False, error_notification
-        
+
         # Show processing alert below buttons
         processing_alert = dmc.Alert([
             dmc.Group([
                 BootstrapIcon(icon="clock", width=16),
-                dmc.Text("RTU file processing started. This may take several minutes...", size="sm")
+                dmc.Text(
+                    "RTU file processing started. This may take several minutes...", size="sm")
             ], gap="xs"),
             dmc.Space(h="xs"),
             dmc.Progress(value=100, animated=True, color="blue", size="sm")
         ], color="blue", variant="light")
-        
+
         # Show processing notification IMMEDIATELY
         processing_notification = dmc.Notification(
             title="Processing Started",
@@ -1085,7 +1180,7 @@ def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime,
             autoClose=False,
             action="show"
         )
-        
+
         # Prepare processing parameters
         processing_params = {
             'rtu_folder_path': rtu_folder['path'],
@@ -1098,19 +1193,19 @@ def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime,
             'sampling_interval': sampling_interval if enable_sampling else None,
             'sampling_type': sampling_type if enable_sampling else None
         }
-        
+
         # Start background processing - everything heavy happens here
         task_id = rtu_csv_service.process_rtu_folder_with_new_service_async(
             processing_params,
             task_manager=background_task_manager
         )
-        
+
         # Start the background task
         background_task_manager.start_task(task_id)
-        
+
         # Return immediately with processing UI state
         return processing_alert, {'status': 'processing', 'task_id': task_id}, False, False, True, processing_notification
-            
+
     except Exception as e:
         error_notification = dmc.Notification(
             title="Conversion Error",
@@ -1127,7 +1222,8 @@ def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime,
     [Output('csv-processing-alert', 'children', allow_duplicate=True),
      Output('rtu-processing-store', 'data', allow_duplicate=True),
      Output('cancel-csv-btn', 'disabled', allow_duplicate=True),
-     Output('rtu-csv-background-task-interval', 'disabled', allow_duplicate=True),
+     Output('rtu-csv-background-task-interval',
+            'disabled', allow_duplicate=True),
      Output('convert-csv-btn', 'disabled', allow_duplicate=True),
      Output('rtu-csv-notifications', 'children', allow_duplicate=True)],
     [Input('cancel-csv-btn', 'n_clicks')],
@@ -1138,13 +1234,13 @@ def cancel_rtu_processing(n_clicks, current_store):
     """Cancel the RTU processing operation."""
     if not n_clicks:
         raise PreventUpdate
-    
+
     # Signal cancellation to the service
     rtu_csv_service.cancel_processing()
-    
+
     # Reset background task manager
     background_task_manager.reset()
-    
+
     # Create cancel notification
     cancel_notification = dmc.Notification(
         title="Processing Cancelled",
@@ -1153,7 +1249,7 @@ def cancel_rtu_processing(n_clicks, current_store):
         autoClose=3000,
         action="show"
     )
-    
+
     return "", {'status': 'cancelled'}, True, True, False, cancel_notification
 
 
@@ -1167,7 +1263,8 @@ create_directory_selector_callback(
     [Output('csv-processing-alert', 'children', allow_duplicate=True),
      Output('convert-csv-btn', 'disabled', allow_duplicate=True),
      Output('cancel-csv-btn', 'disabled', allow_duplicate=True),
-     Output('rtu-csv-background-task-interval', 'disabled', allow_duplicate=True),
+     Output('rtu-csv-background-task-interval',
+            'disabled', allow_duplicate=True),
      Output('rtu-csv-notifications', 'children', allow_duplicate=True)],
     [Input('rtu-csv-background-task-interval', 'n_intervals')],
     prevent_initial_call=True
@@ -1176,7 +1273,7 @@ def update_background_task_status(n_intervals):
     """Poll background task status and update UI."""
     try:
         task_status = background_task_manager.get_status()
-        
+
         if task_status['status'] == 'idle':
             return "", False, True, True, ""
         elif task_status['status'] == 'running':
@@ -1188,18 +1285,19 @@ def update_background_task_status(n_intervals):
                 dmc.Space(h="xs"),
                 dmc.Progress(value=100, animated=True, color="blue", size="sm")
             ], color="blue", variant="light")
-            return progress_alert, True, False, False, ""  # Convert disabled, Cancel enabled, Interval running
+            # Convert disabled, Cancel enabled, Interval running
+            return progress_alert, True, False, False, ""
         elif task_status['status'] == 'completed':
             # Reset the manager and return final status
             result = task_status['result']
             background_task_manager.reset()
-            
+
             if result and result.get('success'):
                 files_processed = result.get('files_processed', 0)
                 output_directory = result.get('output_directory', '')
                 merged_file = result.get('merged_file')
                 merge_error = result.get('merge_error')
-                
+
                 # Create success message based on whether merging succeeded
                 if merged_file:
                     merged_filename = os.path.basename(merged_file)
@@ -1211,7 +1309,7 @@ def update_background_task_status(n_intervals):
                 else:
                     success_message = f"Successfully processed {files_processed} RTU files! Individual CSV files created."
                     notification_message = f"Successfully processed {files_processed} RTU files! Check folder: {output_directory}"
-                
+
                 success_alert = dmc.Alert(
                     success_message,
                     color="green",
@@ -1225,9 +1323,11 @@ def update_background_task_status(n_intervals):
                     autoClose=5000,
                     action="show"
                 )
-                return success_alert, False, True, True, success_notification  # Convert enabled, Cancel disabled, Interval stopped
+                # Convert enabled, Cancel disabled, Interval stopped
+                return success_alert, False, True, True, success_notification
             else:
-                error_msg = result.get('error', 'Unknown error') if result else 'Processing failed'
+                error_msg = result.get(
+                    'error', 'Unknown error') if result else 'Processing failed'
                 error_alert = dmc.Alert(
                     f"Conversion failed: {error_msg}",
                     color="red",
@@ -1241,8 +1341,9 @@ def update_background_task_status(n_intervals):
                     autoClose=5000,
                     action="show"
                 )
-                return error_alert, False, True, True, error_notification  # Convert enabled, Cancel disabled, Interval stopped
-        
+                # Convert enabled, Cancel disabled, Interval stopped
+                return error_alert, False, True, True, error_notification
+
         return "", False, True, True, ""
     except Exception as e:
         error_notification = dmc.Notification(

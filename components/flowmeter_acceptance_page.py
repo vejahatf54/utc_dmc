@@ -5,7 +5,7 @@ Uses Plotly for all plotting functionality.
 """
 
 import dash_mantine_components as dmc
-from dash import html, Input, Output, State, callback, callback_context, dcc
+from dash import html, Input, Output, State, callback, callback_context, dcc, clientside_callback
 from datetime import datetime, date
 import plotly.graph_objects as go
 import plotly.express as px
@@ -88,65 +88,86 @@ def create_flowmeter_acceptance_page():
                                 "Review File (.review) - Additional validation data")
                         ], size="sm"),
                         dmc.Divider(),
-                        dmc.Text("Comprehensive Analysis Tests:", fw=500, size="sm"),
+                        dmc.Text("Comprehensive Analysis Tests:",
+                                 fw=500, size="sm"),
                         dmc.Accordion([
                             dmc.AccordionItem([
                                 dmc.AccordionControl([
                                     dmc.Group([
-                                        BootstrapIcon(icon="shield-check", width=16),
-                                        dmc.Text("Reliability Checks (1.1-1.4)", fw=500, c="blue")
+                                        BootstrapIcon(
+                                            icon="shield-check", width=16),
+                                        dmc.Text(
+                                            "Reliability Checks (1.1-1.4)", fw=500, c="blue")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
                                     dmc.List([
-                                        dmc.ListItem("1.1: Readings within Expected Range - Validates flowmeter readings fall within operational bounds defined in CSV tags file"),
-                                        dmc.ListItem("1.2: Measurement Units Verified - Ensures consistent units across RTU and review data"),
-                                        dmc.ListItem("1.3: RTU Signal Quality - Checks for GOOD quality flags in SCADA RTU data"),
-                                        dmc.ListItem("1.4: Review Signal Quality - Validates GOOD quality flags in review reference data")
+                                        dmc.ListItem(
+                                            "1.1: Readings within Expected Range - Validates flowmeter readings fall within operational bounds defined in CSV tags file"),
+                                        dmc.ListItem(
+                                            "1.2: Measurement Units Verified - Ensures consistent units across RTU and review data"),
+                                        dmc.ListItem(
+                                            "1.3: RTU Signal Quality - Checks for GOOD quality flags in SCADA RTU data"),
+                                        dmc.ListItem(
+                                            "1.4: Review Signal Quality - Validates GOOD quality flags in review reference data")
                                     ], size="xs")
                                 ])
                             ], value="reliability"),
                             dmc.AccordionItem([
                                 dmc.AccordionControl([
                                     dmc.Group([
-                                        BootstrapIcon(icon="clock-history", width=16),
-                                        dmc.Text("Timeliness & Completeness (2.1-2.2)", fw=500, c="teal")
+                                        BootstrapIcon(
+                                            icon="clock-history", width=16),
+                                        dmc.Text(
+                                            "Timeliness & Completeness (2.1-2.2)", fw=500, c="teal")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
                                     dmc.List([
-                                        dmc.ListItem("2.1: RTU Update Frequency - Ensures RTU data points are updated frequently enough for reliable flowmeter monitoring"),
-                                        dmc.ListItem("2.2: Review Update Frequency - Validates reference data has adequate temporal resolution for comparison")
+                                        dmc.ListItem(
+                                            "2.1: RTU Update Frequency - Ensures RTU data points are updated frequently enough for reliable flowmeter monitoring"),
+                                        dmc.ListItem(
+                                            "2.2: Review Update Frequency - Validates reference data has adequate temporal resolution for comparison")
                                     ], size="xs")
                                 ])
                             ], value="timeliness"),
                             dmc.AccordionItem([
                                 dmc.AccordionControl([
                                     dmc.Group([
-                                        BootstrapIcon(icon="activity", width=16),
-                                        dmc.Text("Accuracy Tests (3.1-3.5)", fw=500, c="red")
+                                        BootstrapIcon(
+                                            icon="activity", width=16),
+                                        dmc.Text(
+                                            "Accuracy Tests (3.1-3.5)", fw=500, c="red")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
                                     dmc.List([
-                                        dmc.ListItem("3.1: Digital/Analog Agreement - Time series comparison using classical MSE (Σ(yi-xi)²/n) between RTU and review signals with correlation analysis"),
-                                        dmc.ListItem("3.2: Signal-to-Noise Ratio - Evaluates signal quality by analyzing noise content and calculating SNR in dB"),
-                                        dmc.ListItem("3.3: Trend Stability - Analyzes signal drift over time and variance stability between first/second half of data"),
-                                        dmc.ListItem("3.4: Spectral Analysis - Frequency domain analysis to detect anomalies, excessive noise, and signal concentration"),
-                                        dmc.ListItem("3.5: Flow Agreement - Cross-validation of flow readings against other measurement references")
+                                        dmc.ListItem(
+                                            "3.1: Digital/Analog Agreement - Time series comparison using classical MSE (Σ(yi-xi)²/n) between RTU and review signals with correlation analysis"),
+                                        dmc.ListItem(
+                                            "3.2: Signal-to-Noise Ratio - Evaluates signal quality by analyzing noise content and calculating SNR in dB"),
+                                        dmc.ListItem(
+                                            "3.3: Trend Stability - Analyzes signal drift over time and variance stability between first/second half of data"),
+                                        dmc.ListItem(
+                                            "3.4: Spectral Analysis - Frequency domain analysis to detect anomalies, excessive noise, and signal concentration"),
+                                        dmc.ListItem(
+                                            "3.5: Flow Agreement - Cross-validation of flow readings against other measurement references")
                                     ], size="xs")
                                 ])
                             ], value="accuracy"),
                             dmc.AccordionItem([
                                 dmc.AccordionControl([
                                     dmc.Group([
-                                        BootstrapIcon(icon="graph-up", width=16),
-                                        dmc.Text("Robustness Check (4.1)", fw=500, c="orange")
+                                        BootstrapIcon(
+                                            icon="graph-up", width=16),
+                                        dmc.Text(
+                                            "Robustness Check (4.1)", fw=500, c="orange")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
                                     dmc.List([
-                                        dmc.ListItem("4.1: Signal Stability - Long-term stability analysis ensuring flowmeter signals remain consistent over extended periods")
+                                        dmc.ListItem(
+                                            "4.1: Signal Stability - Long-term stability analysis ensuring flowmeter signals remain consistent over extended periods")
                                     ], size="xs")
                                 ])
                             ], value="robustness")
@@ -181,183 +202,191 @@ def create_flowmeter_acceptance_page():
                 dmc.TabsPanel([
                     # Main Form - Two Column Layout
                     dmc.SimpleGrid([
-                # Column 1
-                dmc.Stack([
-                    # File Input Cards - Using file selector components
-                    rtu_file_component,
-                    csv_tags_component,
-                    review_file_component,
-                    dmc.Card([
-                        dmc.Group([
-                            dmc.Text("Analysis Time Range", fw=600, size="md"),
-                            BootstrapIcon(icon="clock-history", width=16)
-                        ], gap="xs", mb="lg"),
-                        dmc.SimpleGrid([
-                            dmc.Stack([
-                                dmc.Text("Start Time", fw=500, size="sm"),
-                                dmc.DateTimePicker(
-                                    id="start-time-picker",
-                                    value=datetime.now().replace(second=0, microsecond=0),
-                                    withSeconds=True,
-                                    size="sm",
-                                    valueFormat="YYYY/MM/DD HH:mm:ss"
-                                )
-                            ], gap="xs"),
-                            dmc.Stack([
-                                dmc.Text("End Time", fw=500, size="sm"),
-                                dmc.DateTimePicker(
-                                    id="end-time-picker",
-                                    value=datetime.now().replace(second=0, microsecond=0),
-                                    withSeconds=True,
-                                    size="sm",
-                                    valueFormat="YYYY/MM/DD HH:mm:ss"
-                                )
-                            ], gap="xs")
-                        ], cols=2, spacing="sm"),
-                    ], shadow="sm", p="md"),
-                    dmc.Card([
-                        dmc.Group([
-                            dmc.Text("Analysis Parameters", fw=600, size="md"),
-                            BootstrapIcon(icon="sliders", width=16)
-                        ], gap="xs", mb="lg"),
-                        dmc.Group([
-                            # First column - Flow rates
-                            dmc.Stack([
-                                dmc.NumberInput(
-                                    label="Minimum Flowrate",
-                                    id="min-flowrate-input",
-                                    min=0,
-                                    size="sm"
-                                ),
-                                dmc.NumberInput(
-                                    label="Maximum Flowrate",
-                                    id="max-flowrate-input",
-                                    min=0,
-                                    size="sm"
-                                )
-                            ], gap="sm", style={"flex": "1"}),
-                            # Vertical divider
-                            dmc.Divider(orientation="vertical", size="sm"),
-                            # Second column - Other parameters
-                            dmc.Stack([
-                                dmc.NumberInput(
-                                    label="FLAT Threshold",
-                                    id="flat-threshold-input",
-                                    value=5,
-                                    min=0,
-                                    size="sm"
-                                ),
-                                dmc.NumberInput(
-                                    label="Accuracy Range",
-                                    id="accuracy-range-input",
-                                    value=1.0,
-                                    min=0,
-                                    step=0.1,
-                                    size="sm"
-                                )
-                            ], gap="sm", style={"flex": "1"})
-                        ], align="stretch", gap="md"),
-                    ], shadow="sm", p="md"),
-                ], gap="md"),
-                # Column 2
-                dmc.Stack([
-                    dmc.Card([
-                        dmc.Group([
-                            dmc.Text("Analysis Checks", fw=600, size="md"),
-                            BootstrapIcon(icon="check2-square", width=16)
-                        ], gap="xs", style={"marginBottom": "12px"}),
-                        dmc.Group([
-                            dmc.Button(
-                                "Partial Commissioning",
-                                id="partial-commissioning-btn",
-                                variant="outline",
-                                size="lg",
-                                leftSection=BootstrapIcon(
-                                    icon="clipboard-check", width=16)
-                            ),
-                            dmc.Button(
-                                "Full Acceptance",
-                                id="full-acceptance-btn",
-                                variant="filled",
-                                size="lg",
-                                className="px-4",
-                                leftSection=BootstrapIcon(
-                                    icon="clipboard2-check", width=16)
-                            )
-                        ], gap="md", style={"marginBottom": "16px"}),
-                        dmc.SimpleGrid([
+                        # Column 1
+                        dmc.Stack([
+                            # File Input Cards - Using file selector components
+                            rtu_file_component,
+                            csv_tags_component,
+                            review_file_component,
                             dmc.Card([
-                                dmc.Stack([
-                                    dmc.Text("Reliability Checks",
+                                dmc.Group([
+                                    dmc.Text("Analysis Time Range",
+                                             fw=600, size="md"),
+                                    BootstrapIcon(
+                                        icon="clock-history", width=16)
+                                ], gap="xs", mb="lg"),
+                                dmc.SimpleGrid([
+                                    dmc.Stack([
+                                        dmc.Text("Start Time",
+                                                 fw=500, size="sm"),
+                                        dmc.DateTimePicker(
+                                            id="start-time-picker",
+                                            value=datetime.now().replace(second=0, microsecond=0),
+                                            withSeconds=True,
+                                            size="md",
+                                            valueFormat="YYYY/MM/DD HH:mm:ss"
+                                        )
+                                    ], gap="xs"),
+                                    dmc.Stack([
+                                        dmc.Text(
+                                            "End Time", fw=500, size="sm"),
+                                        dmc.DateTimePicker(
+                                            id="end-time-picker",
+                                            value=datetime.now().replace(second=0, microsecond=0),
+                                            withSeconds=True,
+                                            size="md",
+                                            valueFormat="YYYY/MM/DD HH:mm:ss"
+                                        )
+                                    ], gap="xs")
+                                ], cols=2, spacing="sm"),
+                            ], shadow="sm", p="md"),
+                            dmc.Card([
+                                dmc.Group([
+                                    dmc.Text("Analysis Parameters",
+                                             fw=600, size="md"),
+                                    BootstrapIcon(icon="sliders", width=16)
+                                ], gap="xs", mb="lg"),
+                                dmc.Group([
+                                    # First column - Flow rates
+                                    dmc.Stack([
+                                        dmc.NumberInput(
+                                            label="Minimum Flowrate",
+                                            id="min-flowrate-input",
+                                            min=0,
+                                            size="sm"
+                                        ),
+                                        dmc.NumberInput(
+                                            label="Maximum Flowrate",
+                                            id="max-flowrate-input",
+                                            min=0,
+                                            size="sm"
+                                        )
+                                    ], gap="sm", style={"flex": "1"}),
+                                    # Vertical divider
+                                    dmc.Divider(
+                                        orientation="vertical", size="sm"),
+                                    # Second column - Other parameters
+                                    dmc.Stack([
+                                        dmc.NumberInput(
+                                            label="FLAT Threshold",
+                                            id="flat-threshold-input",
+                                            value=5,
+                                            min=0,
+                                            size="sm"
+                                        ),
+                                        dmc.NumberInput(
+                                            label="Accuracy Range",
+                                            id="accuracy-range-input",
+                                            value=1.0,
+                                            min=0,
+                                            step=0.1,
+                                            size="sm"
+                                        )
+                                    ], gap="sm", style={"flex": "1"})
+                                ], align="stretch", gap="md"),
+                            ], shadow="sm", p="md"),
+                        ], gap="md"),
+                        # Column 2
+                        dmc.Stack([
+                            dmc.Card([
+                                dmc.Group([
+                                    dmc.Text("Analysis Checks",
+                                             fw=600, size="md"),
+                                    BootstrapIcon(
+                                        icon="check2-square", width=16)
+                                ], gap="xs", style={"marginBottom": "12px"}),
+                                dmc.Group([
+                                    dmc.Button(
+                                        "Partial Commissioning",
+                                        id="partial-commissioning-btn",
+                                        variant="outline",
+                                        size="lg",
+                                        leftSection=BootstrapIcon(
+                                            icon="clipboard-check", width=16)
+                                    ),
+                                    dmc.Button(
+                                        "Full Acceptance",
+                                        id="full-acceptance-btn",
+                                        variant="filled",
+                                        size="lg",
+                                        className="px-4",
+                                        leftSection=BootstrapIcon(
+                                            icon="clipboard2-check", width=16)
+                                    )
+                                ], gap="md", style={"marginBottom": "16px"}),
+                                dmc.SimpleGrid([
+                                    dmc.Card([
+                                        dmc.Stack([
+                                            dmc.Text("Reliability Checks",
                                              fw=500, c="blue"),
-                                    dmc.Checkbox(
-                                        label="1.1: Readings within Expected Range of Operation", id="reliability-check-1"),
-                                    dmc.Checkbox(
-                                        label="1.2: Measurement Units were Verified", id="reliability-check-2"),
-                                    dmc.Checkbox(
-                                        label="1.3: Quality of the Signals is GOOD in the rtu File", id="reliability-check-3"),
-                                    dmc.Checkbox(
-                                        label="1.4: Quality of the Signals is GOOD in the review File", id="reliability-check-4")
-                                ], gap="xs")
-                            ], withBorder=True, p="sm"),
-                            dmc.Card([
-                                dmc.Stack([
-                                    dmc.Text(
-                                        "Timeliness and Completeness Checks", fw=500, c="teal"),
-                                    dmc.Checkbox(
-                                        label="2.1: Points are Updated on a Frequent Enough Basis in the rtu File", id="tc-check-1"),
-                                    dmc.Checkbox(
-                                        label="2.2: Points are Updated on a Frequent Enough Basis in the review File", id="tc-check-2")
-                                ], gap="xs")
-                            ], withBorder=True, p="sm"),
-                            dmc.Card([
-                                dmc.Stack([
-                                    dmc.Text("Robustness Checks",
+                                            dmc.Checkbox(
+                                                label="1.1: Readings within Expected Range of Operation", id="reliability-check-1"),
+                                            dmc.Checkbox(
+                                                label="1.2: Measurement Units were Verified", id="reliability-check-2"),
+                                            dmc.Checkbox(
+                                                label="1.3: Quality of the Signals is GOOD in the rtu File", id="reliability-check-3"),
+                                            dmc.Checkbox(
+                                                label="1.4: Quality of the Signals is GOOD in the review File", id="reliability-check-4")
+                                        ], gap="xs")
+                                    ], withBorder=True, p="sm"),
+                                    dmc.Card([
+                                        dmc.Stack([
+                                            dmc.Text(
+                                                "Timeliness and Completeness Checks", fw=500, c="teal"),
+                                            dmc.Checkbox(
+                                                label="2.1: Points are Updated on a Frequent Enough Basis in the rtu File", id="tc-check-1"),
+                                            dmc.Checkbox(
+                                                label="2.2: Points are Updated on a Frequent Enough Basis in the review File", id="tc-check-2")
+                                        ], gap="xs")
+                                    ], withBorder=True, p="sm"),
+                                    dmc.Card([
+                                        dmc.Stack([
+                                            dmc.Text("Robustness Checks",
                                              fw=500, c="orange"),
-                                    dmc.Checkbox(
-                                        label="4.1: Signals are Stable", id="robustness-check-1")
-                                ], gap="xs")
-                            ], withBorder=True, p="sm"),
-                            dmc.Card([
-                                dmc.Stack([
-                                    dmc.Text("Accuracy Checks",
+                                            dmc.Checkbox(
+                                                label="4.1: Signals are Stable", id="robustness-check-1")
+                                        ], gap="xs")
+                                    ], withBorder=True, p="sm"),
+                                    dmc.Card([
+                                        dmc.Stack([
+                                            dmc.Text("Accuracy Checks",
                                              fw=500, c="red"),
-                                    dmc.Checkbox(
-                                        label="3.1: Digital/Analog Signals are in Close Agreement", id="accuracy-check-1"),
-                                    dmc.Checkbox(
-                                        label="3.2: Acceptable Signal-to-Noise Ratio", id="accuracy-check-2"),
-                                    dmc.Checkbox(
-                                        label="3.3: Signal Trend Stability Analysis", id="accuracy-check-3"),
-                                    dmc.Checkbox(
-                                        label="3.4: Spectral Analysis for Anomaly Detection", id="accuracy-check-4"),
-                                    dmc.Checkbox(
-                                        label="3.5: Flow Readings Agreement with References", id="accuracy-check-5")
-                                ], gap="xs")
-                            ], withBorder=True, p="sm")
-                        ], cols=2, spacing="md"),
-                    ], shadow="sm", p="xl"),
-                    dmc.Card([
-                        dmc.Group([
-                            dmc.Button(
-                                "Run Analysis",
-                                id="run-analysis-btn",
-                                size="lg",
-                                variant="filled",
-                                className="px-4",
-                                leftSection=BootstrapIcon(
-                                    icon="play-circle", width=20)
-                            ),
-                            dmc.Button(
-                                "Clear Form",
-                                id="clear-form-btn",
-                                variant="outline",
-                                size="lg",
-                                leftSection=BootstrapIcon(
-                                    icon="arrow-clockwise", width=20)
-                            )
-                        ], justify="center", gap="md")
-                    ], shadow="sm", p="md"),
-                ], gap="md"),
+                                            dmc.Checkbox(
+                                                label="3.1: Digital/Analog Signals are in Close Agreement", id="accuracy-check-1"),
+                                            dmc.Checkbox(
+                                                label="3.2: Acceptable Signal-to-Noise Ratio", id="accuracy-check-2"),
+                                            dmc.Checkbox(
+                                                label="3.3: Signal Trend Stability Analysis", id="accuracy-check-3"),
+                                            dmc.Checkbox(
+                                                label="3.4: Spectral Analysis for Anomaly Detection", id="accuracy-check-4"),
+                                            dmc.Checkbox(
+                                                label="3.5: Flow Readings Agreement with References", id="accuracy-check-5")
+                                        ], gap="xs")
+                                    ], withBorder=True, p="sm")
+                                ], cols=2, spacing="md"),
+                            ], shadow="sm", p="xl"),
+                            dmc.Card([
+                                dmc.Group([
+                                    dmc.Button(
+                                        "Run Analysis",
+                                        id="run-analysis-btn",
+                                        size="lg",
+                                        variant="filled",
+                                        className="px-4",
+                                        leftSection=BootstrapIcon(
+                                            icon="play-circle", width=20)
+                                    ),
+                                    dmc.Button(
+                                        "Clear Form",
+                                        id="clear-form-btn",
+                                        variant="outline",
+                                        size="lg",
+                                        leftSection=BootstrapIcon(
+                                            icon="arrow-clockwise", width=20)
+                                    )
+                                ], justify="center", gap="md")
+                            ], shadow="sm", p="md"),
+                        ], gap="md"),
                     ], cols=2, spacing="lg", style={"width": "100%"}),
                     dmc.LoadingOverlay(
                         visible=False,
@@ -374,15 +403,16 @@ def create_flowmeter_acceptance_page():
                         ], gap="xs", justify="center"),
                         dmc.Divider(),
                         html.Div(id="analysis-results-content", children=[
-                            dmc.Text("Run an analysis to see results here.", ta="center", c="dimmed", size="lg", py="xl")
+                            dmc.Text("Run an analysis to see results here.",
+                                     ta="center", c="dimmed", size="lg", py="xl")
                         ])
                     ], gap="md")
                 ], value="results")
-            ],              
-            autoContrast=True, 
-            variant="outline", 
-            value="setup", 
-            id="main-tabs"
+            ],
+                autoContrast=True,
+                variant="outline",
+                value="setup",
+                id="main-tabs"
             ),
         ], gap="md"),
 
@@ -479,21 +509,28 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
 
     if button_id == "partial-commissioning-btn":
         # Partial commissioning preset: rel 1-4, tc 1-2, rob 1, acc 1&3&4 (core tests, skip SNR and flow agreement)
-        checks = [True, True, True, True, True, True, True, True, False, True, True, False]
-        form_values = [flat_threshold or 5, min_flow, max_flow, accuracy_range or 1.0]
-        return checks + form_values + [True, "setup"]  # Keep results tab disabled, stay on setup
+        checks = [True, True, True, True, True, True,
+                  True, True, False, True, True, False]
+        form_values = [flat_threshold or 5, min_flow,
+                       max_flow, accuracy_range or 1.0]
+        # Keep results tab disabled, stay on setup
+        return checks + form_values + [True, "setup"]
 
     elif button_id == "full-acceptance-btn":
         # Full acceptance preset: ALL checks enabled for comprehensive validation
-        checks = [True, True, True, True, True, True, True, True, True, True, True, True]
-        form_values = [flat_threshold or 5, min_flow, max_flow, accuracy_range or 1.0]
-        return checks + form_values + [True, "setup"]  # Keep results tab disabled, stay on setup
+        checks = [True, True, True, True, True,
+                  True, True, True, True, True, True, True]
+        form_values = [flat_threshold or 5, min_flow,
+                       max_flow, accuracy_range or 1.0]
+        # Keep results tab disabled, stay on setup
+        return checks + form_values + [True, "setup"]
 
     elif button_id == "clear-form-btn":
         # Clear form - reset everything
         checks = [False] * 12
         form_values = [5, None, None, 1.0]
-        return checks + form_values + [True, "setup"]  # Disable results tab, go back to setup
+        # Disable results tab, go back to setup
+        return checks + form_values + [True, "setup"]
 
     # Default return
     return [False] * 12 + [5, None, None, 1.0] + [True, "setup"]
@@ -530,7 +567,7 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
     prevent_initial_call=True
 )
 def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time, end_time,
-                           flat_threshold, min_flow, max_flow, accuracy_range, 
+                           flat_threshold, min_flow, max_flow, accuracy_range,
                            rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4, acc5):
     """Run the flowmeter analysis with all parameters."""
     if not all([rtu_file, csv_file, review_file]):
@@ -558,16 +595,17 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                     # First try ISO format (common from DateTimePicker)
                     start_dt = datetime.fromisoformat(
                         start_time.replace('Z', '+00:00'))
-                    # Use 4-digit year for RTU service
-                    start_str = start_dt.strftime("%Y/%m/%d %H:%M:%S")
+                    # Use 2-digit year for RTU service (YY/MM/DD HH:MM:SS)
+                    start_str = start_dt.strftime("%y/%m/%d %H:%M:%S")
                 except:
                     try:
                         # Try parsing various date formats
                         for fmt in ["%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%y/%m/%d %H:%M:%S"]:
                             try:
                                 start_dt = datetime.strptime(start_time, fmt)
+                                # Always output as 2-digit year format
                                 start_str = start_dt.strftime(
-                                    "%Y/%m/%d %H:%M:%S")
+                                    "%y/%m/%d %H:%M:%S")
                                 break
                             except:
                                 continue
@@ -578,7 +616,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                         start_str = start_time
             else:
                 # If it's a datetime object
-                start_str = start_time.strftime("%Y/%m/%d %H:%M:%S")
+                start_str = start_time.strftime("%y/%m/%d %H:%M:%S")
 
         if end_time:
             if isinstance(end_time, str):
@@ -587,15 +625,16 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                     # First try ISO format (common from DateTimePicker)
                     end_dt = datetime.fromisoformat(
                         end_time.replace('Z', '+00:00'))
-                    # Use 4-digit year for RTU service
-                    end_str = end_dt.strftime("%Y/%m/%d %H:%M:%S")
+                    # Use 2-digit year for RTU service (YY/MM/DD HH:MM:SS)
+                    end_str = end_dt.strftime("%y/%m/%d %H:%M:%S")
                 except:
                     try:
                         # Try parsing various date formats
                         for fmt in ["%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%y/%m/%d %H:%M:%S"]:
                             try:
                                 end_dt = datetime.strptime(end_time, fmt)
-                                end_str = end_dt.strftime("%Y/%m/%d %H:%M:%S")
+                                # Always output as 2-digit year format
+                                end_str = end_dt.strftime("%y/%m/%d %H:%M:%S")
                                 break
                             except:
                                 continue
@@ -606,7 +645,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                         end_str = end_time
             else:
                 # If it's a datetime object
-                end_str = end_time.strftime("%Y/%m/%d %H:%M:%S")
+                end_str = end_time.strftime("%y/%m/%d %H:%M:%S")
 
         # Prepare parameters dictionary
         params = {
@@ -656,7 +695,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                 icon=BootstrapIcon(icon="check-circle"),
                 mb="lg"
             ),
-            
+
             # Time Series Analysis Section
             dmc.Card([
                 dmc.Group([
@@ -665,26 +704,32 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                 ], gap="xs", mb="md"),
                 dmc.Tabs([
                     dmc.TabsList([
-                        dmc.TabsTab("Signal Comparison", value="signal-comparison"),
-                        dmc.TabsTab("Statistical Analysis", value="statistics"),
+                        dmc.TabsTab("Signal Comparison",
+                                    value="signal-comparison"),
+                        dmc.TabsTab("Statistical Analysis",
+                                    value="statistics"),
                         dmc.TabsTab("Validation Metrics", value="validation"),
                         dmc.TabsTab("Spectral Analysis", value="spectral")
                     ], variant="pills"),
                     dmc.TabsPanel([
-                        dcc.Graph(figure=plots.get('signal_comparison', {}), style={'height': '500px'})
+                        dcc.Graph(figure=plots.get(
+                            'signal_comparison', {}), style={'height': '500px'})
                     ], value="signal-comparison"),
                     dmc.TabsPanel([
-                        dcc.Graph(figure=plots.get('statistics', {}), style={'height': '500px'})
+                        dcc.Graph(figure=plots.get('statistics', {}),
+                                  style={'height': '500px'})
                     ], value="statistics"),
                     dmc.TabsPanel([
-                        dcc.Graph(figure=plots.get('validation', {}), style={'height': '500px'})
+                        dcc.Graph(figure=plots.get('validation', {}),
+                                  style={'height': '500px'})
                     ], value="validation"),
                     dmc.TabsPanel([
-                        dcc.Graph(figure=plots.get('spectral', {}), style={'height': '500px'})
+                        dcc.Graph(figure=plots.get('spectral', {}),
+                                  style={'height': '500px'})
                     ], value="spectral")
                 ], value="signal-comparison")
             ], shadow="sm", p="lg", mb="lg"),
-            
+
             # Analysis Summary Section
             dmc.Card([
                 dmc.Group([
@@ -695,12 +740,16 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                     dmc.Card([
                         dmc.Stack([
                             dmc.Group([
-                                BootstrapIcon(icon="file-earmark-text", width=16),
+                                BootstrapIcon(
+                                    icon="file-earmark-text", width=16),
                                 dmc.Text("Files Processed", fw=500, c="blue")
                             ], gap="xs"),
-                            dmc.Text(f"📄 RTU: {rtu_file.split('/')[-1] if '/' in rtu_file else rtu_file.split('\\')[-1]}", size="sm"),
-                            dmc.Text(f"📊 Tags: {csv_file.split('/')[-1] if '/' in csv_file else csv_file.split('\\')[-1]}", size="sm"),
-                            dmc.Text(f"📋 Review: {review_file.split('/')[-1] if '/' in review_file else review_file.split('\\')[-1]}", size="sm")
+                            dmc.Text(
+                                f"📄 RTU: {rtu_file.split('/')[-1] if '/' in rtu_file else rtu_file.split('\\')[-1]}", size="sm"),
+                            dmc.Text(
+                                f"📊 Tags: {csv_file.split('/')[-1] if '/' in csv_file else csv_file.split('\\')[-1]}", size="sm"),
+                            dmc.Text(
+                                f"📋 Review: {review_file.split('/')[-1] if '/' in review_file else review_file.split('\\')[-1]}", size="sm")
                         ], gap="xs")
                     ], withBorder=True, p="md"),
                     dmc.Card([
@@ -711,35 +760,45 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                             ], gap="xs"),
                             dmc.Text(f"⏰ Start: {start_str}", size="sm"),
                             dmc.Text(f"⏰ End: {end_str}", size="sm"),
-                            dmc.Text(f"🎯 FLAT Threshold: {flat_threshold}", size="sm")
+                            dmc.Text(
+                                f"🎯 FLAT Threshold: {flat_threshold}", size="sm")
                         ], gap="xs")
                     ], withBorder=True, p="md"),
                     dmc.Card([
                         dmc.Stack([
                             dmc.Group([
                                 BootstrapIcon(icon="gear", width=16),
-                                dmc.Text("Analysis Parameters", fw=500, c="orange")
+                                dmc.Text("Analysis Parameters",
+                                         fw=500, c="orange")
                             ], gap="xs"),
-                            dmc.Text(f"🌊 Flow Range: {min_flow or 'Auto'} - {max_flow or 'Auto'}", size="sm"),
-                            dmc.Text(f"🎯 Accuracy Range: ±{accuracy_range}", size="sm"),
-                            dmc.Text(f"📈 Total Checks: {selected_count}/12", size="sm")
+                            dmc.Text(
+                                f"🌊 Flow Range: {min_flow or 'Auto'} - {max_flow or 'Auto'}", size="sm"),
+                            dmc.Text(
+                                f"🎯 Accuracy Range: ±{accuracy_range}", size="sm"),
+                            dmc.Text(
+                                f"📈 Total Checks: {selected_count}/12", size="sm")
                         ], gap="xs")
                     ], withBorder=True, p="md"),
                     dmc.Card([
                         dmc.Stack([
                             dmc.Group([
                                 BootstrapIcon(icon="check2-square", width=16),
-                                dmc.Text("Checks Performed", fw=500, c="violet")
+                                dmc.Text("Checks Performed",
+                                         fw=500, c="violet")
                             ], gap="xs"),
-                            dmc.Text(f"🔧 Reliability: {sum([rel1, rel2, rel3, rel4])}/4", size="sm"),
-                            dmc.Text(f"⏱️ Timeliness & Completeness: {sum([tc1, tc2])}/2", size="sm"),
-                            dmc.Text(f"💪 Robustness: {sum([rob1])}/1", size="sm"),
-                            dmc.Text(f"🎯 Accuracy: {sum([acc1, acc2, acc3, acc4, acc5])}/5", size="sm")
+                            dmc.Text(
+                                f"🔧 Reliability: {sum([rel1, rel2, rel3, rel4])}/4", size="sm"),
+                            dmc.Text(
+                                f"⏱️ Timeliness & Completeness: {sum([tc1, tc2])}/2", size="sm"),
+                            dmc.Text(
+                                f"💪 Robustness: {sum([rob1])}/1", size="sm"),
+                            dmc.Text(
+                                f"🎯 Accuracy: {sum([acc1, acc2, acc3, acc4, acc5])}/5", size="sm")
                         ], gap="xs")
                     ], withBorder=True, p="md")
                 ], cols=2, spacing="md")
             ], shadow="sm", p="lg", mb="lg"),
-            
+
             # Output Files Section
             dmc.Card([
                 dmc.Group([
@@ -753,7 +812,8 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                                 BootstrapIcon(icon="file-text", width=16),
                                 dmc.Text("Final Reports", fw=500, c="blue")
                             ], gap="xs"),
-                            dmc.Text("📁 Location: _Report/_final/", size="sm", c="dimmed"),
+                            dmc.Text("📁 Location: _Report/_final/",
+                                     size="sm", c="dimmed"),
                             dmc.Text("📄 Detailed analysis reports", size="sm"),
                             dmc.Text("📊 Statistical summaries", size="sm"),
                             dmc.Text("✅ Pass/Fail results", size="sm")
@@ -763,9 +823,11 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                         dmc.Stack([
                             dmc.Group([
                                 BootstrapIcon(icon="graph-up", width=16),
-                                dmc.Text("Interactive Plots", fw=500, c="green")
+                                dmc.Text("Interactive Plots",
+                                         fw=500, c="green")
                             ], gap="xs"),
-                            dmc.Text("📁 Location: _Report/_images/", size="sm", c="dimmed"),
+                            dmc.Text("📁 Location: _Report/_images/",
+                                     size="sm", c="dimmed"),
                             dmc.Text("📈 Time series plots", size="sm"),
                             dmc.Text("📊 Statistical distributions", size="sm"),
                             dmc.Text("🎯 Comparison charts", size="sm")
@@ -777,7 +839,8 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                                 BootstrapIcon(icon="database", width=16),
                                 dmc.Text("Processed Data", fw=500, c="teal")
                             ], gap="xs"),
-                            dmc.Text("📁 Location: _Data/_review/", size="sm", c="dimmed"),
+                            dmc.Text("📁 Location: _Data/_review/",
+                                     size="sm", c="dimmed"),
                             dmc.Text("🔄 Cleaned datasets", size="sm"),
                             dmc.Text("📝 Analysis intermediates", size="sm"),
                             dmc.Text("💾 Export-ready files", size="sm")
@@ -789,7 +852,8 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                                 BootstrapIcon(icon="bar-chart", width=16),
                                 dmc.Text("Tag Analysis", fw=500, c="orange")
                             ], gap="xs"),
-                            dmc.Text("� Location: _Data/_rtu/", size="sm", c="dimmed"),
+                            dmc.Text("� Location: _Data/_rtu/",
+                                     size="sm", c="dimmed"),
                             dmc.Text("🏷️ Flow tag results", size="sm"),
                             dmc.Text("🌡️ Temperature tag results", size="sm"),
                             dmc.Text("⚡ Pressure tag results", size="sm")
@@ -797,7 +861,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                     ], withBorder=True, p="md")
                 ], cols=2, spacing="md")
             ], shadow="sm", p="lg", mb="lg"),
-            
+
             # Next Steps Section
             dmc.Card([
                 dmc.Group([
@@ -813,19 +877,22 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                     dmc.Group([
                         dmc.Button(
                             "Open Report Directory",
-                            leftSection=BootstrapIcon(icon="folder2-open", width=16),
+                            leftSection=BootstrapIcon(
+                                icon="folder2-open", width=16),
                             variant="filled",
                             color="blue"
                         ),
                         dmc.Button(
                             "View Interactive Plots",
-                            leftSection=BootstrapIcon(icon="graph-up", width=16),
+                            leftSection=BootstrapIcon(
+                                icon="graph-up", width=16),
                             variant="outline",
                             color="green"
                         ),
                         dmc.Button(
                             "Export Data",
-                            leftSection=BootstrapIcon(icon="download", width=16),
+                            leftSection=BootstrapIcon(
+                                icon="download", width=16),
                             variant="outline",
                             color="teal"
                         )
@@ -844,7 +911,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                 color="red",
                 icon=BootstrapIcon(icon="exclamation-triangle")
             ),
-            dmc.Text("Please check your input files and parameters, then try again.", 
+            dmc.Text("Please check your input files and parameters, then try again.",
                      ta="center", c="dimmed", size="sm")
         ], gap="md"), False
 
@@ -853,3 +920,17 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
 create_file_selector_callback(rtu_file_ids, "Select RTU Data File")
 create_file_selector_callback(csv_tags_ids, "Select CSV Tags File")
 create_file_selector_callback(review_file_ids, "Select Review File")
+
+# Callback to show loading overlay when analysis button is clicked
+
+
+@callback(
+    Output("analysis-loading", "visible", allow_duplicate=True),
+    Input("run-analysis-btn", "n_clicks"),
+    prevent_initial_call=True
+)
+def show_loading_on_click(n_clicks):
+    """Show loading overlay immediately when Run Analysis is clicked."""
+    if n_clicks and n_clicks > 0:
+        return True
+    return False

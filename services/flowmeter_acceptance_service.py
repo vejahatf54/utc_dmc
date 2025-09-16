@@ -396,8 +396,10 @@ class FlowmeterAnalyzer:
         self.accuracy_check_2 = arg_dict['accuracy_check_2']
         self.accuracy_check_3 = arg_dict['accuracy_check_3']
         # New comprehensive validation tests
-        self.accuracy_check_4 = arg_dict.get('accuracy_check_4', True)  # Spectral analysis - default enabled
-        self.accuracy_check_5 = arg_dict.get('accuracy_check_5', True)  # Flow agreement - default enabled
+        # Spectral analysis - default enabled
+        self.accuracy_check_4 = arg_dict.get('accuracy_check_4', True)
+        # Flow agreement - default enabled
+        self.accuracy_check_5 = arg_dict.get('accuracy_check_5', True)
 
         # Logging
         self.logger = logging.getLogger(__name__)
@@ -411,24 +413,48 @@ class FlowmeterAnalyzer:
 
         # Read CSV tags file
         self.dataframe_tags = pd.read_csv(self.csv_tags_file)
+        self.logger.info(
+            f"Tags CSV loaded with {len(self.dataframe_tags)} rows and columns: {list(self.dataframe_tags.columns)}")
+        if len(self.dataframe_tags) > 0:
+            self.logger.info(
+                f"Sample data: {self.dataframe_tags.head(1).to_dict()}")
 
-        # Convert RTU file to CSV
-        self.rtu_to_csv()
+        # Convert RTU file to CSV using RTU service
+        self.convert_rtu_to_csv_with_service()
 
         try:
             self.dataframe = pd.read_csv(self.csv_file)
+            self.logger.info(
+                f"RTU CSV loaded with {len(self.dataframe)} rows and columns: {list(self.dataframe.columns)}")
+            if len(self.dataframe) > 0:
+                self.logger.info(
+                    f"Sample RTU data: {self.dataframe.head(1).to_dict()}")
         except Exception as e:
+            # Log more details about the CSV file
+            if os.path.exists(self.csv_file):
+                try:
+                    with open(self.csv_file, 'r') as f:
+                        content = f.read(500)  # First 500 chars
+                    self.logger.error(
+                        f"CSV file exists but can't be read. First 500 chars: {content}")
+                except:
+                    self.logger.error(
+                        f"CSV file exists at {self.csv_file} but can't be opened")
+            else:
+                self.logger.error(f"CSV file doesn't exist at {self.csv_file}")
             raise ProcessingError(f"Error reading RTU data: {e}")
 
         # Process review file if provided
         if self.review_file and os.path.exists(self.review_file):
             self.process_review_file()
 
-        # Convert tag names to uppercase
-        self.dataframe_tags['LDTagID'] = self.dataframe_tags['LDTagID'].str.upper(
-        )
-        self.dataframe_tags['SCADATagID'] = self.dataframe_tags['SCADATagID'].str.upper(
-        )
+        # Convert tag names to uppercase (handle NaN values)
+        if 'LDTagID' in self.dataframe_tags.columns:
+            self.dataframe_tags['LDTagID'] = self.dataframe_tags['LDTagID'].astype(
+                str).str.upper()
+        if 'SCADATagID' in self.dataframe_tags.columns:
+            self.dataframe_tags['SCADATagID'] = self.dataframe_tags['SCADATagID'].astype(
+                str).str.upper()
 
         # Initialize main report
         self.main_report(now)
@@ -449,33 +475,53 @@ class FlowmeterAnalyzer:
 
         self.logger.info("Complete flowmeter analysis finished successfully")
 
-    def rtu_to_csv(self):
-        """Convert RTU file to CSV format for processing using RTU service."""
+    def convert_rtu_to_csv_with_service(self):
+        """Convert RTU file to CSV format using RTU service."""
         try:
             from services.rtu_service import RTUService
+            import os
 
-            self.logger.info(f"Converting RTU file {self.rtu_file} to CSV")
+            self.logger.info(
+                f"Converting RTU file {self.rtu_file} to CSV using RTU service")
 
             # Create RTU service instance
             rtu_service = RTUService()
 
-            # Create tags file from dataframe_tags
-            rtu_tag_list = self.dataframe_tags['LDTagID'].str.upper().to_list()
-            tags_content = '\n'.join(rtu_tag_list)
+            # Create tags file from dataframe_tags if needed
+            tags_file = None
+            if 'LDTagID' in self.dataframe_tags.columns:
+                # Convert to string and handle NaN values before applying .str accessor
+                rtu_tag_list = self.dataframe_tags['LDTagID'].astype(
+                    str).str.upper().to_list()
+                # Filter out 'nan' strings that result from NaN values
+                rtu_tag_list = [
+                    tag for tag in rtu_tag_list if tag.lower() != 'nan']
 
-            # Write tags to temporary file
-            tags_file = './_Data/_rtu/temp_tags.txt'
-            with open(tags_file, 'w') as f:
-                f.write(tags_content)
+                if rtu_tag_list:
+                    tags_content = '\n'.join(rtu_tag_list)
+                    tags_file = './_Data/_rtu/temp_tags.txt'
+                    # Ensure directory exists
+                    os.makedirs(os.path.dirname(tags_file), exist_ok=True)
+                    with open(tags_file, 'w') as f:
+                        f.write(tags_content)
 
-            # Use flat CSV format as expected by original flowmeter code
+                    self.logger.info(
+                        f"Created tags file with {len(rtu_tag_list)} tags: {rtu_tag_list[:5]}...")
+                else:
+                    self.logger.warning(
+                        "No valid RTU tags found in LDTagID column")
+
             # Ensure time values are strings for RTU service
             start_time_str = self.time_start if isinstance(
                 self.time_start, str) else self.time_start_datetime.strftime("%y/%m/%d %H:%M:%S")
             end_time_str = self.time_end if isinstance(
                 self.time_end, str) else self.time_end_datetime.strftime("%y/%m/%d %H:%M:%S")
 
-            points_exported = rtu_service.export_csv_flat(
+            # Ensure output directory exists for CSV file
+            os.makedirs(os.path.dirname(self.csv_file), exist_ok=True)
+
+            # Use dataframe format as it's better for analysis
+            points_exported = rtu_service.export_csv_dataframe(
                 input_file=self.rtu_file,
                 output_file=self.csv_file,
                 start_time=start_time_str,
@@ -487,7 +533,7 @@ class FlowmeterAnalyzer:
                 f"Exported {points_exported} points from RTU to CSV")
 
             # Clean up temporary tags file
-            if os.path.exists(tags_file):
+            if tags_file and os.path.exists(tags_file):
                 os.remove(tags_file)
 
         except Exception as e:
@@ -509,16 +555,50 @@ class FlowmeterAnalyzer:
             end_time_str = self.time_end if isinstance(
                 self.time_end, str) else self.time_end_datetime.strftime("%y/%m/%d %H:%M:%S")
 
+            # Create peek list for review tags with attributes (:VAL, :ST, :FLAT)
+            peek_list = []
+            if hasattr(self, 'dataframe_tags'):
+                # Extract SCADATagID tags with attributes
+                if 'SCADATagID' in self.dataframe_tags.columns:
+                    scada_tags = self.dataframe_tags['SCADATagID'].astype(
+                        str).str.upper().to_list()
+                    scada_tags = [
+                        tag for tag in scada_tags if tag.lower() != 'nan']
+                    for tag in scada_tags:
+                        peek_list.extend(
+                            [f"{tag}:VAL", f"{tag}:ST", f"{tag}:FLAT"])
+
+                # Extract Reference_Meter tags with attributes
+                if 'Reference_Meter' in self.dataframe_tags.columns:
+                    ref_tags = self.dataframe_tags['Reference_Meter'].astype(
+                        str).str.upper().to_list()
+                    ref_tags = [
+                        tag for tag in ref_tags if tag.lower() != 'nan']
+                    for tag in ref_tags:
+                        peek_list.extend(
+                            [f"{tag}:VAL", f"{tag}:ST", f"{tag}:FLAT"])
+
+            # Create ReviewCsvService instance like the review to CSV page (don't pass peek_list directly)
             review_service = ReviewCsvService(
                 folder_path=review_folder,
                 start_time=start_time_str,
                 end_time=end_time_str,
-                peek_list=self.dataframe_tags['LDTagID'].str.upper(
-                ).to_list() if hasattr(self, 'dataframe_tags') else None,
                 dump_all=False,  # Use frequency-based extraction
-                freq="1S",  # 1 second frequency for detailed analysis
+                freq=1.0,  # 1 minute frequency for detailed analysis
                 merged_file=f"{self.report_name}_review_merged.csv"
             )
+
+            # Create temporary peek file if we have tags (like review to CSV page)
+            temp_peek_path = None
+            if peek_list:
+                import tempfile
+                # Create temporary peek file like review to CSV page
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as temp_peek:
+                    temp_peek.write('\n'.join(peek_list))
+                    temp_peek_path = temp_peek.name
+
+                # Set the peek file
+                review_service.set_peek_file(temp_peek_path)
 
             # Run the complete review processing workflow
             review_service.run()
@@ -534,6 +614,13 @@ class FlowmeterAnalyzer:
                 self.logger.warning(
                     "Review CSV file not found after processing")
                 self.dataframe_review = pd.DataFrame()
+
+            # Clean up temporary files
+            if temp_peek_path:
+                try:
+                    os.unlink(temp_peek_path)
+                except:
+                    pass
 
         except Exception as e:
             self.logger.error(f"Review file processing failed: {e}")
@@ -1332,49 +1419,54 @@ class FlowmeterAnalyzer:
             # Align timestamps for proper comparison (time series analysis)
             # Convert to datetime if needed
             rtu_times = pd.to_datetime(tag_data['DATETIME'])
-            review_times = pd.to_datetime(review_tag_data['DATETIME'] if 'DATETIME' in review_tag_data.columns 
-                                        else review_tag_data.index)
-            
+            review_times = pd.to_datetime(review_tag_data['DATETIME'] if 'DATETIME' in review_tag_data.columns
+                                          else review_tag_data.index)
+
             # Create aligned time series for comparison
             rtu_series = pd.Series(rtu_values.values, index=rtu_times)
             review_series = pd.Series(review_values.values, index=review_times)
-            
+
             # Resample to common time grid for comparison
             common_freq = '1T'  # 1-minute frequency, adjust as needed
             rtu_resampled = rtu_series.resample(common_freq).mean().dropna()
-            review_resampled = review_series.resample(common_freq).mean().dropna()
-            
+            review_resampled = review_series.resample(
+                common_freq).mean().dropna()
+
             # Find overlapping time periods
-            common_index = rtu_resampled.index.intersection(review_resampled.index)
-            
+            common_index = rtu_resampled.index.intersection(
+                review_resampled.index)
+
             if len(common_index) < 10:  # Need minimum overlapping points
-                self.logger.warning(f"Insufficient overlapping data points for comparison: {len(common_index)}")
+                self.logger.warning(
+                    f"Insufficient overlapping data points for comparison: {len(common_index)}")
                 return False
-            
+
             # Get aligned values for comparison
             rtu_aligned = rtu_resampled.loc[common_index]
             review_aligned = review_resampled.loc[common_index]
-            
+
             # Calculate Classical Mean Square Error (MSE)
             # MSE = Σ(yi - xi)² / n
             mse = np.mean((review_aligned - rtu_aligned) ** 2)
-            
+
             # Calculate Root Mean Square Error (RMSE) for better interpretability
             rmse = np.sqrt(mse)
-            
+
             # Calculate additional time series metrics
             correlation = np.corrcoef(rtu_aligned, review_aligned)[0, 1]
             mean_absolute_error = np.mean(np.abs(review_aligned - rtu_aligned))
-            
+
             # Calculate relative RMSE for context (percentage of signal range)
             signal_range = rtu_aligned.max() - rtu_aligned.min()
-            relative_rmse = (rmse / signal_range * 100) if signal_range > 0 else float('inf')
-            
+            relative_rmse = (rmse / signal_range *
+                             100) if signal_range > 0 else float('inf')
+
             # Acceptance criteria based on classical MSE metrics
             # Use RMSE threshold as percentage of signal range
-            rmse_threshold = self.accuracy_range  # Use accuracy_range as percentage threshold
+            # Use accuracy_range as percentage threshold
+            rmse_threshold = self.accuracy_range
             correlation_threshold = 0.95  # High correlation expected for flowmeter comparison
-            
+
             # Check passes if RMSE is within threshold and correlation is high
             rmse_check = relative_rmse <= rmse_threshold
             correlation_check = correlation >= correlation_threshold
@@ -1520,43 +1612,49 @@ class FlowmeterAnalyzer:
             # Convert to time series for trend analysis
             timestamps = pd.to_datetime(tag_data['DATETIME'])
             ts_data = pd.Series(values.values, index=timestamps)
-            
+
             # Calculate trend metrics
             # 1. Linear trend slope
             x_numeric = np.arange(len(values))
-            slope, intercept, r_value, p_value, std_err = stats.linregress(x_numeric, values)
-            
+            slope, intercept, r_value, p_value, std_err = stats.linregress(
+                x_numeric, values)
+
             # 2. Stationarity test (simplified)
             # Check for drift by comparing first half vs second half
             mid_point = len(values) // 2
             first_half_mean = values[:mid_point].mean()
             second_half_mean = values[mid_point:].mean()
-            drift_percentage = abs((second_half_mean - first_half_mean) / first_half_mean * 100) if first_half_mean != 0 else 0
-            
+            drift_percentage = abs((second_half_mean - first_half_mean) /
+                                   first_half_mean * 100) if first_half_mean != 0 else 0
+
             # 3. Variance stability
             first_half_std = values[:mid_point].std()
             second_half_std = values[mid_point:].std()
             variance_ratio = second_half_std / first_half_std if first_half_std > 0 else 1
-            
+
             # Acceptance criteria
             drift_threshold = 5.0  # 5% drift threshold
             variance_ratio_threshold_low = 0.5  # Variance shouldn't change by more than 2x
             variance_ratio_threshold_high = 2.0
-            
+
             drift_check = drift_percentage <= drift_threshold
             variance_check = variance_ratio_threshold_low <= variance_ratio <= variance_ratio_threshold_high
             check_passed = drift_check and variance_check
-            
+
             # Update report
-            tag_row_idx = self.dataframe_report[self.dataframe_report['TagID'] == tag_name].index
+            tag_row_idx = self.dataframe_report[self.dataframe_report['TagID']
+                                                == tag_name].index
             if len(tag_row_idx) == 0:
                 new_row = {'TagID': tag_name}
-                self.dataframe_report = pd.concat([self.dataframe_report, pd.DataFrame([new_row])], ignore_index=True)
+                self.dataframe_report = pd.concat(
+                    [self.dataframe_report, pd.DataFrame([new_row])], ignore_index=True)
                 tag_row_idx = [len(self.dataframe_report) - 1]
 
-            self.dataframe_report.loc[tag_row_idx[0], 'Check 3.3'] = f"Drift: {drift_percentage:.1f}%, VarRatio: {variance_ratio:.2f}"
+            self.dataframe_report.loc[tag_row_idx[0],
+                                      'Check 3.3'] = f"Drift: {drift_percentage:.1f}%, VarRatio: {variance_ratio:.2f}"
 
-            self.logger.info(f"Tag {tag_name}: Trend stability - Drift: {drift_percentage:.1f}%, Variance ratio: {variance_ratio:.2f} ({'PASS' if check_passed else 'FAIL'})")
+            self.logger.info(
+                f"Tag {tag_name}: Trend stability - Drift: {drift_percentage:.1f}%, Variance ratio: {variance_ratio:.2f} ({'PASS' if check_passed else 'FAIL'})")
 
             return check_passed
 
@@ -1573,26 +1671,30 @@ class FlowmeterAnalyzer:
             tag_name = tag_data['ident'].iloc[0]
 
             if 'VAL' not in tag_data.columns:
-                self.logger.warning(f"No value (VAL) column found for tag {tag_name}")
+                self.logger.warning(
+                    f"No value (VAL) column found for tag {tag_name}")
                 return False
 
             values = tag_data['VAL'].dropna()
 
             if len(values) < 100:  # Need sufficient points for spectral analysis
-                self.logger.warning(f"Insufficient data points for spectral analysis: {len(values)}")
+                self.logger.warning(
+                    f"Insufficient data points for spectral analysis: {len(values)}")
                 return False
 
             # Remove DC component and detrend
             values_detrended = values - values.mean()
-            
+
             # Calculate power spectral density using Welch's method
             try:
-                frequencies, psd = signal.welch(values_detrended, nperseg=min(256, len(values)//4))
-                
+                frequencies, psd = signal.welch(
+                    values_detrended, nperseg=min(256, len(values)//4))
+
                 # Find dominant frequencies
-                peak_indices = signal.find_peaks(psd, height=np.max(psd)*0.1)[0]
+                peak_indices = signal.find_peaks(
+                    psd, height=np.max(psd)*0.1)[0]
                 dominant_freqs = frequencies[peak_indices]
-                
+
                 # Calculate spectral metrics
                 total_power = np.sum(psd)
                 if len(peak_indices) > 0:
@@ -1600,39 +1702,45 @@ class FlowmeterAnalyzer:
                     spectral_concentration = peak_power / total_power
                 else:
                     spectral_concentration = 0
-                
+
                 # Check for excessive noise (high frequency content)
                 nyquist_freq = 0.5  # Assuming normalized frequency
                 high_freq_cutoff = 0.3 * nyquist_freq
                 high_freq_indices = frequencies > high_freq_cutoff
                 high_freq_power = np.sum(psd[high_freq_indices])
                 noise_ratio = high_freq_power / total_power
-                
+
                 # Acceptance criteria
                 noise_threshold = 0.3  # Maximum 30% high frequency content
-                concentration_threshold = 0.8  # Signal should not be too concentrated in few frequencies
-                
+                # Signal should not be too concentrated in few frequencies
+                concentration_threshold = 0.8
+
                 noise_check = noise_ratio <= noise_threshold
                 concentration_check = spectral_concentration <= concentration_threshold
                 check_passed = noise_check and concentration_check
-                
+
                 # Update report
-                tag_row_idx = self.dataframe_report[self.dataframe_report['TagID'] == tag_name].index
+                tag_row_idx = self.dataframe_report[self.dataframe_report['TagID']
+                                                    == tag_name].index
                 if len(tag_row_idx) == 0:
                     new_row = {'TagID': tag_name}
-                    self.dataframe_report = pd.concat([self.dataframe_report, pd.DataFrame([new_row])], ignore_index=True)
+                    self.dataframe_report = pd.concat(
+                        [self.dataframe_report, pd.DataFrame([new_row])], ignore_index=True)
                     tag_row_idx = [len(self.dataframe_report) - 1]
 
-                self.dataframe_report.loc[tag_row_idx[0], 'Check 3.4'] = f"Noise: {noise_ratio:.2f}, Conc: {spectral_concentration:.2f}"
+                self.dataframe_report.loc[tag_row_idx[0],
+                                          'Check 3.4'] = f"Noise: {noise_ratio:.2f}, Conc: {spectral_concentration:.2f}"
 
-                self.logger.info(f"Tag {tag_name}: Spectral analysis - Noise ratio: {noise_ratio:.2f}, Concentration: {spectral_concentration:.2f} ({'PASS' if check_passed else 'FAIL'})")
+                self.logger.info(
+                    f"Tag {tag_name}: Spectral analysis - Noise ratio: {noise_ratio:.2f}, Concentration: {spectral_concentration:.2f} ({'PASS' if check_passed else 'FAIL'})")
 
                 return check_passed
-                
+
             except Exception as e:
-                self.logger.warning(f"Spectral analysis failed for {tag_name}: {e}")
+                self.logger.warning(
+                    f"Spectral analysis failed for {tag_name}: {e}")
                 return True  # Don't fail if spectral analysis has issues
-                
+
         except Exception as e:
             self.logger.error(f"Error in spectral analysis check: {e}")
             return False
@@ -1852,29 +1960,31 @@ class FlowmeterAnalyzer:
         import plotly.graph_objects as go
         import plotly.express as px
         from plotly.subplots import make_subplots
-        
+
         plots = {}
-        
+
         try:
             # Signal Comparison Plot
             if hasattr(self, 'dataframe_rtu') and hasattr(self, 'dataframe_review') and self.dataframe_rtu is not None and self.dataframe_review is not None:
                 fig_signal = make_subplots(
                     rows=2, cols=1,
-                    subplot_titles=('RTU vs Review Signal Comparison', 'Difference Analysis'),
+                    subplot_titles=(
+                        'RTU vs Review Signal Comparison', 'Difference Analysis'),
                     shared_xaxes=True,
                     vertical_spacing=0.1
                 )
-                
+
                 # Get sample data for visualization
                 if len(self.dataframe_rtu) > 0 and len(self.dataframe_review) > 0:
                     # Sample the first available tag for demonstration
-                    sample_tags = self.dataframe_rtu['ident'].unique()[:3]  # Show up to 3 tags
-                    
+                    sample_tags = self.dataframe_rtu['ident'].unique()[
+                        :3]  # Show up to 3 tags
+
                     colors = ['blue', 'red', 'green']
                     for i, tag in enumerate(sample_tags):
                         if i >= len(colors):
                             break
-                            
+
                         rtu_data = self.dataframe_rtu[self.dataframe_rtu['ident'] == tag]
                         if 'VAL' in rtu_data.columns and len(rtu_data) > 0:
                             # RTU data
@@ -1888,7 +1998,7 @@ class FlowmeterAnalyzer:
                                 ),
                                 row=1, col=1
                             )
-                            
+
                             # Try to find matching review data
                             review_data = None
                             for col in ['ident', 'TagID', 'tag_name']:
@@ -1896,43 +2006,49 @@ class FlowmeterAnalyzer:
                                     review_data = self.dataframe_review[self.dataframe_review[col] == tag]
                                     if len(review_data) > 0:
                                         break
-                            
+
                             if review_data is not None and len(review_data) > 0:
                                 value_col = None
                                 for col in ['VAL', 'value', 'Value']:
                                     if col in review_data.columns:
                                         value_col = col
                                         break
-                                
+
                                 if value_col:
                                     fig_signal.add_trace(
                                         go.Scatter(
-                                            x=pd.to_datetime(review_data['DATETIME'] if 'DATETIME' in review_data.columns else review_data.index),
+                                            x=pd.to_datetime(
+                                                review_data['DATETIME'] if 'DATETIME' in review_data.columns else review_data.index),
                                             y=review_data[value_col],
                                             name=f'{tag} (Review)',
-                                            line=dict(color=colors[i], dash='dash'),
+                                            line=dict(
+                                                color=colors[i], dash='dash'),
                                             opacity=0.6
                                         ),
                                         row=1, col=1
                                     )
-                                    
+
                                     # Calculate and plot difference
                                     if len(rtu_data) > 10 and len(review_data) > 10:
                                         # Simple difference calculation for visualization
-                                        min_len = min(len(rtu_data), len(review_data))
-                                        diff = rtu_data['VAL'].iloc[:min_len].values - review_data[value_col].iloc[:min_len].values
-                                        
+                                        min_len = min(
+                                            len(rtu_data), len(review_data))
+                                        diff = rtu_data['VAL'].iloc[:min_len].values - \
+                                            review_data[value_col].iloc[:min_len].values
+
                                         fig_signal.add_trace(
                                             go.Scatter(
-                                                x=pd.to_datetime(rtu_data['DATETIME'].iloc[:min_len]),
+                                                x=pd.to_datetime(
+                                                    rtu_data['DATETIME'].iloc[:min_len]),
                                                 y=diff,
                                                 name=f'{tag} (Difference)',
-                                                line=dict(color=colors[i], width=1),
+                                                line=dict(
+                                                    color=colors[i], width=1),
                                                 opacity=0.7
                                             ),
                                             row=2, col=1
                                         )
-                
+
                 fig_signal.update_layout(
                     title='Flowmeter Signal Validation - Time Series Comparison',
                     height=600,
@@ -1940,37 +2056,41 @@ class FlowmeterAnalyzer:
                     hovermode='x unified'
                 )
                 fig_signal.update_xaxes(title_text="Time", row=2, col=1)
-                fig_signal.update_yaxes(title_text="Signal Value", row=1, col=1)
+                fig_signal.update_yaxes(
+                    title_text="Signal Value", row=1, col=1)
                 fig_signal.update_yaxes(title_text="Difference", row=2, col=1)
-                
+
                 plots['signal_comparison'] = fig_signal
-            
+
             # Statistical Analysis Plot
             if hasattr(self, 'dataframe_report') and self.dataframe_report is not None and len(self.dataframe_report) > 0:
                 fig_stats = make_subplots(
                     rows=2, cols=2,
-                    subplot_titles=('RMSE Distribution', 'Correlation Distribution', 'SNR Analysis', 'Check Results Summary'),
+                    subplot_titles=('RMSE Distribution', 'Correlation Distribution',
+                                    'SNR Analysis', 'Check Results Summary'),
                     specs=[[{"type": "histogram"}, {"type": "histogram"}],
                            [{"type": "bar"}, {"type": "bar"}]]
                 )
-                
+
                 # Extract metrics from report if available
                 rmse_values = []
                 correlation_values = []
                 snr_values = []
-                
+
                 for col in self.dataframe_report.columns:
                     if 'Check 3.1' in col:  # MSE/RMSE results
                         for value in self.dataframe_report[col].dropna():
                             if isinstance(value, str) and 'RMSE:' in value:
                                 try:
-                                    rmse = float(value.split('RMSE: ')[1].split(',')[0])
+                                    rmse = float(value.split('RMSE: ')[
+                                                 1].split(',')[0])
                                     rmse_values.append(rmse)
                                 except:
                                     pass
                             if isinstance(value, str) and 'R: ' in value:
                                 try:
-                                    corr = float(value.split('R: ')[1].split(',')[0])
+                                    corr = float(value.split('R: ')[
+                                                 1].split(',')[0])
                                     correlation_values.append(corr)
                                 except:
                                     pass
@@ -1978,93 +2098,102 @@ class FlowmeterAnalyzer:
                         for value in self.dataframe_report[col].dropna():
                             if isinstance(value, str) and 'SNR:' in value:
                                 try:
-                                    snr_str = value.split('SNR: ')[1].split(' dB')[0]
+                                    snr_str = value.split(
+                                        'SNR: ')[1].split(' dB')[0]
                                     if snr_str != 'Perfect' and snr_str != 'Invalid':
                                         snr = float(snr_str)
                                         snr_values.append(snr)
                                 except:
                                     pass
-                
+
                 # RMSE histogram
                 if rmse_values:
                     fig_stats.add_trace(
-                        go.Histogram(x=rmse_values, name='RMSE', nbinsx=20, marker_color='blue', opacity=0.7),
+                        go.Histogram(x=rmse_values, name='RMSE',
+                                     nbinsx=20, marker_color='blue', opacity=0.7),
                         row=1, col=1
                     )
-                
+
                 # Correlation histogram
                 if correlation_values:
                     fig_stats.add_trace(
-                        go.Histogram(x=correlation_values, name='Correlation', nbinsx=20, marker_color='green', opacity=0.7),
+                        go.Histogram(x=correlation_values, name='Correlation',
+                                     nbinsx=20, marker_color='green', opacity=0.7),
                         row=1, col=2
                     )
-                
+
                 # SNR bar chart
                 if snr_values:
                     fig_stats.add_trace(
-                        go.Histogram(x=snr_values, name='SNR (dB)', nbinsx=15, marker_color='orange', opacity=0.7),
+                        go.Histogram(x=snr_values, name='SNR (dB)',
+                                     nbinsx=15, marker_color='orange', opacity=0.7),
                         row=2, col=1
                     )
-                
+
                 # Check results summary
-                check_columns = [col for col in self.dataframe_report.columns if 'Check' in col]
+                check_columns = [
+                    col for col in self.dataframe_report.columns if 'Check' in col]
                 pass_counts = []
                 fail_counts = []
                 check_names = []
-                
-                for col in check_columns[:6]:  # Limit to first 6 checks for readability
+
+                # Limit to first 6 checks for readability
+                for col in check_columns[:6]:
                     check_names.append(col.replace('Check ', ''))
                     pass_count = 0
                     fail_count = 0
-                    
+
                     for value in self.dataframe_report[col].dropna():
                         if isinstance(value, str):
                             if 'PASS' in value.upper() or 'OK' in value.upper():
                                 pass_count += 1
                             elif 'FAIL' in value.upper() or 'ERROR' in value.upper():
                                 fail_count += 1
-                    
+
                     pass_counts.append(pass_count)
                     fail_counts.append(fail_count)
-                
+
                 if check_names:
                     fig_stats.add_trace(
-                        go.Bar(x=check_names, y=pass_counts, name='Pass', marker_color='green', opacity=0.7),
+                        go.Bar(x=check_names, y=pass_counts, name='Pass',
+                               marker_color='green', opacity=0.7),
                         row=2, col=2
                     )
                     fig_stats.add_trace(
-                        go.Bar(x=check_names, y=fail_counts, name='Fail', marker_color='red', opacity=0.7),
+                        go.Bar(x=check_names, y=fail_counts, name='Fail',
+                               marker_color='red', opacity=0.7),
                         row=2, col=2
                     )
-                
+
                 fig_stats.update_layout(
                     title='Statistical Analysis Summary',
                     height=600,
                     showlegend=True
                 )
-                
+
                 plots['statistics'] = fig_stats
-            
+
             # Validation Metrics Plot
             if hasattr(self, 'dataframe_report') and self.dataframe_report is not None:
                 fig_validation = go.Figure()
-                
+
                 # Create a comprehensive validation dashboard
-                tags = self.dataframe_report['TagID'].tolist() if 'TagID' in self.dataframe_report.columns else []
-                
+                tags = self.dataframe_report['TagID'].tolist(
+                ) if 'TagID' in self.dataframe_report.columns else []
+
                 if tags and len(tags) > 0:
                     # Sample validation metrics for demonstration
                     sample_tags = tags[:10]  # Show up to 10 tags
-                    
+
                     metrics = {
                         'RMSE': np.random.uniform(0.1, 2.0, len(sample_tags)),
                         'Correlation': np.random.uniform(0.85, 0.99, len(sample_tags)),
                         'SNR (dB)': np.random.uniform(15, 40, len(sample_tags)),
                         'Drift (%)': np.random.uniform(0.1, 5.0, len(sample_tags))
                     }
-                    
+
                     colors = ['blue', 'green', 'orange', 'red']
-                    
+
                     for i, (metric, values) in enumerate(metrics.items()):
                         fig_validation.add_trace(
                             go.Scatter(
@@ -2076,7 +2205,7 @@ class FlowmeterAnalyzer:
                                 marker=dict(size=8)
                             )
                         )
-                    
+
                     fig_validation.update_layout(
                         title='Validation Metrics by Tag',
                         xaxis_title='Tag ID',
@@ -2084,16 +2213,16 @@ class FlowmeterAnalyzer:
                         height=500,
                         hovermode='x unified'
                     )
-                    
+
                     plots['validation'] = fig_validation
-            
+
             # Spectral Analysis Plot (placeholder for now)
             fig_spectral = go.Figure()
-            
+
             # Generate sample spectral data for demonstration
             frequencies = np.linspace(0, 0.5, 100)
             psd = np.exp(-frequencies * 10) + 0.1 * np.random.random(100)
-            
+
             fig_spectral.add_trace(
                 go.Scatter(
                     x=frequencies,
@@ -2103,16 +2232,16 @@ class FlowmeterAnalyzer:
                     line=dict(color='purple', width=2)
                 )
             )
-            
+
             fig_spectral.update_layout(
                 title='Spectral Analysis - Signal Quality Assessment',
                 xaxis_title='Normalized Frequency',
                 yaxis_title='Power Spectral Density',
                 height=500
             )
-            
+
             plots['spectral'] = fig_spectral
-            
+
         except Exception as e:
             self.logger.error(f"Error creating analysis plots: {e}")
             # Return empty plots on error
@@ -2128,5 +2257,5 @@ class FlowmeterAnalyzer:
                 'validation': empty_fig,
                 'spectral': empty_fig
             }
-        
+
         return plots

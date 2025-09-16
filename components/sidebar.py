@@ -105,6 +105,12 @@ def build_sidebar():
                                 html.Span(
                                     "PyMBSd Services", className="nav-label sb-label"),
                             ], href="/pymbsd-services", className="nav-link"),
+                            html.A([
+                                BootstrapIcon(icon="speedometer2", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "Flowmeter Acceptance", className="nav-label sb-label"),
+                            ], href="/flowmeter-acceptance", className="nav-link"),
                         ],
                     ),
 

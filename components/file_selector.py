@@ -1,6 +1,6 @@
 """
-Directory Selector Component for DMC application.
-Reusable directory selection component with browse functionality.
+File Selector Component for DMC application.
+Reusable file selection component with browse functionality.
 """
 
 import dash_mantine_components as dmc
@@ -12,37 +12,39 @@ from logging_config import get_logger
 logger = get_logger(__name__)
 
 
-def create_directory_selector(
+def create_file_selector(
     component_id: str,
-    title: str = "Output Directory",
-    placeholder: str = "Select output directory...",
-    browse_button_text: str = "Browse"
+    title: str = "Select File",
+    placeholder: str = "Select file...",
+    browse_button_text: str = "Browse",
+    file_types: str = "All Files (*.*)"
 ) -> tuple:
     """
-    Create a directory selector component with browse functionality.
+    Create a file selector component with browse functionality.
 
     Args:
         component_id: Unique identifier for this component instance
         title: Title for the card header
         placeholder: Placeholder text for the input field
         browse_button_text: Text for the browse button (used for accessibility)
+        file_types: File types filter for the dialog
 
     Returns:
         tuple: (component, store_ids) where component is the UI element and store_ids contains the IDs
     """
 
     # Create unique IDs for this instance
-    input_id = f'directory-input-{component_id}'
+    input_id = f'file-input-{component_id}'
     browse_id = f'browse-btn-{component_id}'
-    status_id = f'directory-status-{component_id}'
-    store_id = f'directory-store-{component_id}'
+    status_id = f'file-status-{component_id}'
+    store_id = f'file-store-{component_id}'
 
-    # Directory selection card using DMC components
+    # File selection card using DMC components
     component = dmc.Paper([
         dmc.Stack([
             # Header
             dmc.Group([
-                BootstrapIcon(icon="folder", width=20),
+                BootstrapIcon(icon="file-earmark", width=20),
                 dmc.Text(title, fw=500, size="md")
             ], gap="xs"),
 
@@ -53,7 +55,8 @@ def create_directory_selector(
                     placeholder=placeholder,
                     value='',
                     readOnly=True,
-                    leftSection=BootstrapIcon(icon="folder-open", width=16),
+                    leftSection=BootstrapIcon(
+                        icon="file-earmark-text", width=16),
                     size="md",
                     style={"flex": 1}
                 ),
@@ -78,16 +81,17 @@ def create_directory_selector(
         'input': input_id,
         'browse': browse_id,
         'status': status_id,
-        'store': store_id
+        'store': store_id,
+        'file_types': file_types
     }
 
     return component, store_ids
 
 
-def create_directory_selector_callback(store_ids: dict, dialog_title: str = "Select Directory"):
+def create_file_selector_callback(store_ids: dict, dialog_title: str = "Select File"):
     """
-    Create the callback function for handling directory selection.
-    This needs to be called by the page that uses the directory selector.
+    Create the callback function for handling file selection.
+    This needs to be called by the page that uses the file selector.
 
     Args:
         store_ids: Dictionary containing the component IDs
@@ -105,8 +109,8 @@ def create_directory_selector_callback(store_ids: dict, dialog_title: str = "Sel
         prevent_initial_call=True,
         allow_duplicate=True
     )
-    def handle_directory_selection(browse_clicks):
-        """Handle directory selection."""
+    def handle_file_selection(browse_clicks):
+        """Handle file selection."""
         ctx = callback_context
         if not ctx.triggered:
             return "", "", {'path': ''}
@@ -123,55 +127,37 @@ def create_directory_selector_callback(store_ids: dict, dialog_title: str = "Sel
                 root.lift()      # Bring to front
                 root.attributes("-topmost", True)
 
-                directory = filedialog.askdirectory(title=dialog_title)
+                # Use file dialog instead of directory dialog
+                # Parse file types - handle formats like "RTU Files (*.dt)"
+                file_types_str = store_ids['file_types']
+                if '(' in file_types_str and ')' in file_types_str:
+                    description = file_types_str.split('(')[0].strip()
+                    pattern = file_types_str.split(
+                        '(')[1].replace(')', '').strip()
+                    filetypes = [(description, pattern)]
+                else:
+                    filetypes = [("All Files", "*.*")]
+
+                file_path = filedialog.askopenfilename(
+                    title=dialog_title,
+                    filetypes=filetypes
+                )
                 root.destroy()
 
-                if directory:
-                    return directory, "", {'path': directory}
+                if file_path:
+                    # Show just the filename in status
+                    filename = os.path.basename(file_path)
+                    status = dmc.Text(
+                        f"Selected: {filename}", size="sm", c="green")
+                    return file_path, status, {'path': file_path}
                 else:
                     return "", "", {'path': ''}
 
             except Exception as e:
-                logger.error(f"Error selecting directory: {str(e)}")
-                return "", "", {'path': ''}
+                logger.error(f"Error selecting file: {str(e)}")
+                error_status = dmc.Text(f"Error: {str(e)}", size="sm", c="red")
+                return "", error_status, {'path': ''}
 
         return "", "", {'path': ''}
 
-    return handle_directory_selection
-
-
-class DirectorySelector:
-    """
-    Utility class for creating directory selector components.
-    This provides a similar API to the LDUTC DirectorySelector.
-    """
-
-    @staticmethod
-    def create_directory_selector(
-        component_id: str,
-        title: str = "Output Directory",
-        placeholder: str = "Select output directory...",
-        browse_button_text: str = "Browse"
-    ) -> tuple:
-        """Create a directory selector component"""
-        return create_directory_selector(
-            component_id=component_id,
-            title=title,
-            placeholder=placeholder,
-            browse_button_text=browse_button_text
-        )
-
-    @staticmethod
-    def get_ids(component_id: str) -> dict:
-        """Get the IDs for a directory selector component"""
-        return {
-            'input': f'directory-input-{component_id}',
-            'browse': f'browse-btn-{component_id}',
-            'status': f'directory-status-{component_id}',
-            'store': f'directory-store-{component_id}'
-        }
-
-    @staticmethod
-    def create_callback(store_ids: dict, dialog_title: str = "Select Directory"):
-        """Create the callback for handling directory selection"""
-        return create_directory_selector_callback(store_ids, dialog_title)
+    return handle_file_selection

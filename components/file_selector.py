@@ -1,10 +1,11 @@
 """
 File Selector Component for DMC application.
 Reusable file selection component with browse functionality.
+Based on the directory_selector pattern.
 """
 
 import dash_mantine_components as dmc
-from dash import html, Input, Output, callback, callback_context
+from dash import html, Input, Output, callback, callback_context, dcc
 from components.bootstrap_icon import BootstrapIcon
 import os
 from logging_config import get_logger
@@ -30,7 +31,8 @@ def create_file_selector(
         file_types: File types filter for the dialog
 
     Returns:
-        tuple: (component, store_ids) where component is the UI element and store_ids contains the IDs
+        tuple: (component, store_component, store_ids) where component is the UI element, 
+               store_component is the Store component, and store_ids contains the IDs
     """
 
     # Create unique IDs for this instance
@@ -55,8 +57,7 @@ def create_file_selector(
                     placeholder=placeholder,
                     value='',
                     readOnly=True,
-                    leftSection=BootstrapIcon(
-                        icon="file-earmark-text", width=16),
+                    leftSection=BootstrapIcon(icon="file-earmark-text", width=16),
                     size="md",
                     style={"flex": 1}
                 ),
@@ -76,7 +77,10 @@ def create_file_selector(
         ], gap="md", p="md")
     ], shadow="sm", radius="md", withBorder=True)
 
-    # Return the component and the store IDs for external callback creation
+    # Create Store component separately (to be added to layout)
+    store_component = dcc.Store(id=store_id, data={'path': ''})
+
+    # Return the component, store component, and the store IDs for external callback creation
     store_ids = {
         'input': input_id,
         'browse': browse_id,
@@ -85,7 +89,7 @@ def create_file_selector(
         'file_types': file_types
     }
 
-    return component, store_ids
+    return component, store_component, store_ids
 
 
 def create_file_selector_callback(store_ids: dict, dialog_title: str = "Select File"):
@@ -132,8 +136,7 @@ def create_file_selector_callback(store_ids: dict, dialog_title: str = "Select F
                 file_types_str = store_ids['file_types']
                 if '(' in file_types_str and ')' in file_types_str:
                     description = file_types_str.split('(')[0].strip()
-                    pattern = file_types_str.split(
-                        '(')[1].replace(')', '').strip()
+                    pattern = file_types_str.split('(')[1].replace(')', '').strip()
                     filetypes = [(description, pattern)]
                 else:
                     filetypes = [("All Files", "*.*")]
@@ -147,8 +150,7 @@ def create_file_selector_callback(store_ids: dict, dialog_title: str = "Select F
                 if file_path:
                     # Show just the filename in status
                     filename = os.path.basename(file_path)
-                    status = dmc.Text(
-                        f"Selected: {filename}", size="sm", c="green")
+                    status = dmc.Text(f"Selected: {filename}", size="sm", c="green")
                     return file_path, status, {'path': file_path}
                 else:
                     return "", "", {'path': ''}
@@ -161,3 +163,42 @@ def create_file_selector_callback(store_ids: dict, dialog_title: str = "Select F
         return "", "", {'path': ''}
 
     return handle_file_selection
+
+
+class FileSelector:
+    """
+    Utility class for creating file selector components.
+    This provides a similar API to the DirectorySelector.
+    """
+
+    @staticmethod
+    def create_file_selector(
+        component_id: str,
+        title: str = "Select File",
+        placeholder: str = "Select file...",
+        browse_button_text: str = "Browse",
+        file_types: str = "All Files (*.*)"
+    ) -> tuple:
+        """Create a file selector component"""
+        return create_file_selector(
+            component_id=component_id,
+            title=title,
+            placeholder=placeholder,
+            browse_button_text=browse_button_text,
+            file_types=file_types
+        )
+
+    @staticmethod
+    def get_ids(component_id: str) -> dict:
+        """Get the IDs for a file selector component"""
+        return {
+            'input': f'file-input-{component_id}',
+            'browse': f'browse-btn-{component_id}',
+            'status': f'file-status-{component_id}',
+            'store': f'file-store-{component_id}'
+        }
+
+    @staticmethod
+    def create_callback(store_ids: dict, dialog_title: str = "Select File"):
+        """Create the callback for handling file selection"""
+        return create_file_selector_callback(store_ids, dialog_title)

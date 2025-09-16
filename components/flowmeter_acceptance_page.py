@@ -14,7 +14,7 @@ from components.file_selector import create_file_selector, create_file_selector_
 from services.flowmeter_acceptance_service import FlowmeterAcceptanceService
 
 # Create file selectors for the three file inputs
-rtu_file_component, rtu_file_ids = create_file_selector(
+rtu_file_component, rtu_file_store, rtu_file_ids = create_file_selector(
     component_id='flowmeter-rtu-file',
     title="RTU File (.dt)",
     placeholder="Select RTU data file (.dt extension)",
@@ -22,7 +22,7 @@ rtu_file_component, rtu_file_ids = create_file_selector(
     file_types="RTU Files (*.dt)"
 )
 
-csv_tags_component, csv_tags_ids = create_file_selector(
+csv_tags_component, csv_tags_store, csv_tags_ids = create_file_selector(
     component_id='flowmeter-csv-tags',
     title="CSV Tags File (.csv)",
     placeholder="Select CSV tags file (.csv extension)",
@@ -30,7 +30,7 @@ csv_tags_component, csv_tags_ids = create_file_selector(
     file_types="CSV Files (*.csv)"
 )
 
-review_file_component, review_file_ids = create_file_selector(
+review_file_component, review_file_store, review_file_ids = create_file_selector(
     component_id='flowmeter-review-file',
     title="Review File (.review)",
     placeholder="Select review file (.review extension)",
@@ -88,17 +88,77 @@ def create_flowmeter_acceptance_page():
                                 "Review File (.review) - Additional validation data")
                         ], size="sm"),
                         dmc.Divider(),
-                        dmc.Text("Analysis Types:", fw=500, size="sm"),
-                        dmc.List([
-                            dmc.ListItem(
-                                "Reliability Checks - Readings within expected range and signal quality"),
-                            dmc.ListItem(
-                                "Timeliness and Completeness Checks - Data update frequency validation"),
-                            dmc.ListItem(
-                                "Robustness Checks - Signal stability analysis"),
-                            dmc.ListItem(
-                                "Accuracy Checks - Digital/analog signal agreement and measurement precision")
-                        ], size="sm")
+                        dmc.Text("Comprehensive Analysis Tests:", fw=500, size="sm"),
+                        dmc.Accordion([
+                            dmc.AccordionItem([
+                                dmc.AccordionControl([
+                                    dmc.Group([
+                                        BootstrapIcon(icon="shield-check", width=16),
+                                        dmc.Text("Reliability Checks (1.1-1.4)", fw=500, c="blue")
+                                    ], gap="xs")
+                                ]),
+                                dmc.AccordionPanel([
+                                    dmc.List([
+                                        dmc.ListItem("1.1: Readings within Expected Range - Validates flowmeter readings fall within operational bounds defined in CSV tags file"),
+                                        dmc.ListItem("1.2: Measurement Units Verified - Ensures consistent units across RTU and review data"),
+                                        dmc.ListItem("1.3: RTU Signal Quality - Checks for GOOD quality flags in SCADA RTU data"),
+                                        dmc.ListItem("1.4: Review Signal Quality - Validates GOOD quality flags in review reference data")
+                                    ], size="xs")
+                                ])
+                            ], value="reliability"),
+                            dmc.AccordionItem([
+                                dmc.AccordionControl([
+                                    dmc.Group([
+                                        BootstrapIcon(icon="clock-history", width=16),
+                                        dmc.Text("Timeliness & Completeness (2.1-2.2)", fw=500, c="teal")
+                                    ], gap="xs")
+                                ]),
+                                dmc.AccordionPanel([
+                                    dmc.List([
+                                        dmc.ListItem("2.1: RTU Update Frequency - Ensures RTU data points are updated frequently enough for reliable flowmeter monitoring"),
+                                        dmc.ListItem("2.2: Review Update Frequency - Validates reference data has adequate temporal resolution for comparison")
+                                    ], size="xs")
+                                ])
+                            ], value="timeliness"),
+                            dmc.AccordionItem([
+                                dmc.AccordionControl([
+                                    dmc.Group([
+                                        BootstrapIcon(icon="activity", width=16),
+                                        dmc.Text("Accuracy Tests (3.1-3.5)", fw=500, c="red")
+                                    ], gap="xs")
+                                ]),
+                                dmc.AccordionPanel([
+                                    dmc.List([
+                                        dmc.ListItem("3.1: Digital/Analog Agreement - Time series comparison using classical MSE (Σ(yi-xi)²/n) between RTU and review signals with correlation analysis"),
+                                        dmc.ListItem("3.2: Signal-to-Noise Ratio - Evaluates signal quality by analyzing noise content and calculating SNR in dB"),
+                                        dmc.ListItem("3.3: Trend Stability - Analyzes signal drift over time and variance stability between first/second half of data"),
+                                        dmc.ListItem("3.4: Spectral Analysis - Frequency domain analysis to detect anomalies, excessive noise, and signal concentration"),
+                                        dmc.ListItem("3.5: Flow Agreement - Cross-validation of flow readings against other measurement references")
+                                    ], size="xs")
+                                ])
+                            ], value="accuracy"),
+                            dmc.AccordionItem([
+                                dmc.AccordionControl([
+                                    dmc.Group([
+                                        BootstrapIcon(icon="graph-up", width=16),
+                                        dmc.Text("Robustness Check (4.1)", fw=500, c="orange")
+                                    ], gap="xs")
+                                ]),
+                                dmc.AccordionPanel([
+                                    dmc.List([
+                                        dmc.ListItem("4.1: Signal Stability - Long-term stability analysis ensuring flowmeter signals remain consistent over extended periods")
+                                    ], size="xs")
+                                ])
+                            ], value="robustness")
+                        ], variant="separated"),
+                        dmc.Divider(),
+                        dmc.Alert([
+                            dmc.Group([
+                                BootstrapIcon(icon="lightbulb", width=16),
+                                dmc.Text("Key Enhancement", fw=500)
+                            ], gap="xs", mb="xs"),
+                            dmc.Text("This implementation uses classical MSE calculation (Mean Square Error = Σ(yi-xi)²/n) with proper time series alignment for accurate flowmeter validation against reference signals.", size="xs")
+                        ], color="blue", variant="light")
                     ], gap="sm")
                 ]
             ),
@@ -123,7 +183,7 @@ def create_flowmeter_acceptance_page():
                     dmc.SimpleGrid([
                 # Column 1
                 dmc.Stack([
-                    # File Input Cards - Compact Design using directory selectors
+                    # File Input Cards - Using file selector components
                     rtu_file_component,
                     csv_tags_component,
                     review_file_component,
@@ -267,7 +327,11 @@ def create_flowmeter_acceptance_page():
                                     dmc.Checkbox(
                                         label="3.2: Acceptable Signal-to-Noise Ratio", id="accuracy-check-2"),
                                     dmc.Checkbox(
-                                        label="3.3: Flow Readings are in Close Agreement with Other Measurements", id="accuracy-check-3")
+                                        label="3.3: Signal Trend Stability Analysis", id="accuracy-check-3"),
+                                    dmc.Checkbox(
+                                        label="3.4: Spectral Analysis for Anomaly Detection", id="accuracy-check-4"),
+                                    dmc.Checkbox(
+                                        label="3.5: Flow Readings Agreement with References", id="accuracy-check-5")
                                 ], gap="xs")
                             ], withBorder=True, p="sm")
                         ], cols=2, spacing="md"),
@@ -322,13 +386,13 @@ def create_flowmeter_acceptance_page():
             ),
         ], gap="md"),
 
-        # Hidden stores for the directory selectors
-        dcc.Store(id=rtu_file_ids['store'], data={'path': ''}),
-        dcc.Store(id=csv_tags_ids['store'], data={'path': ''}),
-        dcc.Store(id=review_file_ids['store'], data={'path': ''}),
-
         # File validation feedback
-        html.Div(id="file-upload-feedback")
+        html.Div(id="file-upload-feedback"),
+
+        # Store components for file selectors
+        rtu_file_store,
+        csv_tags_store,
+        review_file_store
     ], fluid=True, py="md")
 
 
@@ -387,6 +451,8 @@ def toggle_help_modal(n_clicks, opened):
      Output("accuracy-check-1", "checked"),
      Output("accuracy-check-2", "checked"),
      Output("accuracy-check-3", "checked"),
+     Output("accuracy-check-4", "checked"),
+     Output("accuracy-check-5", "checked"),
      Output("flat-threshold-input", "value"),
      Output("min-flowrate-input", "value"),
      Output("max-flowrate-input", "value"),
@@ -407,30 +473,30 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
     """Handle preset check selection and form clearing."""
     ctx = callback_context
     if not ctx.triggered:
-        return [False] * 10 + [5, None, None, 1.0] + [True, "setup"]
+        return [False] * 12 + [5, None, None, 1.0] + [True, "setup"]
 
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if button_id == "partial-commissioning-btn":
-        # Partial commissioning preset: rel 1-4, tc 1-2, rob 1, acc 1&3 (NOT acc 2)
-        checks = [True, True, True, True, True, True, True, True, False, True]
+        # Partial commissioning preset: rel 1-4, tc 1-2, rob 1, acc 1&3&4 (core tests, skip SNR and flow agreement)
+        checks = [True, True, True, True, True, True, True, True, False, True, True, False]
         form_values = [flat_threshold or 5, min_flow, max_flow, accuracy_range or 1.0]
         return checks + form_values + [True, "setup"]  # Keep results tab disabled, stay on setup
 
     elif button_id == "full-acceptance-btn":
-        # Full acceptance preset: rel 1-4, tc 1-2, rob 1, acc 1-3 (ALL accuracy checks)
-        checks = [True, True, True, True, True, True, True, True, True, True]
+        # Full acceptance preset: ALL checks enabled for comprehensive validation
+        checks = [True, True, True, True, True, True, True, True, True, True, True, True]
         form_values = [flat_threshold or 5, min_flow, max_flow, accuracy_range or 1.0]
         return checks + form_values + [True, "setup"]  # Keep results tab disabled, stay on setup
 
     elif button_id == "clear-form-btn":
         # Clear form - reset everything
-        checks = [False] * 10
+        checks = [False] * 12
         form_values = [5, None, None, 1.0]
         return checks + form_values + [True, "setup"]  # Disable results tab, go back to setup
 
     # Default return
-    return [False] * 10 + [5, None, None, 1.0] + [True, "setup"]
+    return [False] * 12 + [5, None, None, 1.0] + [True, "setup"]
 
 
 # Main analysis handler
@@ -458,12 +524,14 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
      State("robustness-check-1", "checked"),
      State("accuracy-check-1", "checked"),
      State("accuracy-check-2", "checked"),
-     State("accuracy-check-3", "checked")],
+     State("accuracy-check-3", "checked"),
+     State("accuracy-check-4", "checked"),
+     State("accuracy-check-5", "checked")],
     prevent_initial_call=True
 )
 def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time, end_time,
                            flat_threshold, min_flow, max_flow, accuracy_range, 
-                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3):
+                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4, acc5):
     """Run the flowmeter analysis with all parameters."""
     if not all([rtu_file, csv_file, review_file]):
         return False, "setup", dmc.Alert(
@@ -562,7 +630,9 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             'robustness_check_1': rob1,
             'accuracy_check_1': acc1,
             'accuracy_check_2': acc2,
-            'accuracy_check_3': acc3
+            'accuracy_check_3': acc3,
+            'accuracy_check_4': acc4,
+            'accuracy_check_5': acc5
         }
 
         # Run analysis
@@ -570,8 +640,11 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
 
         # Create results display
         checks_selected = [rel1, rel2, rel3, rel4,
-                           tc1, tc2, rob1, acc1, acc2, acc3]
+                           tc1, tc2, rob1, acc1, acc2, acc3, acc4, acc5]
         selected_count = sum(checks_selected)
+
+        # Generate comprehensive time series visualizations
+        plots = service.create_analysis_plots()
 
         # Create comprehensive results display
         results_content = dmc.Stack([
@@ -583,6 +656,34 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                 icon=BootstrapIcon(icon="check-circle"),
                 mb="lg"
             ),
+            
+            # Time Series Analysis Section
+            dmc.Card([
+                dmc.Group([
+                    dmc.Title("Time Series Analysis Results", order=3),
+                    BootstrapIcon(icon="activity", width=20)
+                ], gap="xs", mb="md"),
+                dmc.Tabs([
+                    dmc.TabsList([
+                        dmc.TabsTab("Signal Comparison", value="signal-comparison"),
+                        dmc.TabsTab("Statistical Analysis", value="statistics"),
+                        dmc.TabsTab("Validation Metrics", value="validation"),
+                        dmc.TabsTab("Spectral Analysis", value="spectral")
+                    ], variant="pills"),
+                    dmc.TabsPanel([
+                        dcc.Graph(figure=plots.get('signal_comparison', {}), style={'height': '500px'})
+                    ], value="signal-comparison"),
+                    dmc.TabsPanel([
+                        dcc.Graph(figure=plots.get('statistics', {}), style={'height': '500px'})
+                    ], value="statistics"),
+                    dmc.TabsPanel([
+                        dcc.Graph(figure=plots.get('validation', {}), style={'height': '500px'})
+                    ], value="validation"),
+                    dmc.TabsPanel([
+                        dcc.Graph(figure=plots.get('spectral', {}), style={'height': '500px'})
+                    ], value="spectral")
+                ], value="signal-comparison")
+            ], shadow="sm", p="lg", mb="lg"),
             
             # Analysis Summary Section
             dmc.Card([
@@ -621,7 +722,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                             ], gap="xs"),
                             dmc.Text(f"🌊 Flow Range: {min_flow or 'Auto'} - {max_flow or 'Auto'}", size="sm"),
                             dmc.Text(f"🎯 Accuracy Range: ±{accuracy_range}", size="sm"),
-                            dmc.Text(f"📈 Total Checks: {selected_count}/10", size="sm")
+                            dmc.Text(f"📈 Total Checks: {selected_count}/12", size="sm")
                         ], gap="xs")
                     ], withBorder=True, p="md"),
                     dmc.Card([
@@ -633,7 +734,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                             dmc.Text(f"🔧 Reliability: {sum([rel1, rel2, rel3, rel4])}/4", size="sm"),
                             dmc.Text(f"⏱️ Timeliness & Completeness: {sum([tc1, tc2])}/2", size="sm"),
                             dmc.Text(f"💪 Robustness: {sum([rob1])}/1", size="sm"),
-                            dmc.Text(f"🎯 Accuracy: {sum([acc1, acc2, acc3])}/3", size="sm")
+                            dmc.Text(f"🎯 Accuracy: {sum([acc1, acc2, acc3, acc4, acc5])}/5", size="sm")
                         ], gap="xs")
                     ], withBorder=True, p="md")
                 ], cols=2, spacing="md")

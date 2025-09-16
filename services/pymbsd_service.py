@@ -200,7 +200,7 @@ class PyMBSdService:
     @staticmethod
     def install_services(services: List[Dict[str, Any]], start_after_install: bool = True,
                          auto_mode: bool = True) -> Dict[str, Any]:
-        """Install selected services"""
+        """Install selected services with proper wait and verification"""
         try:
             config_manager = get_config_manager()
             installation_path = config_manager.get_pymbsd_service_installation_path()
@@ -213,40 +213,105 @@ class PyMBSdService:
 
             for service in services:
                 try:
-                    # Uninstall existing service first
-                    PyMBSdService._uninstall_service(service["service_name"])
+                    service_name = service["service_name"]
+                    logger.info(
+                        f"Starting installation process for service: {service_name}")
 
-                    # Remove existing directory
+                    # Step 1: Uninstall existing service first
+                    initial_status = PyMBSdService._get_service_status(
+                        service_name)
+                    if initial_status != "not_found":
+                        logger.info(
+                            f"Uninstalling existing service: {service_name}")
+                        PyMBSdService._uninstall_service(service_name)
+
+                    # Step 2: Remove existing directory
                     service_dir = os.path.join(
                         installation_path, service["package_name"])
                     if os.path.exists(service_dir):
+                        logger.info(
+                            f"Removing existing directory: {service_dir}")
                         PyMBSdService._force_delete_directory(service_dir)
 
-                    # Extract package
+                    # Step 3: Extract package (decompress)
+                    logger.info(f"Extracting package: {service['zip_path']}")
                     with zipfile.ZipFile(service["zip_path"], 'r') as zip_file:
                         zip_file.extractall(installation_path)
 
-                    # Find service executable and config
+                    # Verify extraction was successful
+                    if not os.path.exists(service_dir):
+                        raise Exception(
+                            f"Package extraction failed - directory not created: {service_dir}")
+
+                    logger.info(
+                        f"Package extracted successfully to: {service_dir}")
+
+                    # Step 4: Find service executable and config
                     service_files = PyMBSdService._find_service_files(
                         service_dir)
                     if not service_files:
                         raise Exception(
-                            "Service package missing necessary files")
+                            "Service package missing necessary files (exe or xml)")
 
-                    # Install service
+                    # Step 5: Install service
+                    logger.info(f"Installing Windows service: {service_name}")
                     PyMBSdService._install_service(
                         service_dir, service_files["exe"])
 
-                    # Set auto mode if requested
+                    # Verify service was installed
+                    time.sleep(2)  # Brief wait for service registration
+                    install_status = PyMBSdService._get_service_status(
+                        service_name)
+                    if install_status == "not_found":
+                        raise Exception(
+                            f"Service installation failed - service not found after install")
+
+                    logger.info(
+                        f"Service {service_name} installed successfully, status: {install_status}")
+
+                    # Step 6: Set auto mode if requested
                     if auto_mode:
+                        logger.info(
+                            f"Setting auto start mode for: {service_name}")
                         PyMBSdService._set_service_auto_mode(
                             service_dir, service_files["xml"])
 
-                    # Start service if requested
+                    # Step 7: Start service if requested and wait for running status
                     if start_after_install:
-                        PyMBSdService._start_service(service["service_name"])
+                        logger.info(f"Starting service: {service_name}")
+                        PyMBSdService._start_service(service_name)
 
-                    installed_services.append(service["service_name"])
+                        # Wait and verify service is running
+                        max_start_wait = 30  # 30 seconds max wait
+                        start_verified = False
+
+                        for attempt in range(max_start_wait):
+                            current_status = PyMBSdService._get_service_status(
+                                service_name)
+                            logger.info(
+                                f"Start verification attempt {attempt + 1}/{max_start_wait} - Status: {current_status}")
+
+                            if current_status == "running":
+                                start_verified = True
+                                logger.info(
+                                    f"Service {service_name} confirmed running")
+                                break
+                            elif current_status in ["starting", "stopped"]:
+                                logger.info(
+                                    f"Service {service_name} still starting, waiting...")
+                                time.sleep(1)
+                            else:
+                                logger.warning(
+                                    f"Service {service_name} in unexpected state: {current_status}")
+                                time.sleep(1)
+
+                        if not start_verified:
+                            logger.warning(
+                                f"Service {service_name} did not start within {max_start_wait} seconds. Final status: {PyMBSdService._get_service_status(service_name)}")
+
+                    installed_services.append(service_name)
+                    logger.info(
+                        f"Successfully completed installation process for: {service_name}")
 
                 except Exception as e:
                     error_msg = f"Error installing {service['service_name']}: {str(e)}"
@@ -270,15 +335,66 @@ class PyMBSdService:
 
     @staticmethod
     def start_services(services: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Start selected services"""
+        """Start selected services with proper wait and verification"""
         try:
             started_services = []
             errors = []
 
             for service in services:
                 try:
-                    PyMBSdService._start_service(service["service_name"])
-                    started_services.append(service["service_name"])
+                    service_name = service["service_name"]
+                    logger.info(f"Starting service: {service_name}")
+
+                    # Check initial status
+                    initial_status = PyMBSdService._get_service_status(
+                        service_name)
+                    logger.info(
+                        f"Initial status of {service_name}: {initial_status}")
+
+                    if initial_status == "not_found":
+                        raise Exception(f"Service {service_name} not found")
+                    elif initial_status == "running":
+                        logger.info(f"Service {service_name} already running")
+                        started_services.append(service_name)
+                        continue
+
+                    # Start the service
+                    PyMBSdService._start_service(service_name)
+
+                    # Wait and verify service is running
+                    max_start_wait = 30  # 30 seconds max wait
+                    start_verified = False
+
+                    for attempt in range(max_start_wait):
+                        current_status = PyMBSdService._get_service_status(
+                            service_name)
+                        logger.info(
+                            f"Start verification attempt {attempt + 1}/{max_start_wait} - Status: {current_status}")
+
+                        if current_status == "running":
+                            start_verified = True
+                            logger.info(
+                                f"Service {service_name} confirmed running")
+                            break
+                        elif current_status in ["starting", "stopped"]:
+                            logger.info(
+                                f"Service {service_name} still starting, waiting...")
+                            time.sleep(1)
+                        else:
+                            logger.warning(
+                                f"Service {service_name} in unexpected state: {current_status}")
+                            time.sleep(1)
+
+                    if not start_verified:
+                        final_status = PyMBSdService._get_service_status(
+                            service_name)
+                        raise Exception(
+                            f"Failed to start service {service_name} within {max_start_wait} seconds. Final status: {final_status}")
+
+                    started_services.append(service_name)
+                    logger.info(
+                        f"Successfully started service: {service_name}")
+
                 except Exception as e:
                     error_msg = f"Error starting {service['service_name']}: {str(e)}"
                     errors.append(error_msg)
@@ -301,15 +417,66 @@ class PyMBSdService:
 
     @staticmethod
     def stop_services(services: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Stop selected services"""
+        """Stop selected services with proper wait and verification"""
         try:
             stopped_services = []
             errors = []
 
             for service in services:
                 try:
-                    PyMBSdService._stop_service(service["service_name"])
-                    stopped_services.append(service["service_name"])
+                    service_name = service["service_name"]
+                    logger.info(f"Stopping service: {service_name}")
+
+                    # Check initial status
+                    initial_status = PyMBSdService._get_service_status(
+                        service_name)
+                    logger.info(
+                        f"Initial status of {service_name}: {initial_status}")
+
+                    if initial_status == "not_found":
+                        raise Exception(f"Service {service_name} not found")
+                    elif initial_status == "stopped":
+                        logger.info(f"Service {service_name} already stopped")
+                        stopped_services.append(service_name)
+                        continue
+
+                    # Stop the service
+                    PyMBSdService._stop_service(service_name)
+
+                    # Wait and verify service is stopped
+                    max_stop_wait = 30  # 30 seconds max wait
+                    stop_verified = False
+
+                    for attempt in range(max_stop_wait):
+                        current_status = PyMBSdService._get_service_status(
+                            service_name)
+                        logger.info(
+                            f"Stop verification attempt {attempt + 1}/{max_stop_wait} - Status: {current_status}")
+
+                        if current_status in ["stopped", "not_found"]:
+                            stop_verified = True
+                            logger.info(
+                                f"Service {service_name} confirmed stopped")
+                            break
+                        elif current_status in ["stopping", "running"]:
+                            logger.info(
+                                f"Service {service_name} still stopping, waiting...")
+                            time.sleep(1)
+                        else:
+                            logger.warning(
+                                f"Service {service_name} in unexpected state: {current_status}")
+                            time.sleep(1)
+
+                    if not stop_verified:
+                        final_status = PyMBSdService._get_service_status(
+                            service_name)
+                        raise Exception(
+                            f"Failed to stop service {service_name} within {max_stop_wait} seconds. Final status: {final_status}")
+
+                    stopped_services.append(service_name)
+                    logger.info(
+                        f"Successfully stopped service: {service_name}")
+
                 except Exception as e:
                     error_msg = f"Error stopping {service['service_name']}: {str(e)}"
                     errors.append(error_msg)
@@ -332,7 +499,7 @@ class PyMBSdService:
 
     @staticmethod
     def uninstall_services(services: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Uninstall selected services"""
+        """Uninstall selected services with proper stop verification"""
         try:
             config_manager = get_config_manager()
             installation_path = config_manager.get_pymbsd_service_installation_path()
@@ -342,19 +509,87 @@ class PyMBSdService:
 
             for service in services:
                 try:
-                    # Stop service first
-                    PyMBSdService._stop_service(service["service_name"])
+                    service_name = service["service_name"]
+                    logger.info(
+                        f"Starting uninstall process for service: {service_name}")
 
-                    # Uninstall service
-                    PyMBSdService._uninstall_service(service["service_name"])
+                    # Step 1: Check initial service status
+                    initial_status = PyMBSdService._get_service_status(
+                        service_name)
+                    logger.info(
+                        f"Initial status of {service_name}: {initial_status}")
 
-                    # Remove directory
+                    # Step 2: Stop service if it's running or in any active state
+                    if initial_status in ["running", "starting", "stopping"]:
+                        logger.info(f"Stopping service: {service_name}")
+                        PyMBSdService._stop_service(service_name)
+
+                        # Step 3: Wait and verify service is actually stopped
+                        max_stop_wait = 30  # 30 seconds max wait
+                        stop_verified = False
+
+                        for attempt in range(max_stop_wait):
+                            current_status = PyMBSdService._get_service_status(
+                                service_name)
+                            logger.info(
+                                f"Stop verification attempt {attempt + 1}/{max_stop_wait} - Status: {current_status}")
+
+                            if current_status in ["stopped", "not_found"]:
+                                stop_verified = True
+                                logger.info(
+                                    f"Service {service_name} confirmed stopped")
+                                break
+                            elif current_status == "stopping":
+                                logger.info(
+                                    f"Service {service_name} still stopping, waiting...")
+                                time.sleep(1)
+                            else:
+                                logger.warning(
+                                    f"Service {service_name} in unexpected state: {current_status}")
+                                time.sleep(1)
+
+                        if not stop_verified:
+                            raise Exception(
+                                f"Failed to stop service {service_name} within {max_stop_wait} seconds. Current status: {PyMBSdService._get_service_status(service_name)}")
+
+                    elif initial_status == "not_found":
+                        logger.info(
+                            f"Service {service_name} not found, proceeding with directory cleanup only")
+                    else:
+                        logger.info(f"Service {service_name} already stopped")
+
+                    # Step 4: Uninstall service (if it exists)
+                    if PyMBSdService._get_service_status(service_name) != "not_found":
+                        logger.info(f"Uninstalling service: {service_name}")
+                        PyMBSdService._uninstall_service(service_name)
+
+                        # Verify service was uninstalled
+                        time.sleep(2)  # Brief wait for uninstall to complete
+                        final_status = PyMBSdService._get_service_status(
+                            service_name)
+                        if final_status != "not_found":
+                            logger.warning(
+                                f"Service {service_name} still exists after uninstall attempt, status: {final_status}")
+
+                    # Step 5: Remove directory
                     service_dir = os.path.join(
                         installation_path, service["package_name"])
                     if os.path.exists(service_dir):
+                        logger.info(
+                            f"Removing service directory: {service_dir}")
                         PyMBSdService._force_delete_directory(service_dir)
 
-                    uninstalled_services.append(service["service_name"])
+                        # Verify directory was removed
+                        if os.path.exists(service_dir):
+                            logger.warning(
+                                f"Directory {service_dir} still exists after deletion attempt")
+                        else:
+                            logger.info(
+                                f"Directory {service_dir} successfully removed")
+
+                    uninstalled_services.append(service_name)
+                    logger.info(
+                        f"Successfully completed uninstall process for: {service_name}")
 
                 except Exception as e:
                     error_msg = f"Error uninstalling {service['service_name']}: {str(e)}"

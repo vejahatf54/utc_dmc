@@ -2,6 +2,7 @@ import dash
 from dash import html, dcc, Input, Output, State, callback, ALL, ctx
 import dash_mantine_components as dmc
 import asyncio
+import time
 from services.pymbsd_service import PyMBSdService
 from components.bootstrap_icon import BootstrapIcon
 import logging
@@ -17,6 +18,7 @@ def create_pymbsd_page():
         dcc.Store(id='pymbsd-selected-services-store', data=[]),
         dcc.Store(id='pymbsd-operation-status-store', data={'status': 'idle'}),
         dcc.Store(id='pymbsd-checkbox-states', data=[]),
+        dcc.Store(id='pymbsd-auto-refresh-trigger', data={"trigger": False}),
 
         # Header Section
         dmc.Stack([
@@ -98,41 +100,44 @@ def create_pymbsd_page():
                         dmc.Group([
                             dmc.Title("Available Services",
                                       order=4, c="dimmed"),
-                            dmc.Button(
-                                "Refresh List",
-                                id="pymbsd-refresh-btn",
-                                leftSection=BootstrapIcon(
-                                    icon="arrow-clockwise", width=16, height=16),
-                                variant="filled",
-                                size="sm"
-                            ),
+                            dmc.Group([
+                                dcc.Loading(
+                                    id="pymbsd-refresh-packages-loading",
+                                    type="default",
+                                    children=dmc.Button(
+                                        "Refresh Packages",
+                                        id="pymbsd-refresh-packages-btn",
+                                        leftSection=BootstrapIcon(
+                                            icon="box-arrow-down", width=16, height=16),
+                                        variant="filled",
+                                        size="sm"
+                                    )
+                                ),
+                                dcc.Loading(
+                                    id="pymbsd-refresh-status-loading",
+                                    type="default",
+                                    children=dmc.Button(
+                                        "Refresh Status",
+                                        id="pymbsd-refresh-status-btn",
+                                        leftSection=BootstrapIcon(
+                                            icon="arrow-clockwise", width=16, height=16),
+                                        variant="outline",
+                                        size="sm"
+                                    )
+                                ),
+                            ], gap="xs"),
                         ], justify="space-between", mb="md"),
 
                         dmc.Divider(size="xs"),
 
-                        # Service content with loading overlay
-                        html.Div([
-                            dmc.LoadingOverlay(
-                                id="pymbsd-loading",
-                                visible=False
-                            ),
-                            # Multi-column service list container
-                            html.Div(
-                                id="pymbsd-service-list",
-                                children=[],
-                                className="service-multi-column-container"
-                            ),
-                        ], style={"position": "relative"}),
-
-                        # Select All checkbox moved below the list
-                        dmc.Divider(size="xs", mt="md"),
-                        dmc.Checkbox(
-                            id="pymbsd-select-all",
-                            label="Select All Services",
-                            checked=False,
-                            size="md",
-                            mt="sm"
+                        # Multi-column service list container
+                        html.Div(
+                            id="pymbsd-service-list",
+                            children=[],
+                            className="service-multi-column-container"
                         ),
+
+
                     ], p="lg", shadow="sm", radius="md"),
                 ], span=8),  # 8/12 columns for service list
 
@@ -167,61 +172,70 @@ def create_pymbsd_page():
                             dmc.Text("Service Actions", fw=500, size="md")
                         ], gap="xs", mb="md"),
                         dmc.Stack([
-                            dmc.Button(
-                                "Install",
-                                id="pymbsd-install-btn",
-                                leftSection=BootstrapIcon(
-                                    icon="download", width=16, height=16),
-                                color="green",
-                                size="md",
-                                disabled=True,
-                                fullWidth=True
+                            dcc.Loading(
+                                id="pymbsd-install-loading",
+                                type="default",
+                                children=dmc.Button(
+                                    "Install",
+                                    id="pymbsd-install-btn",
+                                    leftSection=BootstrapIcon(
+                                        icon="download", width=16, height=16),
+                                    color="green",
+                                    size="md",
+                                    disabled=True,
+                                    fullWidth=True
+                                )
                             ),
-                            dmc.Button(
-                                "Start",
-                                id="pymbsd-start-btn",
-                                leftSection=BootstrapIcon(
-                                    icon="play-fill", width=16, height=16),
-                                color="blue",
-                                size="md",
-                                disabled=True,
-                                fullWidth=True
+                            dcc.Loading(
+                                id="pymbsd-start-loading",
+                                type="default",
+                                children=dmc.Button(
+                                    "Start",
+                                    id="pymbsd-start-btn",
+                                    leftSection=BootstrapIcon(
+                                        icon="play-fill", width=16, height=16),
+                                    color="blue",
+                                    size="md",
+                                    disabled=True,
+                                    fullWidth=True
+                                )
                             ),
-                            dmc.Button(
-                                "Stop",
-                                id="pymbsd-stop-btn",
-                                leftSection=BootstrapIcon(
-                                    icon="stop-fill", width=16, height=16),
-                                color="orange",
-                                size="md",
-                                disabled=True,
-                                fullWidth=True
+                            dcc.Loading(
+                                id="pymbsd-stop-loading",
+                                type="default",
+                                children=dmc.Button(
+                                    "Stop",
+                                    id="pymbsd-stop-btn",
+                                    leftSection=BootstrapIcon(
+                                        icon="stop-fill", width=16, height=16),
+                                    color="orange",
+                                    size="md",
+                                    disabled=True,
+                                    fullWidth=True
+                                )
                             ),
-                            dmc.Button(
-                                "Uninstall",
-                                id="pymbsd-uninstall-btn",
-                                leftSection=BootstrapIcon(
-                                    icon="trash", width=16, height=16),
-                                color="red",
-                                size="md",
-                                disabled=True,
-                                fullWidth=True
+                            dcc.Loading(
+                                id="pymbsd-uninstall-loading",
+                                type="default",
+                                children=dmc.Button(
+                                    "Uninstall",
+                                    id="pymbsd-uninstall-btn",
+                                    leftSection=BootstrapIcon(
+                                        icon="trash", width=16, height=16),
+                                    color="red",
+                                    size="md",
+                                    disabled=True,
+                                    fullWidth=True
+                                )
                             ),
                         ], gap="sm"),
                     ], p="lg", shadow="sm", radius="md"),
                 ], span=4),  # 4/12 columns for options and actions
             ], gutter="lg"),
 
-            # Status/Results Section
-            html.Div(id="pymbsd-status-messages"),
 
-            # Auto-refresh interval component
-            dcc.Interval(
-                id="pymbsd-status-interval",
-                interval=5000,  # Update every 5 seconds
-                n_intervals=0,
-                disabled=True
-            )
+
+
         ]),  # Close Stack
 
         # Store for service data (moved outside the Stack)
@@ -336,12 +350,12 @@ def get_status_icon(status):
 @callback(
     [Output("pymbsd-service-list", "children"),
      Output("pymbsd-service-data", "data"),
-     Output("pymbsd-loading", "visible")],
-    [Input("pymbsd-refresh-btn", "n_clicks")],
+     Output("pymbsd-auto-refresh-trigger", "data")],
+    [Input("pymbsd-refresh-packages-btn", "n_clicks")],
     prevent_initial_call=False
 )
-def refresh_service_list(n_clicks):
-    """Refresh the list of available services"""
+def refresh_service_packages(n_clicks):
+    """Refresh the list of available service packages"""
     try:
         # Fetch services without status (fast initial load)
         services = PyMBSdService.fetch_service_packages_fast()
@@ -353,7 +367,8 @@ def refresh_service_list(n_clicks):
             service_with_loading["status"] = "loading"
             service_cards.append(create_service_card(service_with_loading, i))
 
-        return service_cards, services, False
+        # Trigger auto-refresh to get actual status
+        return service_cards, services, {"trigger": True}
     except Exception as e:
         logger.error(f"Error refreshing service list: {e}")
 
@@ -385,36 +400,30 @@ def refresh_service_list(n_clicks):
             color="red",
             className="mb-3"
         )
-        return [error_message], [], False, []
-
-
-@callback(
-    [Output("pymbsd-status-interval", "disabled"),
-     Output("pymbsd-status-interval", "n_intervals")],
-    [Input("pymbsd-service-list", "children")],
-    prevent_initial_call=True
-)
-def enable_status_updates(service_list):
-    """Enable status updates when services are loaded and trigger immediate update"""
-    has_services = len(service_list) > 0
-    if has_services:
-        # Reset intervals to trigger immediate status update
-        return False, 1
-    return True, 0
+        return [error_message], [], {"trigger": False}
 
 
 @callback(
     [Output("pymbsd-service-list", "children", allow_duplicate=True),
-     Output("pymbsd-service-data", "data", allow_duplicate=True)],
-    [Input("pymbsd-status-interval", "n_intervals")],
+     Output("pymbsd-service-data", "data", allow_duplicate=True),
+     Output("pymbsd-auto-refresh-trigger", "data", allow_duplicate=True)],
+    [Input("pymbsd-refresh-status-btn", "n_clicks"),
+     Input("pymbsd-auto-refresh-trigger", "data")],
     [State("pymbsd-service-data", "data"),
      State("pymbsd-checkbox-states", "data")],
     prevent_initial_call=True
 )
-def update_service_status(n_intervals, service_data, checkbox_states):
-    """Update service status icons periodically while preserving selections"""
+def update_service_status(n_clicks, auto_refresh_data, service_data, checkbox_states):
+    """Update service status icons when refresh status button is clicked or auto-refresh is triggered"""
     if not service_data:
-        return dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update
+
+    # Check if this was triggered by auto-refresh
+    ctx_triggered = ctx.triggered_id if ctx.triggered else None
+
+    # Only proceed if button was clicked or auto-refresh was triggered
+    if ctx_triggered == "pymbsd-auto-refresh-trigger" and not auto_refresh_data.get("trigger", False):
+        return dash.no_update, dash.no_update, dash.no_update
 
     try:
         # Update service statuses
@@ -427,22 +436,24 @@ def update_service_status(n_intervals, service_data, checkbox_states):
                 checkbox_states) else False
             service_cards.append(create_service_card(service, i, is_selected))
 
-        return service_cards, updated_services
+        # Reset the auto-refresh trigger
+        reset_trigger = {"trigger": False}
+
+        return service_cards, updated_services, reset_trigger
     except Exception as e:
         logger.error(f"Error updating service status: {e}")
-        return dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update
 
 
 # Track checkbox state changes and initialize states
 @callback(
     Output("pymbsd-checkbox-states", "data"),
     [Input({"type": "pymbsd-service-checkbox", "index": ALL}, "checked"),
-     Input("pymbsd-select-all", "checked"),
      Input("pymbsd-service-data", "data")],
     [State("pymbsd-checkbox-states", "data")],
     prevent_initial_call=False
 )
-def update_checkbox_states(individual_checks, select_all_checked, service_data, current_states):
+def update_checkbox_states(individual_checks, service_data, current_states):
     """Track and update checkbox states, initialize when services refresh"""
     ctx_triggered = ctx.triggered_id if ctx.triggered else None
 
@@ -452,10 +463,6 @@ def update_checkbox_states(individual_checks, select_all_checked, service_data, 
     # If service data was updated (refresh), initialize checkbox states
     if ctx_triggered == "pymbsd-service-data":
         return [False] * len(service_data)
-
-    # If select all was triggered
-    if ctx_triggered == "pymbsd-select-all":
-        return [select_all_checked] * len(service_data)
 
     # If individual checkboxes were triggered
     if individual_checks is not None:
@@ -480,7 +487,8 @@ def update_button_states(checkbox_states):
 
 
 @callback(
-    Output("pymbsd-status-messages", "children"),
+    [Output('notification-container', 'sendNotifications', allow_duplicate=True),
+     Output("pymbsd-auto-refresh-trigger", "data", allow_duplicate=True)],
     [Input("pymbsd-install-btn", "n_clicks"),
      Input("pymbsd-start-btn", "n_clicks"),
      Input("pymbsd-stop-btn", "n_clicks"),
@@ -493,9 +501,9 @@ def update_button_states(checkbox_states):
 )
 def handle_service_actions(install_clicks, start_clicks, stop_clicks, uninstall_clicks,
                            checkbox_states, service_data, start_after_install, auto_mode):
-    """Handle service management actions"""
+    """Handle service management actions and trigger status refresh"""
     if not ctx.triggered or not any(checkbox_states):
-        return []
+        return dash.no_update, dash.no_update
 
     # Get selected services
     selected_indices = [i for i, checked in enumerate(
@@ -504,31 +512,69 @@ def handle_service_actions(install_clicks, start_clicks, stop_clicks, uninstall_
                          for i in selected_indices if i < len(service_data)]
 
     if not selected_services:
-        return [dmc.Alert("No services selected", color="yellow", className="mb-3")]
+        warning_notification = [{
+            "title": "No Selection",
+            "message": "No services selected",
+            "color": "yellow",
+            "autoClose": 3000,
+            "action": "show"
+        }]
+        return warning_notification, dash.no_update
 
     triggered_id = ctx.triggered[0]["prop_id"].split(".")[0]
 
     try:
+        action_name = ""
         if "install" in triggered_id:
+            action_name = "Install"
             result = PyMBSdService.install_services(
                 selected_services, start_after_install, auto_mode)
         elif "start" in triggered_id:
+            action_name = "Start"
             result = PyMBSdService.start_services(selected_services)
         elif "stop" in triggered_id:
+            action_name = "Stop"
             result = PyMBSdService.stop_services(selected_services)
         elif "uninstall" in triggered_id:
+            action_name = "Uninstall"
             result = PyMBSdService.uninstall_services(selected_services)
         else:
-            return []
+            return dash.no_update, dash.no_update
+
+        # Trigger status refresh after any operation
+        refresh_trigger = {"trigger": True, "timestamp": time.time()}
 
         if result["success"]:
-            return [dmc.Alert(result["message"], color="green", className="mb-3")]
+            success_notification = [{
+                "title": f"{action_name} Successful",
+                "message": result["message"],
+                "color": "green",
+                "autoClose": 5000,
+                "action": "show"
+            }]
+            return success_notification, refresh_trigger
         else:
-            return [dmc.Alert(result["message"], color="red", className="mb-3")]
+            error_notification = [{
+                "title": f"{action_name} Failed",
+                "message": result["message"],
+                "color": "red",
+                "autoClose": 8000,
+                "action": "show"
+            }]
+            return error_notification, refresh_trigger
 
     except Exception as e:
         logger.error(f"Error in service action: {e}")
-        return [dmc.Alert(f"Error: {str(e)}", color="red", className="mb-3")]
+        error_notification = [{
+            "title": "Operation Failed",
+            "message": f"Error: {str(e)}",
+            "color": "red",
+            "autoClose": 8000,
+            "action": "show"
+        }]
+        # Still trigger refresh even on error to show updated status
+        refresh_trigger = {"trigger": True, "timestamp": time.time()}
+        return error_notification, refresh_trigger
 
 
 @callback(

@@ -185,6 +185,10 @@ class FlowmeterAcceptanceService:
             analog_quality_result = self._test_13_quality_is_good(
                 analog_tag, rtu_file, time_start, time_end, signal_type='analog')
 
+            # Test 1.4 - Quality verification in Review file
+            review_quality_result = self._test_14_quality_is_good_review(
+                meter_name, review_file, time_start, time_end)
+
             results['accuracy_tests'] = {
                 'Test 1.1 - Digital Signal Range': {
                     'status': digital_range_result['status'],
@@ -210,6 +214,11 @@ class FlowmeterAcceptanceService:
                     'status': analog_quality_result['status'],
                     'value': f"{analog_quality_result['bad_quality_count']} bad quality readings",
                     'description': f'Analog signal quality is GOOD in RTU file'
+                },
+                'Test 1.4 - Review File Quality': {
+                    'status': review_quality_result['status'],
+                    'value': f"{review_quality_result['bad_status_count']} bad status readings",
+                    'description': f'Review file status values are GOOD (ST=1)'
                 },
                 'Comparison Test': {
                     'status': 'pass',
@@ -670,6 +679,124 @@ class FlowmeterAcceptanceService:
                 'status': 'fail',
                 'details': f'Test execution error: {str(e)}',
                 'good_quality_percentage': 0.0
+            }
+
+    def _test_14_quality_is_good_review(self, meter_name: str, review_file: str,
+                                        time_start: str, time_end: str) -> Dict[str, Any]:
+        """
+        Test 1.4: Quality of the Signals is GOOD in the Review File
+
+        Based on the original flowmeter acceptance reliability_check_4_function.
+        Checks the 'ST' (status) column in Review data and counts how many readings
+        are NOT equal to 1 (which means GOOD status).
+
+        Args:
+            meter_name: The MBS tag ID (meter name) to check
+            review_file: Path to Review data file (not used directly, we look for CSV)
+            time_start: Start time for analysis
+            time_end: End time for analysis
+
+        Returns:
+            Dictionary with test results including bad_status_count and status
+        """
+        try:
+            self.logger.info(f"Running Test 1.4 for meter: {meter_name}")
+
+            # Default result structure
+            result = {
+                'bad_status_count': 0,
+                'total_readings': 0,
+                'status': 'pass',
+                'details': f'No data found for meter {meter_name}',
+                'good_status_percentage': 0.0
+            }
+
+            # Look for the MBSTagID.csv file in _Data directory relative to review file
+            data_dir = os.path.join(os.path.dirname(review_file), '_Data')
+            mbs_csv_file = os.path.join(data_dir, 'MBSTagID.csv')
+
+            # If not found in _Data, look in the same directory as review file
+            if not os.path.exists(mbs_csv_file):
+                mbs_csv_file = os.path.join(
+                    os.path.dirname(review_file), 'MBSTagID.csv')
+
+            # Also check the L05 data directory directly
+            if not os.path.exists(mbs_csv_file):
+                l05_data_dir = r"C:\Temp\python_projects\Flow Meter Acceptance L05\_Data"
+                mbs_csv_file = os.path.join(l05_data_dir, 'MBSTagID.csv')
+
+            if not os.path.exists(mbs_csv_file):
+                result['details'] = f'No MBSTagID.csv file found for meter {meter_name}'
+                result['status'] = 'fail'
+                return result
+
+            self.logger.info(f"Using MBS CSV file: {mbs_csv_file}")
+
+            # Load the MBS CSV data
+            df = pd.read_csv(mbs_csv_file)
+
+            # The column format is: timestamp, {meter_name}:VAL, {meter_name}:ST, {meter_name}:FLAT
+            # We need to check the ST (status) column
+            # Note the space before the meter name
+            st_column = f' {meter_name}:ST'
+
+            if st_column not in df.columns:
+                # Try without space
+                st_column = f'{meter_name}:ST'
+                if st_column not in df.columns:
+                    result['details'] = f'No status column found for meter {meter_name} in MBSTagID.csv'
+                    result['status'] = 'fail'
+                    return result
+
+            # Filter by time range if possible
+            if 'timestamp' in df.columns and time_start and time_end:
+                try:
+                    df['timestamp'] = pd.to_datetime(df['timestamp'])
+                    start_dt = datetime.strptime(
+                        time_start, "%Y/%m/%d %H:%M:%S")
+                    end_dt = datetime.strptime(time_end, "%Y/%m/%d %H:%M:%S")
+                    df = df[(df['timestamp'] >= start_dt)
+                            & (df['timestamp'] <= end_dt)]
+                except Exception as time_error:
+                    self.logger.warning(
+                        f"Could not filter by time range: {time_error}")
+
+            # Count bad status readings (following original logic: ST != 1 means bad)
+            total_readings = len(df)
+            result['total_readings'] = total_readings
+
+            if total_readings == 0:
+                result['details'] = f'No data found for meter {meter_name} in time range'
+                return result
+
+            # Original logic: if ST != 1, it's a bad status
+            bad_status_count = len(df[df[st_column] != 1])
+            result['bad_status_count'] = bad_status_count
+
+            # Calculate good status percentage
+            if total_readings > 0:
+                good_status_count = total_readings - bad_status_count
+                result['good_status_percentage'] = (
+                    good_status_count / total_readings) * 100
+
+            # Determine status and details (following original logic)
+            if bad_status_count == 0:
+                result['status'] = 'pass'
+                result['details'] = f'Review file status for {meter_name} is all GOOD (ST=1)'
+            else:
+                result['status'] = 'fail'
+                result['details'] = f'BAD Status present with {bad_status_count} number of instances out of {total_readings} total readings'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error in Test 1.4 for {meter_name}: {e}")
+            return {
+                'bad_status_count': 0,
+                'total_readings': 0,
+                'status': 'fail',
+                'details': f'Test execution error: {str(e)}',
+                'good_status_percentage': 0.0
             }
 
     def get_test_results_summary(self) -> Dict[str, Any]:

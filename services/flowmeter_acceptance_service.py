@@ -169,12 +169,22 @@ class FlowmeterAcceptanceService:
                 }
             }
 
-            # Test 3: Accuracy
+            # Test 3: Accuracy - Modified for separate digital and analog signals
+            digital_range_result = self._test_11_readings_within_range(
+                digital_tag, rtu_file, time_start, time_end, signal_type='digital')
+            analog_range_result = self._test_11_readings_within_range(
+                analog_tag, rtu_file, time_start, time_end, signal_type='analog')
+
             results['accuracy_tests'] = {
-                'Range Validation': {
-                    'status': 'pass',
-                    'value': 'Within limits',
-                    'description': 'Values within expected range'
+                'Test 1.1 - Digital Signal Range': {
+                    'status': digital_range_result['status'],
+                    'value': f"{digital_range_result['out_of_range_count']} out of range",
+                    'description': f'Digital signal readings within expected range (0-1 for digital)'
+                },
+                'Test 1.1 - Analog Signal Range': {
+                    'status': analog_range_result['status'],
+                    'value': f"{analog_range_result['out_of_range_count']} out of range",
+                    'description': f'Analog signal readings within operational range'
                 },
                 'Comparison Test': {
                     'status': 'pass',
@@ -220,6 +230,176 @@ class FlowmeterAcceptanceService:
             return os.path.exists(review_file)
         except:
             return False
+
+    def _test_11_readings_within_range(self, tag_name: str, rtu_file: str,
+                                       time_start: str, time_end: str,
+                                       signal_type: str) -> Dict[str, Any]:
+        """
+        Test 1.1: Readings within Expected Range of Operation
+
+        This test checks if the readings from the specified tag are within 
+        the expected operational range. For digital signals, it checks 0-1 range.
+        For analog signals, it checks against configurable min/max bounds.
+
+        Args:
+            tag_name: The SCADA tag ID to check
+            rtu_file: Path to RTU data file
+            time_start: Start time for analysis
+            time_end: End time for analysis  
+            signal_type: 'digital' or 'analog'
+
+        Returns:
+            Dictionary with test results including out_of_range_count and status
+        """
+        try:
+            self.logger.info(
+                f"Running Test 1.1 for {signal_type} signal: {tag_name}")
+
+            # Default result structure
+            result = {
+                'out_of_range_count': 0,
+                'total_readings': 0,
+                'status': 'pass',
+                'details': f'No data found for {tag_name}'
+            }
+
+            # Check if RTU file exists
+            if not os.path.exists(rtu_file):
+                result['status'] = 'fail'
+                result['details'] = f'RTU file not found: {rtu_file}'
+                return result
+
+            # Try to load and process RTU data from already exported CSV
+            try:
+                # Look for the already exported CSV file in _Data directory
+                data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
+                rtu_csv_file = None
+
+                # Look for RTU CSV files in _Data directory
+                if os.path.exists(data_dir):
+                    for file in os.listdir(data_dir):
+                        if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
+                            rtu_csv_file = os.path.join(data_dir, file)
+                            break
+
+                # If no CSV found in _Data, look for any CSV with similar name to RTU file
+                if not rtu_csv_file:
+                    base_name = os.path.splitext(os.path.basename(rtu_file))[0]
+                    potential_csv = os.path.join(
+                        os.path.dirname(rtu_file), f"{base_name}.csv")
+                    if os.path.exists(potential_csv):
+                        rtu_csv_file = potential_csv
+
+                if not rtu_csv_file or not os.path.exists(rtu_csv_file):
+                    result['details'] = f'No exported CSV file found for RTU data. Please run CSV export first.'
+                    result['status'] = 'fail'
+                    return result
+
+                self.logger.info(f"Using exported CSV file: {rtu_csv_file}")
+                # Load the already exported CSV data
+                df = pd.read_csv(rtu_csv_file)
+
+                # Filter for the specific tag
+                tag_data = df[df['ident'].str.upper() == tag_name.upper()]
+
+                if tag_data.empty:
+                    result['details'] = f'No data found for tag {tag_name}'
+                    return result
+
+                # Filter by time range if specified
+                if time_start and time_end:
+                    # Convert time strings to datetime for filtering
+                    # This would need proper time conversion logic
+                    pass
+
+                # Get values and check ranges
+                values = tag_data['value'].dropna()
+                result['total_readings'] = len(values)
+
+                if signal_type.lower() == 'digital':
+                    # Digital signals should be 0 or 1
+                    out_of_range = values[(values < 0) | (values > 1)]
+                    result['out_of_range_count'] = len(out_of_range)
+                    result['details'] = f'Digital signal range check (0-1): {result["out_of_range_count"]} out of {result["total_readings"]} readings out of range'
+
+                elif signal_type.lower() == 'analog':
+                    # For analog signals, use bounds from tags file or defaults
+                    min_flow, max_flow = self._get_analog_bounds(tag_name)
+
+                    out_of_range = values[(
+                        values < min_flow) | (values > max_flow)]
+                    result['out_of_range_count'] = len(out_of_range)
+                    result['details'] = f'Analog signal range check ({min_flow}-{max_flow}): {result["out_of_range_count"]} out of {result["total_readings"]} readings out of range'
+
+                # Determine pass/fail status
+                # Pass if less than 5% of readings are out of range
+                if result['total_readings'] > 0:
+                    out_of_range_percentage = (
+                        result['out_of_range_count'] / result['total_readings']) * 100
+                    result['status'] = 'pass' if out_of_range_percentage < 5.0 else 'fail'
+                else:
+                    result['status'] = 'fail'
+                    result['details'] = 'No valid readings found'
+
+            except Exception as data_error:
+                self.logger.error(
+                    f"Error processing data for {tag_name}: {data_error}")
+                result['status'] = 'fail'
+                result['details'] = f'Data processing error: {str(data_error)}'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error in Test 1.1 for {tag_name}: {e}")
+            return {
+                'out_of_range_count': 0,
+                'total_readings': 0,
+                'status': 'fail',
+                'details': f'Test execution error: {str(e)}'
+            }
+
+    def _get_analog_bounds(self, tag_name: str) -> tuple:
+        """
+        Get the operational bounds for an analog signal.
+
+        Looks for bounds in the tags configuration file, or uses defaults.
+
+        Args:
+            tag_name: The SCADA tag ID
+
+        Returns:
+            Tuple of (min_value, max_value)
+        """
+        try:
+            if self.tags_df is not None:
+                # Look for the tag in the tags dataframe
+                # Check both digital and analog columns for the tag
+                digital_match = self.tags_df[self.tags_df['SCADATagID_DIG'].str.upper(
+                ) == tag_name.upper()]
+                analog_match = self.tags_df[self.tags_df['SCADATagID_ANL'].str.upper(
+                ) == tag_name.upper()]
+
+                # Use bounds from tags file if available
+                if not digital_match.empty and 'LowerBound' in self.tags_df.columns and 'UpperBound' in self.tags_df.columns:
+                    lower = digital_match['LowerBound'].iloc[0] if pd.notna(
+                        digital_match['LowerBound'].iloc[0]) else 0.0
+                    upper = digital_match['UpperBound'].iloc[0] if pd.notna(
+                        digital_match['UpperBound'].iloc[0]) else 1000.0
+                    return (float(lower), float(upper))
+                elif not analog_match.empty and 'LowerBound' in self.tags_df.columns and 'UpperBound' in self.tags_df.columns:
+                    lower = analog_match['LowerBound'].iloc[0] if pd.notna(
+                        analog_match['LowerBound'].iloc[0]) else 0.0
+                    upper = analog_match['UpperBound'].iloc[0] if pd.notna(
+                        analog_match['UpperBound'].iloc[0]) else 1000.0
+                    return (float(lower), float(upper))
+
+        except Exception as e:
+            self.logger.warning(
+                f"Could not get bounds from tags file for {tag_name}: {e}")
+
+        # Default bounds for analog signals (flowmeters)
+        # These are reasonable defaults for most flowmeter applications
+        return (1500.0, 4000.0)  # 1500 to 4000 units (m3/h, bbl/h, etc.)
 
     def get_test_results_summary(self) -> Dict[str, Any]:
         """Get test results formatted for UI display with pass/fail icons."""

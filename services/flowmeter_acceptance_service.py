@@ -175,6 +175,10 @@ class FlowmeterAcceptanceService:
             analog_range_result = self._test_11_readings_within_range(
                 analog_tag, rtu_file, time_start, time_end, signal_type='analog')
 
+            # Test 1.2 - Unit verification (only for digital signal as requested)
+            digital_units_result = self._test_12_units_verified(
+                digital_tag, rtu_file, time_start, time_end, signal_type='digital')
+
             results['accuracy_tests'] = {
                 'Test 1.1 - Digital Signal Range': {
                     'status': digital_range_result['status'],
@@ -186,6 +190,11 @@ class FlowmeterAcceptanceService:
                     'value': f"{analog_range_result['out_of_range_count']} out of range",
                     'description': f'Analog signal readings within operational range'
                 },
+                'Test 1.2 - Digital Signal Units': {
+                    'status': digital_units_result['status'],
+                    'value': f"{digital_units_result['conversions_applied']} conversions applied",
+                    'description': f'Digital signal measurement units verified'
+                },
                 'Comparison Test': {
                     'status': 'pass',
                     'value': '< 2% deviation',
@@ -196,9 +205,7 @@ class FlowmeterAcceptanceService:
                     'value': 'Normal distribution',
                     'description': 'Statistical properties acceptable'
                 }
-            }
-
-            # Determine overall status
+            }            # Determine overall status
             all_tests = []
             for category in ['reliability_tests', 'timeliness_tests', 'accuracy_tests']:
                 for test_name, test_result in results[category].items():
@@ -400,6 +407,147 @@ class FlowmeterAcceptanceService:
         # Default bounds for analog signals (flowmeters)
         # These are reasonable defaults for most flowmeter applications
         return (1500.0, 4000.0)  # 1500 to 4000 units (m3/h, bbl/h, etc.)
+
+    def _test_12_units_verified(self, tag_name: str, rtu_file: str,
+                                time_start: str, time_end: str,
+                                signal_type: str) -> Dict[str, Any]:
+        """
+        Test 1.2: Measurement Units were Verified
+
+        Based on the original flowmeter acceptance unit_check method.
+        For digital signals: Verifies values are 0 or 1 (dimensionless)
+        For analog signals: Checks if values are in expected unit range and
+        detects potential unit mismatches (e.g., barrels/h vs m³/h)
+
+        Args:
+            tag_name: The SCADA tag ID to check
+            rtu_file: Path to RTU data file
+            time_start: Start time for analysis
+            time_end: End time for analysis  
+            signal_type: 'digital' or 'analog'
+
+        Returns:
+            Dictionary with test results including conversions_applied and status
+        """
+        try:
+            self.logger.info(
+                f"Running Test 1.2 for {signal_type} signal: {tag_name}")
+
+            # Default result structure
+            result = {
+                'unit_issues_count': 0,
+                'total_readings': 0,
+                'status': 'pass',
+                'details': f'No data found for {tag_name}',
+                'conversions_applied': 0
+            }
+
+            # Look for the already exported CSV file in _Data directory
+            data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
+            rtu_csv_file = None
+
+            # Look for RTU CSV files in _Data directory
+            if os.path.exists(data_dir):
+                for file in os.listdir(data_dir):
+                    if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
+                        rtu_csv_file = os.path.join(data_dir, file)
+                        break
+
+            # If no CSV found in _Data, look for any CSV with similar name to RTU file
+            if not rtu_csv_file:
+                base_name = os.path.splitext(os.path.basename(rtu_file))[0]
+                potential_csv = os.path.join(
+                    os.path.dirname(rtu_file), f"{base_name}.csv")
+                if os.path.exists(potential_csv):
+                    rtu_csv_file = potential_csv
+
+            if not rtu_csv_file or not os.path.exists(rtu_csv_file):
+                result['details'] = f'No exported CSV file found for RTU data. Please run CSV export first.'
+                result['status'] = 'fail'
+                return result
+
+            # Load the already exported CSV data
+            df = pd.read_csv(rtu_csv_file)
+
+            # Filter for the specific tag
+            tag_data = df[df['ident'].str.upper() == tag_name.upper()]
+
+            if tag_data.empty:
+                result['details'] = f'No data found for tag {tag_name}'
+                return result
+
+            # Get values and perform unit verification
+            values = tag_data['value'].dropna()
+            result['total_readings'] = len(values)
+
+            if signal_type.lower() == 'digital':
+                # Digital signals should only be 0 or 1 (dimensionless)
+                # Based on original logic - digital signals are binary
+                unit_issues = len(values[(values != 0) & (values != 1)])
+                result['unit_issues_count'] = unit_issues
+                result['conversions_applied'] = 0
+
+                if unit_issues == 0:
+                    result['status'] = 'pass'
+                    result[
+                        'details'] = 'Digital signal units verified: All values are 0 or 1 (dimensionless)'
+                else:
+                    result['status'] = 'fail'
+                    result['details'] = f'Digital signal unit issues: {unit_issues} values are not 0 or 1'
+
+            elif signal_type.lower() == 'analog':
+                # Analog signals - implement original unit_check logic
+                lower_bound, upper_bound = self._get_analog_bounds(tag_name)
+
+                # Expected range for values in correct units (m³/h) with tolerance
+                expected_min = lower_bound * 0.8  # 20% tolerance below
+                expected_max = upper_bound * 1.2  # 20% tolerance above
+
+                # Apply original unit_check logic
+                unit_issues = 0
+                conversions_applied = 0
+
+                for idx, value in enumerate(values):
+                    if pd.notna(value):
+                        # Check if value is in expected range (assumed m³/h)
+                        if expected_min <= value <= expected_max:
+                            # Value is in correct range, no conversion needed
+                            pass
+                        else:
+                            # Value outside expected range - might be in barrels/h
+                            # Try converting from barrels/h to m³/h using factor 6.2898
+                            converted_value = value / 6.2898
+                            if expected_min <= converted_value <= expected_max:
+                                conversions_applied += 1
+                            else:
+                                unit_issues += 1
+
+                result['unit_issues_count'] = unit_issues
+                result['conversions_applied'] = conversions_applied
+
+                # Determine status and details based on original logic
+                if unit_issues == 0 and conversions_applied == 0:
+                    result['status'] = 'pass'
+                    result['details'] = 'Units are all in m³/h'
+                elif unit_issues == 0 and conversions_applied > 0:
+                    result['status'] = 'pass'
+                    result[
+                        'details'] = f'Some units appeared in barrels/h, and were converted to m³/h ({conversions_applied} conversions)'
+                else:
+                    result['status'] = 'fail'
+                    result['details'] = f'Unit verification failed: {unit_issues} values outside expected range even after conversion attempts'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error in Test 1.2 for {tag_name}: {e}")
+            return {
+                'unit_issues_count': 0,
+                'total_readings': 0,
+                'status': 'fail',
+                'details': f'Test execution error: {str(e)}',
+                'conversions_applied': 0
+            }
 
     def get_test_results_summary(self) -> Dict[str, Any]:
         """Get test results formatted for UI display with pass/fail icons."""

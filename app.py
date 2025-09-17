@@ -155,4 +155,5 @@ if __name__ == "__main__":
     debug_from_config = config_manager.get_app_debug() and debug_mode
     port_from_config = config_manager.get_app_port()
 
-    app.run(debug=debug_from_config, host="127.0.0.1", port=port_from_config)
+    # app.run(debug=debug_from_config, host="127.0.0.1", port=port_from_config)
+    app.run(debug=True, host="127.0.0.1", port=port_from_config)

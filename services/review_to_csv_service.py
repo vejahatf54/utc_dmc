@@ -204,11 +204,36 @@ class ReviewCsvService:
             logger.warning("No CSV files to merge")
             return
 
-        df_list = [pd.read_csv(f) for f in csv_files]
-        merged_df = pd.concat(df_list)
+        df_list = []
+        for f in csv_files:
+            try:
+                # Read with error handling for inconsistent field counts
+                df = pd.read_csv(f, on_bad_lines='skip', engine='python')
+                if not df.empty:
+                    df_list.append(df)
+                    logger.info(f"Successfully read CSV file: {f.name} with {len(df)} rows")
+                else:
+                    logger.warning(f"CSV file {f.name} is empty, skipping")
+            except Exception as e:
+                logger.error(f"Error reading CSV file {f.name}: {e}")
+                # Try alternative reading methods
+                try:
+                    df = pd.read_csv(f, sep=',', quoting=1, on_bad_lines='skip', engine='python')
+                    if not df.empty:
+                        df_list.append(df)
+                        logger.info(f"Successfully read CSV file with alternative method: {f.name}")
+                except Exception as e2:
+                    logger.error(f"Failed to read CSV file {f.name} with alternative method: {e2}")
+                    continue
+
+        if not df_list:
+            logger.error("No valid CSV files could be read for merging")
+            return
+
+        merged_df = pd.concat(df_list, ignore_index=True)
         merged_path = self.folder_path / self.merged_file
         merged_df.to_csv(merged_path, index=False)
-        logger.info("Merged CSV saved to %s", merged_path)
+        logger.info("Merged CSV saved to %s with %d rows", merged_path, len(merged_df))
         
         # Clean up individual CSV files after successful merge
         for csv_file in csv_files:

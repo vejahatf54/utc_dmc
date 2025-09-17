@@ -24,10 +24,10 @@ rtu_file_component, rtu_file_store, rtu_file_ids = create_file_selector(
 
 csv_tags_component, csv_tags_store, csv_tags_ids = create_file_selector(
     component_id='flowmeter-csv-tags',
-    title="CSV Tags File (.csv)",
-    placeholder="Select CSV tags file (.csv extension)",
-    browse_button_text="Browse CSV File",
-    file_types="CSV Files (*.csv)"
+    title="Tags File (.in)",
+    placeholder="Select tags file (.in extension)",
+    browse_button_text="Browse Tags File",
+    file_types="Tags Files (*.in)"
 )
 
 review_file_component, review_file_store, review_file_ids = create_file_selector(
@@ -75,7 +75,7 @@ def create_flowmeter_acceptance_page():
                         dmc.Text([
                             "This tool automates the flowmeter acceptance process by analyzing RTU data, review files, ",
                             "and tag configurations to perform comprehensive reliability, accuracy, and robustness checks. ",
-                            "The analysis generates detailed reports with statistical analysis and visual plots."
+                            "The analysis generates detailed results with statistical analysis and visual plots."
                         ], size="sm", c="dimmed"),
                         dmc.Divider(),
                         dmc.Text("Required Files:", fw=500, size="sm"),
@@ -419,6 +419,9 @@ def create_flowmeter_acceptance_page():
         # File validation feedback
         html.Div(id="file-upload-feedback"),
 
+        # Notification container for this page
+        html.Div(id='flowmeter-notifications'),
+
         # Store components for file selectors
         rtu_file_store,
         csv_tags_store,
@@ -440,9 +443,6 @@ def validate_file_inputs(rtu_file, csv_file, review_file):
 
     if rtu_file and not rtu_file.lower().endswith('.dt'):
         warnings.append("RTU file should have .dt extension")
-
-    if csv_file and not csv_file.lower().endswith('.csv'):
-        warnings.append("CSV file should have .csv extension")
 
     if review_file and not review_file.lower().endswith('.review'):
         warnings.append("Review file should have .review extension")
@@ -541,7 +541,8 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
     [Output("analysis-loading", "visible"),
      Output("main-tabs", "value"),
      Output("analysis-results-content", "children"),
-     Output("results-tab", "disabled")],
+     Output("results-tab", "disabled"),
+     Output('flowmeter-notifications', 'children', allow_duplicate=True)],
     Input("run-analysis-btn", "n_clicks"),
     [State(rtu_file_ids['input'], "value"),
      State(csv_tags_ids['input'], "value"),
@@ -563,20 +564,30 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
      State("accuracy-check-2", "checked"),
      State("accuracy-check-3", "checked"),
      State("accuracy-check-4", "checked"),
-     State("accuracy-check-5", "checked")],
+     State("accuracy-check-5", "checked"),
+     State("plotly-theme-store", "data")],
     prevent_initial_call=True
 )
 def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time, end_time,
                            flat_threshold, min_flow, max_flow, accuracy_range,
-                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4, acc5):
+                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4, acc5, theme_data):
     """Run the flowmeter analysis with all parameters."""
     if not all([rtu_file, csv_file, review_file]):
+        missing_files_notification = dmc.Notification(
+            title="Missing Files",
+            message="Please select all required files (RTU, CSV Tags, and Review files).",
+            color="red",
+            autoClose=False,
+            action="show",
+            icon=BootstrapIcon(icon="exclamation-triangle")
+        )
+        
         return False, "setup", dmc.Alert(
             "Please select all required files (RTU, CSV Tags, and Review files).",
             title="Missing Files",
             color="red",
             icon=BootstrapIcon(icon="exclamation-triangle")
-        ), True
+        ), True, missing_files_notification
 
     try:
         # Show loading
@@ -683,13 +694,26 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
         selected_count = sum(checks_selected)
 
         # Generate comprehensive time series visualizations
-        plots = service.create_analysis_plots()
+        plots = service.create_analysis_plots(theme_data)
 
-        # Create comprehensive results display
+        # Create CSV export notification
+        csv_export_info = results.get('csv_export', {})
+        exported_files = csv_export_info.get('exported_files', [])
+        
+        csv_notification = dmc.Notification(
+            title="CSV Data Exported",
+            message=f"Successfully exported {len(exported_files)} CSV files to _Data directory: SCADATagID_DIG.csv, SCADATagID_ANL.csv, MBSTagID.csv, Reference_Meter.csv",
+            color="green",
+            autoClose=5000,
+            action="show",
+            icon=BootstrapIcon(icon="file-earmark-spreadsheet")
+        )
+
+        # Create comprehensive results display - ONLY SHOW RESULTS, NO FILE GENERATION
         results_content = dmc.Stack([
             # Success Alert
             dmc.Alert(
-                "Analysis completed successfully! Report generated: flowmeter_report",
+                "Analysis completed successfully!",
                 title="✅ Analysis Complete",
                 color="green",
                 icon=BootstrapIcon(icon="check-circle"),
@@ -704,30 +728,25 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                 ], gap="xs", mb="md"),
                 dmc.Tabs([
                     dmc.TabsList([
-                        dmc.TabsTab("Signal Comparison",
-                                    value="signal-comparison"),
-                        dmc.TabsTab("Statistical Analysis",
-                                    value="statistics"),
-                        dmc.TabsTab("Validation Metrics", value="validation"),
-                        dmc.TabsTab("Spectral Analysis", value="spectral")
+                        dmc.TabsTab("Test Overview",
+                                    value="test-overview"),
+                        dmc.TabsTab("Category Breakdown",
+                                    value="category-breakdown"),
+                        dmc.TabsTab("Success Rate", value="success-rate")
                     ], variant="pills"),
                     dmc.TabsPanel([
                         dcc.Graph(figure=plots.get(
-                            'signal_comparison', {}), style={'height': '500px'})
-                    ], value="signal-comparison"),
+                            'test_overview', {}), style={'height': '500px'})
+                    ], value="test-overview"),
                     dmc.TabsPanel([
-                        dcc.Graph(figure=plots.get('statistics', {}),
+                        dcc.Graph(figure=plots.get('category_breakdown', {}),
                                   style={'height': '500px'})
-                    ], value="statistics"),
+                    ], value="category-breakdown"),
                     dmc.TabsPanel([
-                        dcc.Graph(figure=plots.get('validation', {}),
+                        dcc.Graph(figure=plots.get('success_rate', {}),
                                   style={'height': '500px'})
-                    ], value="validation"),
-                    dmc.TabsPanel([
-                        dcc.Graph(figure=plots.get('spectral', {}),
-                                  style={'height': '500px'})
-                    ], value="spectral")
-                ], value="signal-comparison")
+                    ], value="success-rate")
+                ], value="test-overview")
             ], shadow="sm", p="lg", mb="lg"),
 
             # Analysis Summary Section
@@ -797,113 +816,21 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                         ], gap="xs")
                     ], withBorder=True, p="md")
                 ], cols=2, spacing="md")
-            ], shadow="sm", p="lg", mb="lg"),
-
-            # Output Files Section
-            dmc.Card([
-                dmc.Group([
-                    dmc.Title("Generated Files & Reports", order=3),
-                    BootstrapIcon(icon="folder2-open", width=20)
-                ], gap="xs", mb="md"),
-                dmc.SimpleGrid([
-                    dmc.Card([
-                        dmc.Stack([
-                            dmc.Group([
-                                BootstrapIcon(icon="file-text", width=16),
-                                dmc.Text("Final Reports", fw=500, c="blue")
-                            ], gap="xs"),
-                            dmc.Text("📁 Location: _Report/_final/",
-                                     size="sm", c="dimmed"),
-                            dmc.Text("📄 Detailed analysis reports", size="sm"),
-                            dmc.Text("📊 Statistical summaries", size="sm"),
-                            dmc.Text("✅ Pass/Fail results", size="sm")
-                        ], gap="xs")
-                    ], withBorder=True, p="md"),
-                    dmc.Card([
-                        dmc.Stack([
-                            dmc.Group([
-                                BootstrapIcon(icon="graph-up", width=16),
-                                dmc.Text("Interactive Plots",
-                                         fw=500, c="green")
-                            ], gap="xs"),
-                            dmc.Text("📁 Location: _Report/_images/",
-                                     size="sm", c="dimmed"),
-                            dmc.Text("📈 Time series plots", size="sm"),
-                            dmc.Text("📊 Statistical distributions", size="sm"),
-                            dmc.Text("🎯 Comparison charts", size="sm")
-                        ], gap="xs")
-                    ], withBorder=True, p="md"),
-                    dmc.Card([
-                        dmc.Stack([
-                            dmc.Group([
-                                BootstrapIcon(icon="database", width=16),
-                                dmc.Text("Processed Data", fw=500, c="teal")
-                            ], gap="xs"),
-                            dmc.Text("📁 Location: _Data/_review/",
-                                     size="sm", c="dimmed"),
-                            dmc.Text("🔄 Cleaned datasets", size="sm"),
-                            dmc.Text("📝 Analysis intermediates", size="sm"),
-                            dmc.Text("💾 Export-ready files", size="sm")
-                        ], gap="xs")
-                    ], withBorder=True, p="md"),
-                    dmc.Card([
-                        dmc.Stack([
-                            dmc.Group([
-                                BootstrapIcon(icon="bar-chart", width=16),
-                                dmc.Text("Tag Analysis", fw=500, c="orange")
-                            ], gap="xs"),
-                            dmc.Text("� Location: _Data/_rtu/",
-                                     size="sm", c="dimmed"),
-                            dmc.Text("🏷️ Flow tag results", size="sm"),
-                            dmc.Text("🌡️ Temperature tag results", size="sm"),
-                            dmc.Text("⚡ Pressure tag results", size="sm")
-                        ], gap="xs")
-                    ], withBorder=True, p="md")
-                ], cols=2, spacing="md")
-            ], shadow="sm", p="lg", mb="lg"),
-
-            # Next Steps Section
-            dmc.Card([
-                dmc.Group([
-                    dmc.Title("Next Steps", order=3),
-                    BootstrapIcon(icon="arrow-right-circle", width=20)
-                ], gap="xs", mb="md"),
-                dmc.Stack([
-                    dmc.Alert(
-                        "� Interactive Plotly visualizations have been generated and saved as HTML files for detailed viewing",
-                        color="blue",
-                        icon=BootstrapIcon(icon="info-circle")
-                    ),
-                    dmc.Group([
-                        dmc.Button(
-                            "Open Report Directory",
-                            leftSection=BootstrapIcon(
-                                icon="folder2-open", width=16),
-                            variant="filled",
-                            color="blue"
-                        ),
-                        dmc.Button(
-                            "View Interactive Plots",
-                            leftSection=BootstrapIcon(
-                                icon="graph-up", width=16),
-                            variant="outline",
-                            color="green"
-                        ),
-                        dmc.Button(
-                            "Export Data",
-                            leftSection=BootstrapIcon(
-                                icon="download", width=16),
-                            variant="outline",
-                            color="teal"
-                        )
-                    ], gap="md", justify="center")
-                ], gap="md")
-            ], shadow="sm", p="lg")
+            ], shadow="sm", p="lg", mb="lg")
         ], gap="lg")
 
-        return False, "results", results_content, False
+        return False, "results", results_content, False, csv_notification
 
     except Exception as e:
+        error_notification = dmc.Notification(
+            title="Analysis Failed",
+            message="Please check your input files and parameters, then try again.",
+            color="red",
+            autoClose=False,
+            action="show",
+            icon=BootstrapIcon(icon="exclamation-triangle")
+        )
+        
         return False, "results", dmc.Stack([
             dmc.Alert(
                 f"Analysis failed: {str(e)}",
@@ -913,7 +840,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             ),
             dmc.Text("Please check your input files and parameters, then try again.",
                      ta="center", c="dimmed", size="sm")
-        ], gap="md"), False
+        ], gap="md"), False, error_notification
 
 
 # Create file selector callbacks

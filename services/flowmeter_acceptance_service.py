@@ -178,7 +178,7 @@ class FlowmeterAcceptanceService:
             # Test 1.2 - Unit verification (only for digital signal as requested)
             digital_units_result = self._test_12_units_verified(
                 digital_tag, rtu_file, time_start, time_end, signal_type='digital')
-            
+
             # Test 1.3 - Quality verification for both digital and analog signals
             digital_quality_result = self._test_13_quality_is_good(
                 digital_tag, rtu_file, time_start, time_end, signal_type='digital')
@@ -565,29 +565,30 @@ class FlowmeterAcceptanceService:
                 'conversions_applied': 0
             }
 
-    def _test_13_quality_is_good(self, tag_name: str, rtu_file: str, 
-                                 time_start: str, time_end: str, 
+    def _test_13_quality_is_good(self, tag_name: str, rtu_file: str,
+                                 time_start: str, time_end: str,
                                  signal_type: str) -> Dict[str, Any]:
         """
         Test 1.3: Quality of the Signals is GOOD in the RTU File
-        
+
         Based on the original flowmeter acceptance reliability_check_3_function.
         Checks the 'quality' column in RTU data and counts how many readings
         are NOT "GOOD". 
-        
+
         Args:
             tag_name: The SCADA tag ID to check
             rtu_file: Path to RTU data file
             time_start: Start time for analysis
             time_end: End time for analysis  
             signal_type: 'digital' or 'analog'
-            
+
         Returns:
             Dictionary with test results including bad_quality_count and status
         """
         try:
-            self.logger.info(f"Running Test 1.3 for {signal_type} signal: {tag_name}")
-            
+            self.logger.info(
+                f"Running Test 1.3 for {signal_type} signal: {tag_name}")
+
             # Default result structure
             result = {
                 'bad_quality_count': 0,
@@ -596,59 +597,61 @@ class FlowmeterAcceptanceService:
                 'details': f'No data found for {tag_name}',
                 'good_quality_percentage': 0.0
             }
-            
+
             # Look for the already exported CSV file in _Data directory
             data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
             rtu_csv_file = None
-            
+
             # Look for RTU CSV files in _Data directory
             if os.path.exists(data_dir):
                 for file in os.listdir(data_dir):
                     if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
                         rtu_csv_file = os.path.join(data_dir, file)
                         break
-            
+
             # If no CSV found in _Data, look for any CSV with similar name to RTU file
             if not rtu_csv_file:
                 base_name = os.path.splitext(os.path.basename(rtu_file))[0]
-                potential_csv = os.path.join(os.path.dirname(rtu_file), f"{base_name}.csv")
+                potential_csv = os.path.join(
+                    os.path.dirname(rtu_file), f"{base_name}.csv")
                 if os.path.exists(potential_csv):
                     rtu_csv_file = potential_csv
-            
+
             if not rtu_csv_file or not os.path.exists(rtu_csv_file):
                 result['details'] = f'No exported CSV file found for RTU data. Please run CSV export first.'
                 result['status'] = 'fail'
                 return result
-            
+
             # Load the already exported CSV data
             df = pd.read_csv(rtu_csv_file)
-            
+
             # Filter for the specific tag
             tag_data = df[df['ident'].str.upper() == tag_name.upper()]
-            
+
             if tag_data.empty:
                 result['details'] = f'No data found for tag {tag_name}'
                 return result
-            
+
             # Check if quality column exists
             if 'quality' not in tag_data.columns:
                 result['details'] = f'No quality column found in RTU data for {tag_name}'
                 result['status'] = 'fail'
                 return result
-            
+
             # Count bad quality readings (following original logic)
             total_readings = len(tag_data)
             result['total_readings'] = total_readings
-            
+
             # Original logic: if quality != "GOOD", increment bad_quality
             bad_quality_count = len(tag_data[tag_data['quality'] != 'GOOD'])
             result['bad_quality_count'] = bad_quality_count
-            
+
             # Calculate good quality percentage
             if total_readings > 0:
                 good_quality_count = total_readings - bad_quality_count
-                result['good_quality_percentage'] = (good_quality_count / total_readings) * 100
-            
+                result['good_quality_percentage'] = (
+                    good_quality_count / total_readings) * 100
+
             # Determine status and details (following original logic)
             if bad_quality_count == 0:
                 result['status'] = 'pass'
@@ -656,9 +659,9 @@ class FlowmeterAcceptanceService:
             else:
                 result['status'] = 'fail'
                 result['details'] = f'BAD Quality present with {bad_quality_count} number of instances out of {total_readings} total readings'
-            
+
             return result
-            
+
         except Exception as e:
             self.logger.error(f"Error in Test 1.3 for {tag_name}: {e}")
             return {

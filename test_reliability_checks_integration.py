@@ -1,7 +1,7 @@
 """
-Integration Tests for Flowmeter Acceptance Tests 1.1-1.4, 2.1-2.2, 3.1-3.4
+Integration Tests for Flowmeter Acceptance Tests 1.1-1.4, 2.1-2.2, 3.1-3.4, 4.1-4.2
 
-14 integration tests using real L05 data:
+18 integration tests using real L05 data:
 - Test 1.1: Digital Signal Range 
 - Test 1.1: Analog Signal Range
 - Test 1.2: Digital Signal Units 
@@ -16,6 +16,10 @@ Integration Tests for Flowmeter Acceptance Tests 1.1-1.4, 2.1-2.2, 3.1-3.4
 - Test 3.2: Analog Signal SNR
 - Test 3.3: Target vs Digital Signal Comparison
 - Test 3.4: Target vs Reference Meter Comparison
+- Test 4.1: Digital Signal Stability Analysis
+- Test 4.1: Analog Signal Stability Analysis  
+- Test 4.2: Digital Signal Spectral Analysis
+- Test 4.2: Analog Signal Spectral Analysis
 
 Test Configuration:
 - Data Range: 1500-4000
@@ -403,3 +407,171 @@ def test_34_target_vs_reference_comparison(setup_test_environment, service):
     assert 'total_comparisons' in result
     assert 'values_within_range' in result
     assert 'reference_mean' in result
+
+
+def test_41_digital_signal_stability(setup_test_environment, service):
+    """Test 4.1: Digital Signal Stability Analysis - using actual L05 data"""
+    env = setup_test_environment
+
+    # Test parameters based on original flowmeter_main.py recommendations
+    WINDOW_SIZE = 50  # Rolling window size
+    DRIFT_THRESHOLD = 5.0  # 5% drift threshold
+    STABILITY_THRESHOLD = 90.0  # 90% stability threshold (original approach)
+
+    result = service._test_41_signal_stability(
+        DIGITAL_TAG, env['dummy_rtu_file'], 'digital',
+        window_size=WINDOW_SIZE,
+        drift_threshold=DRIFT_THRESHOLD,
+        stability_threshold=STABILITY_THRESHOLD,
+        data_dir=env['data_dir'])
+
+    assert result['total_readings'] > 0, "Should have readings for stability analysis"
+
+    if result['status'] == 'pass':
+        assert result[
+            'stability_percentage'] >= STABILITY_THRESHOLD, f"Should meet {STABILITY_THRESHOLD}% stability threshold"
+        assert result['stable_readings'] >= 0, "Stable readings should be non-negative"
+        assert result['mean_value'] > 0, "Mean value should be positive for flow data"
+        assert result['std_deviation'] >= 0, "Standard deviation should be non-negative"
+        env['logger'].info(
+            f"Test 4.1 Digital Stability: {result['stability_percentage']}% stable, "
+            f"Mean: {result['mean_value']}, Std: {result['std_deviation']}, "
+            f"Outliers: {result['outliers_count']}, Drift violations: {result['drift_violations']}")
+    else:
+        env['logger'].info(
+            f"Test 4.1 Digital Stability failed: {result['details']}")
+
+    # Verify result structure
+    assert 'stability_percentage' in result
+    assert 'outliers_count' in result
+    assert 'drift_violations' in result
+    assert 'stable_readings' in result
+    assert 'mean_value' in result
+    assert 'std_deviation' in result
+
+
+def test_41_analog_signal_stability(setup_test_environment, service):
+    """Test 4.1: Analog Signal Stability Analysis - using actual L05 data"""
+    env = setup_test_environment
+
+    # Test parameters based on original flowmeter_main.py recommendations
+    WINDOW_SIZE = 50  # Rolling window size
+    DRIFT_THRESHOLD = 5.0  # 5% drift threshold
+    STABILITY_THRESHOLD = 90.0  # 90% stability threshold (original approach)
+
+    result = service._test_41_signal_stability(
+        ANALOG_TAG, env['dummy_rtu_file'], 'analog',
+        window_size=WINDOW_SIZE,
+        drift_threshold=DRIFT_THRESHOLD,
+        stability_threshold=STABILITY_THRESHOLD,
+        data_dir=env['data_dir'])
+
+    assert result['total_readings'] > 0, "Should have readings for stability analysis"
+
+    if result['status'] == 'pass':
+        assert result[
+            'stability_percentage'] >= STABILITY_THRESHOLD, f"Should meet {STABILITY_THRESHOLD}% stability threshold"
+        assert result['stable_readings'] >= 0, "Stable readings should be non-negative"
+        assert result['mean_value'] > 0, "Mean value should be positive for flow data"
+        assert result['std_deviation'] >= 0, "Standard deviation should be non-negative"
+        env['logger'].info(
+            f"Test 4.1 Analog Stability: {result['stability_percentage']}% stable, "
+            f"Mean: {result['mean_value']}, Std: {result['std_deviation']}, "
+            f"Outliers: {result['outliers_count']}, Drift violations: {result['drift_violations']}")
+    else:
+        env['logger'].info(
+            f"Test 4.1 Analog Stability failed: {result['details']}")
+
+    # Verify result structure
+    assert 'stability_percentage' in result
+    assert 'outliers_count' in result
+    assert 'drift_violations' in result
+    assert 'stable_readings' in result
+    assert 'mean_value' in result
+    assert 'std_deviation' in result
+
+
+def test_42_digital_spectral_analysis(setup_test_environment, service):
+    """Test 4.2: Digital Signal Spectral Analysis - using actual L05 data"""
+    env = setup_test_environment
+
+    # Test parameters based on original flowmeter_main.py recommendations
+    NOISE_THRESHOLD = 15.0  # 15% noise threshold
+    LOW_FREQ_THRESHOLD = 0.05  # <0.05Hz dominant frequency for stability
+    ENTROPY_THRESHOLD = 0.7  # >0.7 spectral entropy
+
+    result = service._test_42_spectral_analysis(
+        DIGITAL_TAG, env['dummy_rtu_file'], 'digital',
+        noise_threshold=NOISE_THRESHOLD,
+        low_freq_threshold=LOW_FREQ_THRESHOLD,
+        entropy_threshold=ENTROPY_THRESHOLD,
+        data_dir=env['data_dir'])
+
+    assert result['total_readings'] >= 64, "Should have sufficient readings for FFT analysis"
+
+    if result['status'] == 'pass':
+        assert result[
+            'noise_level'] <= NOISE_THRESHOLD, f"Noise level should be ≤{NOISE_THRESHOLD}%"
+        assert result[
+            'dominant_frequency'] < LOW_FREQ_THRESHOLD, f"Dominant frequency should be <{LOW_FREQ_THRESHOLD}Hz"
+        assert result[
+            'spectral_entropy'] >= ENTROPY_THRESHOLD, f"Spectral entropy should be ≥{ENTROPY_THRESHOLD}"
+        assert result['sampling_rate'] > 0, "Sampling rate should be positive"
+        env['logger'].info(
+            f"Test 4.2 Digital Spectral: Noise={result['noise_level']}%, "
+            f"Dom.Freq={result['dominant_frequency']}Hz, Entropy={result['spectral_entropy']}, "
+            f"Sampling={result['sampling_rate']}Hz")
+    else:
+        env['logger'].info(
+            f"Test 4.2 Digital Spectral failed: {result['details']}")
+
+    # Verify result structure
+    assert 'dominant_frequency' in result
+    assert 'noise_level' in result
+    assert 'spectral_entropy' in result
+    assert 'low_frequency_power' in result
+    assert 'high_frequency_power' in result
+    assert 'sampling_rate' in result
+
+
+def test_42_analog_spectral_analysis(setup_test_environment, service):
+    """Test 4.2: Analog Signal Spectral Analysis - using actual L05 data"""
+    env = setup_test_environment
+
+    # Test parameters based on original flowmeter_main.py recommendations
+    NOISE_THRESHOLD = 15.0  # 15% noise threshold
+    LOW_FREQ_THRESHOLD = 0.05  # <0.05Hz dominant frequency for stability
+    ENTROPY_THRESHOLD = 0.7  # >0.7 spectral entropy
+
+    result = service._test_42_spectral_analysis(
+        ANALOG_TAG, env['dummy_rtu_file'], 'analog',
+        noise_threshold=NOISE_THRESHOLD,
+        low_freq_threshold=LOW_FREQ_THRESHOLD,
+        entropy_threshold=ENTROPY_THRESHOLD,
+        data_dir=env['data_dir'])
+
+    assert result['total_readings'] >= 64, "Should have sufficient readings for FFT analysis"
+
+    if result['status'] == 'pass':
+        assert result[
+            'noise_level'] <= NOISE_THRESHOLD, f"Noise level should be ≤{NOISE_THRESHOLD}%"
+        assert result[
+            'dominant_frequency'] < LOW_FREQ_THRESHOLD, f"Dominant frequency should be <{LOW_FREQ_THRESHOLD}Hz"
+        assert result[
+            'spectral_entropy'] >= ENTROPY_THRESHOLD, f"Spectral entropy should be ≥{ENTROPY_THRESHOLD}"
+        assert result['sampling_rate'] > 0, "Sampling rate should be positive"
+        env['logger'].info(
+            f"Test 4.2 Analog Spectral: Noise={result['noise_level']}%, "
+            f"Dom.Freq={result['dominant_frequency']}Hz, Entropy={result['spectral_entropy']}, "
+            f"Sampling={result['sampling_rate']}Hz")
+    else:
+        env['logger'].info(
+            f"Test 4.2 Analog Spectral failed: {result['details']}")
+
+    # Verify result structure
+    assert 'dominant_frequency' in result
+    assert 'noise_level' in result
+    assert 'spectral_entropy' in result
+    assert 'low_frequency_power' in result
+    assert 'high_frequency_power' in result
+    assert 'sampling_rate' in result

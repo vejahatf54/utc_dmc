@@ -285,6 +285,87 @@ def create_flowmeter_acceptance_page():
                                     ], gap="sm", style={"flex": "1"})
                                 ], align="stretch", gap="md"),
                             ], shadow="sm", p="md"),
+                            dmc.Card([
+                                dmc.Group([
+                                    dmc.Text("Robustness Parameters",
+                                             fw=600, size="md"),
+                                    BootstrapIcon(icon="cpu", width=16)
+                                ], gap="xs", mb="lg"),
+                                dmc.Group([
+                                    # First column - Signal Stability (Test 4.1)
+                                    dmc.Stack([
+                                        dmc.Text(
+                                            "Test 4.1 - Signal Stability", size="sm", fw=500, c="dimmed"),
+                                        dmc.NumberInput(
+                                            label="Window Size",
+                                            id="stability-window-input",
+                                            value=50,
+                                            min=10,
+                                            max=200,
+                                            size="sm",
+                                            description="Rolling window size for stability analysis"
+                                        ),
+                                        dmc.NumberInput(
+                                            label="Drift Threshold (%)",
+                                            id="drift-threshold-input",
+                                            value=5.0,
+                                            min=0.1,
+                                            max=20.0,
+                                            step=0.1,
+                                            size="sm",
+                                            description="Max allowed drift from mean"
+                                        ),
+                                        dmc.NumberInput(
+                                            label="Stability Threshold (%)",
+                                            id="stability-threshold-input",
+                                            value=90.0,
+                                            min=50.0,
+                                            max=100.0,
+                                            step=1.0,
+                                            size="sm",
+                                            description="Required percentage of stable readings"
+                                        )
+                                    ], gap="xs", style={"flex": "1"}),
+                                    # Vertical divider
+                                    dmc.Divider(
+                                        orientation="vertical", size="sm"),
+                                    # Second column - Spectral Analysis (Test 4.2)
+                                    dmc.Stack([
+                                        dmc.Text(
+                                            "Test 4.2 - Spectral Analysis", size="sm", fw=500, c="dimmed"),
+                                        dmc.NumberInput(
+                                            label="Noise Threshold (%)",
+                                            id="noise-threshold-input",
+                                            value=15.0,
+                                            min=1.0,
+                                            max=50.0,
+                                            step=0.1,
+                                            size="sm",
+                                            description="Max allowed high-frequency noise"
+                                        ),
+                                        dmc.NumberInput(
+                                            label="Low Freq Cutoff (Hz)",
+                                            id="low-freq-cutoff-input",
+                                            value=0.05,
+                                            min=0.001,
+                                            max=1.0,
+                                            step=0.001,
+                                            size="sm",
+                                            description="Frequency threshold for stability"
+                                        ),
+                                        dmc.NumberInput(
+                                            label="Entropy Threshold",
+                                            id="entropy-threshold-input",
+                                            value=0.7,
+                                            min=0.1,
+                                            max=1.0,
+                                            step=0.01,
+                                            size="sm",
+                                            description="Min spectral entropy for good signal"
+                                        )
+                                    ], gap="xs", style={"flex": "1"})
+                                ], align="stretch", gap="md"),
+                            ], shadow="sm", p="md"),
                         ], gap="md"),
                         # Column 2
                         dmc.Stack([
@@ -565,12 +646,20 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
      State("accuracy-check-2", "checked"),
      State("accuracy-check-3", "checked"),
      State("accuracy-check-4", "checked"),
+     State("stability-window-input", "value"),
+     State("drift-threshold-input", "value"),
+     State("stability-threshold-input", "value"),
+     State("noise-threshold-input", "value"),
+     State("low-freq-cutoff-input", "value"),
+     State("entropy-threshold-input", "value"),
      State("plotly-theme-store", "data")],
     prevent_initial_call=True
 )
 def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time, end_time,
                            flat_threshold, min_flow, max_flow, accuracy_range,
-                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, rob2, acc1, acc2, acc3, acc4, theme_data):
+                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, rob2, acc1, acc2, acc3, acc4,
+                           stability_window, drift_threshold, stability_threshold,
+                           noise_threshold, low_freq_cutoff, entropy_threshold, theme_data):
     """Run the flowmeter analysis with all parameters."""
     if not all([rtu_file, csv_file, review_file]):
         missing_files_notification = dmc.Notification(
@@ -682,7 +771,14 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             'accuracy_check_1': acc1,
             'accuracy_check_2': acc2,
             'accuracy_check_3': acc3,
-            'accuracy_check_4': acc4
+            'accuracy_check_4': acc4,
+            # Robustness Test Parameters
+            'stability_window_size': int(stability_window) if stability_window else 50,
+            'drift_threshold': float(drift_threshold) if drift_threshold else 5.0,
+            'stability_threshold': float(stability_threshold) if stability_threshold else 90.0,
+            'noise_threshold': float(noise_threshold) if noise_threshold else 15.0,
+            'low_freq_cutoff': float(low_freq_cutoff) if low_freq_cutoff else 0.05,
+            'entropy_threshold': float(entropy_threshold) if entropy_threshold else 0.7
         }
 
         # Run analysis
@@ -794,6 +890,12 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                                 f"🌊 Flow Range: {min_flow or 'Auto'} - {max_flow or 'Auto'}", size="sm"),
                             dmc.Text(
                                 f"🎯 Accuracy Range: ±{accuracy_range}", size="sm"),
+                            dmc.Text(
+                                f"💪 Stability Window: {stability_window or 50}", size="sm"),
+                            dmc.Text(
+                                f"💪 Drift Threshold: {drift_threshold or 5.0}%", size="sm"),
+                            dmc.Text(
+                                f"💪 Noise Threshold: {noise_threshold or 15.0}%", size="sm"),
                             dmc.Text(
                                 f"📈 Total Checks: {selected_count}/12", size="sm")
                         ], gap="xs")

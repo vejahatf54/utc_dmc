@@ -48,12 +48,21 @@ class FlowmeterAcceptanceService:
             theme_data = params.get('theme_data', {})
             self.current_theme = theme_data.get('template', 'mantine_light')
 
-            # Get file paths
+            # Get file paths and UI parameters
             rtu_file = params['rtu_file']
             review_file = params['review_file']
             tags_file = params['csv_tags_file']
             time_start = params['time_start']
             time_end = params['time_end']
+
+            # Extract UI parameters (no hardcoding in service)
+            min_range = params.get('min_range', 0.0)
+            max_range = params.get('max_range', 10000.0)
+            min_q = params.get('min_q', 100.0)
+            max_q = params.get('max_q', 15000.0)
+            flat_threshold = params.get('flat_threshold', 0.5)
+            accuracy_range = params.get('accuracy_range', 2.0)
+            data_dir = params.get('data_dir')
 
             # Load tags configuration (Tags.in format only)
             self.tags_df = pd.read_csv(tags_file)
@@ -81,10 +90,11 @@ class FlowmeterAcceptanceService:
 
                 self.logger.info(f"Processing meter: {meter_name}")
 
-                # Run tests for this meter
+                # Run tests for this meter with UI parameters
                 meter_results = self._run_meter_tests(
                     meter_name, digital_tag, analog_tag, ref_tag,
-                    rtu_file, review_file, time_start, time_end
+                    rtu_file, review_file, time_start, time_end,
+                    min_range, max_range, min_q, max_q, flat_threshold, data_dir
                 )
 
                 self.test_results[meter_name] = meter_results
@@ -110,7 +120,9 @@ class FlowmeterAcceptanceService:
 
     def _run_meter_tests(self, meter_name: str, digital_tag: str, analog_tag: str,
                          ref_tag: str, rtu_file: str, review_file: str,
-                         time_start: str, time_end: str) -> Dict[str, Any]:
+                         time_start: str, time_end: str, min_range: float, max_range: float,
+                         min_q: float, max_q: float, flat_threshold: float,
+                         data_dir: str = None) -> Dict[str, Any]:
         """Run tests for a single meter and return results."""
         results = {
             'meter_name': meter_name,
@@ -150,85 +162,89 @@ class FlowmeterAcceptanceService:
                 }
             }
 
-            # Test 2: Timeliness
+            # Test 2.1 and 2.2 - Timeliness and Completeness checks
+            digital_time_result = self._test_21_time_differences(
+                digital_tag, rtu_file, 'digital', data_dir)
+            analog_time_result = self._test_21_time_differences(
+                analog_tag, rtu_file, 'analog', data_dir)
+            flat_result = self._test_22_flat_attribute(
+                meter_name, review_file, flat_threshold, data_dir)
+
             results['timeliness_tests'] = {
-                'Time Synchronization': {
-                    'status': 'pass',
-                    'value': '< 5 sec',
-                    'description': 'Time difference within acceptable range'
+                'Test 2.1 - Digital Signal Time Diff': {
+                    'status': digital_time_result['status'],
+                    'value': f"Max: {digital_time_result['max_time_diff']}s, Mean: {digital_time_result['mean_time_diff']}s",
+                    'description': 'Digital signal time differences between readings'
                 },
-                'Data Completeness': {
-                    'status': 'pass',
-                    'value': '98%',
-                    'description': 'Data completeness above threshold'
+                'Test 2.1 - Analog Signal Time Diff': {
+                    'status': analog_time_result['status'],
+                    'value': f"Max: {analog_time_result['max_time_diff']}s, Mean: {analog_time_result['mean_time_diff']}s",
+                    'description': 'Analog signal time differences between readings'
                 },
-                'Update Frequency': {
-                    'status': 'pass',
-                    'value': 'Normal',
-                    'description': 'Regular data updates detected'
+                'Test 2.2 - FLAT Attribute Check': {
+                    'status': flat_result['status'],
+                    'value': flat_result['flat_check_status'],
+                    'description': f'FLAT attribute <= {flat_threshold} (excluding shutdown periods)'
                 }
             }
 
-            # Test 3: Accuracy - Modified for separate digital and analog signals
+            # Test 1.1 - Range verification for both digital and analog signals
             digital_range_result = self._test_11_readings_within_range(
-                digital_tag, rtu_file, time_start, time_end, signal_type='digital')
+                digital_tag, rtu_file, 'digital', min_range, max_range, data_dir)
             analog_range_result = self._test_11_readings_within_range(
-                analog_tag, rtu_file, time_start, time_end, signal_type='analog')
+                analog_tag, rtu_file, 'analog', min_range, max_range, data_dir)
 
-            # Test 1.2 - Unit verification (only for digital signal as requested)
+            # Test 1.2 - Unit verification for both digital and analog signals
             digital_units_result = self._test_12_units_verified(
-                digital_tag, rtu_file, time_start, time_end, signal_type='digital')
+                digital_tag, rtu_file, 'digital', min_q, max_q, data_dir)
+            analog_units_result = self._test_12_units_verified(
+                analog_tag, rtu_file, 'analog', min_q, max_q, data_dir)
 
             # Test 1.3 - Quality verification for both digital and analog signals
             digital_quality_result = self._test_13_quality_is_good(
-                digital_tag, rtu_file, time_start, time_end, signal_type='digital')
+                digital_tag, rtu_file, 'digital', data_dir)
             analog_quality_result = self._test_13_quality_is_good(
-                analog_tag, rtu_file, time_start, time_end, signal_type='analog')
+                analog_tag, rtu_file, 'analog', data_dir)
 
             # Test 1.4 - Quality verification in Review file
             review_quality_result = self._test_14_quality_review(
-                meter_name, review_file, time_start, time_end)
+                meter_name, review_file, data_dir)
 
             results['accuracy_tests'] = {
                 'Test 1.1 - Digital Signal Range': {
                     'status': digital_range_result['status'],
                     'value': f"{digital_range_result['out_of_range_count']} out of range",
-                    'description': f'Digital signal readings within expected range (0-1 for digital)'
+                    'description': 'Digital signal readings within expected range'
                 },
                 'Test 1.1 - Analog Signal Range': {
                     'status': analog_range_result['status'],
                     'value': f"{analog_range_result['out_of_range_count']} out of range",
-                    'description': f'Analog signal readings within operational range'
+                    'description': 'Analog signal readings within operational range'
                 },
                 'Test 1.2 - Digital Signal Units': {
                     'status': digital_units_result['status'],
                     'value': f"{digital_units_result['conversions_applied']} conversions applied",
-                    'description': f'Digital signal measurement units verified'
+                    'description': 'Digital signal measurement units verified'
+                },
+                'Test 1.2 - Analog Signal Units': {
+                    'status': analog_units_result['status'],
+                    'value': f"{analog_units_result['conversions_applied']} conversions applied",
+                    'description': 'Analog signal measurement units verified'
                 },
                 'Test 1.3 - Digital Signal Quality': {
                     'status': digital_quality_result['status'],
                     'value': f"{digital_quality_result['bad_quality_count']} bad quality readings",
-                    'description': f'Digital signal quality is GOOD in RTU file'
+                    'description': 'Digital signal quality is GOOD in RTU file'
                 },
                 'Test 1.3 - Analog Signal Quality': {
                     'status': analog_quality_result['status'],
                     'value': f"{analog_quality_result['bad_quality_count']} bad quality readings",
-                    'description': f'Analog signal quality is GOOD in RTU file'
+                    'description': 'Analog signal quality is GOOD in RTU file'
                 },
                 'Test 1.4 - Review File Quality': {
                     'status': review_quality_result['status'],
                     'value': f"{review_quality_result['bad_status_count']} bad status readings",
-                    'description': f'Review file status values are GOOD (ST=1)'
-                },
-                'Comparison Test': {
-                    'status': 'pass',
-                    'value': '< 2% deviation',
-                    'description': 'RTU vs Review comparison'
-                },
-                'Statistical Analysis': {
-                    'status': 'pass',
-                    'value': 'Normal distribution',
-                    'description': 'Statistical properties acceptable'
+                    'description': 'Review file status values are GOOD (ST=1)'
                 }
             }            # Determine overall status
             all_tests = []
@@ -264,20 +280,17 @@ class FlowmeterAcceptanceService:
             return False
 
     def _test_11_readings_within_range(self, tag_name: str, rtu_file: str,
-                                       time_start: str, time_end: str,
-                                       signal_type: str, min_range: float = None,
-                                       max_range: float = None, data_dir: str = None) -> Dict[str, Any]:
+                                       signal_type: str, min_range: float,
+                                       max_range: float, data_dir: str = None) -> Dict[str, Any]:
         """
         Test 1.1: Readings within Expected Range of Operation
 
-        This test checks if the readings from the specified tag are within 
-        the expected operational range. Range values come from UI parameters.
+        Matches original flowmeter_main.py logic - counts readings outside lower/upper bounds.
+        CSV is already filtered by date range, no need to filter again.
 
         Args:
             tag_name: The SCADA tag ID to check
-            rtu_file: Path to RTU data file
-            time_start: Start time for analysis
-            time_end: End time for analysis  
+            rtu_file: Path to RTU data file (used to determine data directory)
             signal_type: 'digital' or 'analog'
             min_range: Minimum acceptable range value (from UI)
             max_range: Maximum acceptable range value (from UI)
@@ -298,109 +311,57 @@ class FlowmeterAcceptanceService:
                 'details': f'No data found for {tag_name}'
             }
 
-            # Check if RTU file exists
-            if not os.path.exists(rtu_file):
+            # Determine data directory
+            if data_dir is None:
+                data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
+
+            # Determine CSV file based on signal type
+            if signal_type.lower() == 'digital':
+                csv_file = os.path.join(data_dir, "SCADATagID_DIG.csv")
+            elif signal_type.lower() == 'analog':
+                csv_file = os.path.join(data_dir, "SCADATagID_ANL.csv")
+            else:
                 result['status'] = 'fail'
-                result['details'] = f'RTU file not found: {rtu_file}'
+                result['details'] = f'Unknown signal type: {signal_type}'
                 return result
 
-            # Try to load and process RTU data from already exported CSV
-            try:
-                # Look for the already exported CSV file in data directory
-                if data_dir is None:
-                    data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
-                rtu_csv_file = None
-
-                # Look for RTU CSV files in _Data directory
-                if os.path.exists(data_dir):
-                    # First try to find signal-specific files
-                    if signal_type.lower() == 'digital':
-                        scada_file = os.path.join(
-                            data_dir, "SCADATagID_DIG.csv")
-                        if os.path.exists(scada_file):
-                            rtu_csv_file = scada_file
-                    elif signal_type.lower() == 'analog':
-                        scada_file = os.path.join(
-                            data_dir, "SCADATagID_ANL.csv")
-                        if os.path.exists(scada_file):
-                            rtu_csv_file = scada_file
-
-                    # If no signal-specific file found, look for RTU files
-                    if not rtu_csv_file:
-                        for file in os.listdir(data_dir):
-                            if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
-                                rtu_csv_file = os.path.join(data_dir, file)
-                                break
-
-                # If no CSV found in _Data, look for any CSV with similar name to RTU file
-                if not rtu_csv_file:
-                    base_name = os.path.splitext(os.path.basename(rtu_file))[0]
-                    potential_csv = os.path.join(
-                        os.path.dirname(rtu_file), f"{base_name}.csv")
-                    if os.path.exists(potential_csv):
-                        rtu_csv_file = potential_csv
-
-                if not rtu_csv_file or not os.path.exists(rtu_csv_file):
-                    result['details'] = f'No exported CSV file found for RTU data. Please run CSV export first.'
-                    result['status'] = 'fail'
-                    return result
-
-                self.logger.info(f"Using exported CSV file: {rtu_csv_file}")
-                # Load the already exported CSV data
-                df = pd.read_csv(rtu_csv_file)
-
-                # Filter for the specific tag (check both 'ident' and 'tag_name' columns)
-                if 'ident' in df.columns:
-                    tag_data = df[df['ident'].str.upper() == tag_name.upper()]
-                elif 'tag_name' in df.columns:
-                    tag_data = df[df['tag_name'].str.upper() ==
-                                  tag_name.upper()]
-                else:
-                    result['details'] = f'No tag identifier column found (expected ident or tag_name)'
-                    result['status'] = 'fail'
-                    return result
-
-                if tag_data.empty:
-                    result['details'] = f'No data found for tag {tag_name}'
-                    return result
-
-                # Filter by time range if specified
-                if time_start and time_end:
-                    # Convert time strings to datetime for filtering
-                    # This would need proper time conversion logic
-                    pass
-
-                # Get values and check ranges
-                values = tag_data['value'].dropna()
-                result['total_readings'] = len(values)
-
-                # Use provided range parameters or fallback to defaults
-                if min_range is not None and max_range is not None:
-                    min_flow, max_flow = min_range, max_range
-                else:
-                    # Fallback to bounds from tags file or defaults
-                    min_flow, max_flow = self._get_analog_bounds(tag_name)
-
-                out_of_range = values[(values < min_flow)
-                                      | (values > max_flow)]
-                result['out_of_range_count'] = len(out_of_range)
-                result['details'] = f'{signal_type.title()} signal range check ({min_flow}-{max_flow}): {result["out_of_range_count"]} out of {result["total_readings"]} readings out of range'
-
-                # Determine pass/fail status
-                # Pass if less than 5% of readings are out of range
-                if result['total_readings'] > 0:
-                    out_of_range_percentage = (
-                        result['out_of_range_count'] / result['total_readings']) * 100
-                    result['status'] = 'pass' if out_of_range_percentage < 5.0 else 'fail'
-                else:
-                    result['status'] = 'fail'
-                    result['details'] = 'No valid readings found'
-
-            except Exception as data_error:
-                self.logger.error(
-                    f"Error processing data for {tag_name}: {data_error}")
+            if not os.path.exists(csv_file):
                 result['status'] = 'fail'
-                result['details'] = f'Data processing error: {str(data_error)}'
+                result['details'] = f'CSV file not found: {csv_file}'
+                return result
+
+            # Load CSV data
+            df = pd.read_csv(csv_file)
+
+            # Filter for the specific tag using tag_name column (matches CSV format)
+            if 'tag_name' not in df.columns:
+                result['status'] = 'fail'
+                result['details'] = f'No tag_name column found in {csv_file}'
+                return result
+
+            tag_data = df[df['tag_name'] == tag_name]
+
+            if tag_data.empty:
+                result['details'] = f'No data found for tag {tag_name}'
+                result['status'] = 'fail'
+                return result
+
+            # Get values and check ranges (matches original logic)
+            values = tag_data['value'].dropna()
+            result['total_readings'] = len(values)
+
+            if result['total_readings'] == 0:
+                result['status'] = 'fail'
+                result['details'] = 'No valid readings found'
+                return result
+
+            # Count values outside range (original logic: >= lower_bound AND <= upper_bound)
+            out_of_range = values[(values < min_range) | (values > max_range)]
+            result['out_of_range_count'] = len(out_of_range)
+
+            # Original logic uses simple count, not percentage
+            result['status'] = 'pass' if result['out_of_range_count'] == 0 else 'fail'
+            result['details'] = f'{signal_type.title()} signal range check ({min_range}-{max_range}): {result["out_of_range_count"]} out of {result["total_readings"]} readings out of range'
 
             return result
 
@@ -413,67 +374,23 @@ class FlowmeterAcceptanceService:
                 'details': f'Test execution error: {str(e)}'
             }
 
-    def _get_analog_bounds(self, tag_name: str) -> tuple:
-        """
-        Get the operational bounds for an analog signal.
-
-        Looks for bounds in the tags configuration file, or uses defaults.
-
-        Args:
-            tag_name: The SCADA tag ID
-
-        Returns:
-            Tuple of (min_value, max_value)
-        """
-        try:
-            if self.tags_df is not None:
-                # Look for the tag in the tags dataframe
-                # Check both digital and analog columns for the tag
-                digital_match = self.tags_df[self.tags_df['SCADATagID_DIG'].str.upper(
-                ) == tag_name.upper()]
-                analog_match = self.tags_df[self.tags_df['SCADATagID_ANL'].str.upper(
-                ) == tag_name.upper()]
-
-                # Use bounds from tags file if available
-                if not digital_match.empty and 'LowerBound' in self.tags_df.columns and 'UpperBound' in self.tags_df.columns:
-                    lower = digital_match['LowerBound'].iloc[0] if pd.notna(
-                        digital_match['LowerBound'].iloc[0]) else 0.0
-                    upper = digital_match['UpperBound'].iloc[0] if pd.notna(
-                        digital_match['UpperBound'].iloc[0]) else 1000.0
-                    return (float(lower), float(upper))
-                elif not analog_match.empty and 'LowerBound' in self.tags_df.columns and 'UpperBound' in self.tags_df.columns:
-                    lower = analog_match['LowerBound'].iloc[0] if pd.notna(
-                        analog_match['LowerBound'].iloc[0]) else 0.0
-                    upper = analog_match['UpperBound'].iloc[0] if pd.notna(
-                        analog_match['UpperBound'].iloc[0]) else 1000.0
-                    return (float(lower), float(upper))
-
-        except Exception as e:
-            self.logger.warning(
-                f"Could not get bounds from tags file for {tag_name}: {e}")
-
-        # No default bounds - should come from UI parameters
-        # Return None to indicate bounds should be provided by caller
-        return (None, None)
-
     def _test_12_units_verified(self, tag_name: str, rtu_file: str,
-                                time_start: str, time_end: str,
-                                signal_type: str, min_range: float = None,
-                                max_range: float = None, data_dir: str = None) -> Dict[str, Any]:
+                                signal_type: str, min_q: float, max_q: float,
+                                data_dir: str = None) -> Dict[str, Any]:
         """
         Test 1.2: Measurement Units were Verified
 
-        Based on the original flowmeter acceptance unit_check method.
-        For digital signals: Verifies values are 0 or 1 (dimensionless)
-        For analog signals: Checks if values are in expected unit range and
-        detects potential unit mismatches (e.g., barrels/h vs m³/h)
+        Matches original flowmeter_main.py unit_check logic exactly.
+        Checks if values are in m³/h using min_Q/max_Q tolerance (80%-120%).
+        If outside range, attempts conversion from barrels/h using factor 6.2898.
 
         Args:
-            tag_name: The SCADA tag ID to check
+            tag_name: The SCADA tag ID to check  
             rtu_file: Path to RTU data file
-            time_start: Start time for analysis
-            time_end: End time for analysis  
             signal_type: 'digital' or 'analog'
+            min_q: Minimum operating flowrate (from UI)
+            max_q: Maximum operating flowrate (from UI)
+            data_dir: Directory containing CSV data files
 
         Returns:
             Dictionary with test results including conversions_applied and status
@@ -491,147 +408,79 @@ class FlowmeterAcceptanceService:
                 'conversions_applied': 0
             }
 
-            # Look for the already exported CSV file in _Data directory
+            # Determine data directory
             if data_dir is None:
                 data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
-            rtu_csv_file = None
 
-            # Look for RTU CSV files in _Data directory
-            if os.path.exists(data_dir):
-                # First try to find signal-specific files
-                if signal_type.lower() == 'digital':
-                    scada_file = os.path.join(data_dir, "SCADATagID_DIG.csv")
-                    if os.path.exists(scada_file):
-                        rtu_csv_file = scada_file
-                elif signal_type.lower() == 'analog':
-                    scada_file = os.path.join(data_dir, "SCADATagID_ANL.csv")
-                    if os.path.exists(scada_file):
-                        rtu_csv_file = scada_file
-
-                # If no signal-specific file found, look for RTU files
-                if not rtu_csv_file:
-                    for file in os.listdir(data_dir):
-                        if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
-                            rtu_csv_file = os.path.join(data_dir, file)
-                            break
-
-            # If no CSV found in _Data, look for any CSV with similar name to RTU file
-            if not rtu_csv_file:
-                base_name = os.path.splitext(os.path.basename(rtu_file))[0]
-                potential_csv = os.path.join(
-                    os.path.dirname(rtu_file), f"{base_name}.csv")
-                if os.path.exists(potential_csv):
-                    rtu_csv_file = potential_csv
-
-            if not rtu_csv_file or not os.path.exists(rtu_csv_file):
-                result['details'] = f'No exported CSV file found for RTU data. Please run CSV export first.'
+            # Determine CSV file based on signal type
+            if signal_type.lower() == 'digital':
+                csv_file = os.path.join(data_dir, "SCADATagID_DIG.csv")
+            elif signal_type.lower() == 'analog':
+                csv_file = os.path.join(data_dir, "SCADATagID_ANL.csv")
+            else:
                 result['status'] = 'fail'
+                result['details'] = f'Unknown signal type: {signal_type}'
                 return result
 
-            # Load the already exported CSV data
-            df = pd.read_csv(rtu_csv_file)
+            if not os.path.exists(csv_file):
+                result['status'] = 'fail'
+                result['details'] = f'CSV file not found: {csv_file}'
+                return result
+
+            # Load CSV data
+            df = pd.read_csv(csv_file)
 
             # Filter for the specific tag
-            # Filter for the specific tag (check both 'ident' and 'tag_name' columns)
-            if 'ident' in df.columns:
-                tag_data = df[df['ident'].str.upper() == tag_name.upper()]
-            elif 'tag_name' in df.columns:
-                tag_data = df[df['tag_name'].str.upper() == tag_name.upper()]
-            else:
-                result['details'] = f'No tag identifier column found (expected ident or tag_name)'
+            if 'tag_name' not in df.columns:
+                result['status'] = 'fail'
+                result['details'] = f'No tag_name column found in {csv_file}'
+                return result
+
+            tag_data = df[df['tag_name'] == tag_name]
+
+            if tag_data.empty:
+                result['details'] = f'No data found for tag {tag_name}'
                 result['status'] = 'fail'
                 return result
 
-            if tag_data.empty:
-                result['details'] = f'No data found for tag {tag_name}'
-                return result
-
-            tag_data = tag_data
-
-            if tag_data.empty:
-                result['details'] = f'No data found for tag {tag_name}'
-                return result
-
-            # Get values and perform unit verification
-            values = tag_data['value'].dropna()
+            # Get values and perform unit verification (original logic)
+            values = tag_data['value'].dropna().tolist()
             result['total_readings'] = len(values)
 
-            if signal_type.lower() == 'digital':
-                # Check if digital values are actually flow rates (not binary 0/1)
-                if values.min() > 100 or values.max() > 100:
-                    # These are flow rate values, treat as analog for unit verification
-                    lower_bound, upper_bound = self._get_analog_bounds(
-                        tag_name)
+            if result['total_readings'] == 0:
+                result['status'] = 'fail'
+                result['details'] = 'No valid readings found'
+                return result
 
-                    # Check if values are in expected unit range
-                    unit_issues = len(
-                        values[(values < lower_bound) | (values > upper_bound)])
-                    result['unit_issues_count'] = unit_issues
-                    result['conversions_applied'] = 0
+            # Apply original unit_check logic exactly
+            wrong_unit_instance = 0
+            conversions_applied = 0
 
-                    if unit_issues == 0:
-                        result['status'] = 'pass'
-                        result[
-                            'details'] = f'Digital signal units verified: All values in expected range ({lower_bound}-{upper_bound})'
-                    else:
-                        result['status'] = 'fail'
-                        result[
-                            'details'] = f'Digital signal unit issues: {unit_issues} values outside expected range ({lower_bound}-{upper_bound})'
+            # Calculate tolerance range (original logic: 80% to 120% of min/max Q)
+            min_acceptable = 0.8 * min_q
+            max_acceptable = 1.2 * max_q
+
+            for index in range(len(values)):
+                if min_acceptable <= values[index] <= max_acceptable:
+                    # Value is in expected m³/h range, no conversion needed
+                    pass
                 else:
-                    # True digital signals should only be 0 or 1 (dimensionless)
-                    unit_issues = len(values[(values != 0) & (values != 1)])
-                    result['unit_issues_count'] = unit_issues
-                    result['conversions_applied'] = 0
+                    # Value outside expected range - convert from barrels/h to m³/h
+                    wrong_unit_instance += 1
+                    values[index] = values[index] / \
+                        6.2898  # Original conversion factor
+                    conversions_applied += 1
 
-                    if unit_issues == 0:
-                        result['status'] = 'pass'
-                        result[
-                            'details'] = 'Digital signal units verified: All values are 0 or 1 (dimensionless)'
-                    else:
-                        result['status'] = 'fail'
-                        result['details'] = f'Digital signal unit issues: {unit_issues} values are not 0 or 1'
+            result['conversions_applied'] = conversions_applied
 
-            elif signal_type.lower() == 'analog':
-                # Analog signals - implement original unit_check logic
-                lower_bound, upper_bound = self._get_analog_bounds(tag_name)
-
-                # Expected range for values in correct units (m³/h) with tolerance
-                expected_min = lower_bound * 0.8  # 20% tolerance below
-                expected_max = upper_bound * 1.2  # 20% tolerance above
-
-                # Apply original unit_check logic
-                unit_issues = 0
-                conversions_applied = 0
-
-                for idx, value in enumerate(values):
-                    if pd.notna(value):
-                        # Check if value is in expected range (assumed m³/h)
-                        if expected_min <= value <= expected_max:
-                            # Value is in correct range, no conversion needed
-                            pass
-                        else:
-                            # Value outside expected range - might be in barrels/h
-                            # Try converting from barrels/h to m³/h using factor 6.2898
-                            converted_value = value / 6.2898
-                            if expected_min <= converted_value <= expected_max:
-                                conversions_applied += 1
-                            else:
-                                unit_issues += 1
-
-                result['unit_issues_count'] = unit_issues
-                result['conversions_applied'] = conversions_applied
-
-                # Determine status and details based on original logic
-                if unit_issues == 0 and conversions_applied == 0:
-                    result['status'] = 'pass'
-                    result['details'] = 'Units are all in m³/h'
-                elif unit_issues == 0 and conversions_applied > 0:
-                    result['status'] = 'pass'
-                    result[
-                        'details'] = f'Some units appeared in barrels/h, and were converted to m³/h ({conversions_applied} conversions)'
-                else:
-                    result['status'] = 'fail'
-                    result['details'] = f'Unit verification failed: {unit_issues} values outside expected range even after conversion attempts'
+            # Determine status and message (matches original logic exactly)
+            if wrong_unit_instance > 0:
+                result['details'] = "Some units appeared in barrels/hr, and were converted to m3/hr"
+                # Original treats conversions as pass
+                result['status'] = 'pass'
+            else:
+                result['details'] = "Units are all in m3/hr"
+                result['status'] = 'pass'
 
             return result
 
@@ -645,90 +494,115 @@ class FlowmeterAcceptanceService:
                 'conversions_applied': 0
             }
 
-    def _test_13_quality_is_good(self, tag_info: Dict[str, Any]) -> Dict[str, Any]:
-        """Test 1.3: Quality of the Signals is GOOD in the rtu File"""
+    def _test_13_quality_is_good(self, tag_name: str, rtu_file: str,
+                                 signal_type: str, data_dir: str = None) -> Dict[str, Any]:
+        """
+        Test 1.3: Quality of the Signals is GOOD in the rtu File
+
+        Matches original flowmeter_main.py logic - counts instances where quality != "GOOD".
+        Original logic: if bad_quality == 0, then pass; otherwise fail.
+
+        Args:
+            tag_name: The SCADA tag ID to check
+            rtu_file: Path to RTU data file
+            signal_type: 'digital' or 'analog'
+            data_dir: Directory containing CSV data files
+
+        Returns:
+            Dictionary with test results including bad_quality_count and status
+        """
         try:
-            tag_id = tag_info.get('LDTagID', '')
-            if not tag_id:
-                return {
-                    'status': 'error',
-                    'message': 'No tag ID provided',
-                    'details': {}
-                }
+            self.logger.info(
+                f"Running Test 1.3 for {signal_type} signal: {tag_name}")
 
-            # Get CSV file path
-            csv_path = self._get_csv_path(tag_id)
-            if not os.path.exists(csv_path):
-                return {
-                    'status': 'error',
-                    'message': f'Data file not found for tag {tag_id}',
-                    'details': {'file_path': csv_path}
-                }
-
-            # Load tag data
-            df = pd.read_csv(csv_path)
-
-            # Check if quality column exists (last column)
-            if len(df.columns) < 1:
-                return {
-                    'status': 'error',
-                    'message': 'No quality column found in data',
-                    'details': {}
-                }
-
-            # Get quality column (last column)
-            quality_col = df.columns[-1]
-            quality_values = df[quality_col]
-
-            # Count bad quality instances (not "GOOD")
-            bad_quality_mask = quality_values != 'GOOD'
-            bad_quality_count = bad_quality_mask.sum()
-            total_count = len(quality_values)
-
-            # Match original logic: ALL must be GOOD to pass
-            if bad_quality_count == 0:
-                return {
-                    'status': 'pass',
-                    'message': f'Quality for tag {tag_id} is all GOOD',
-                    'details': {
-                        'total_readings': total_count,
-                        'bad_quality_count': 0,
-                        'quality_status': 'GOOD'
-                    }
-                }
-            else:
-                return {
-                    'status': 'fail',
-                    'message': f'BAD Quality present with {bad_quality_count} number of instances',
-                    'details': {
-                        'total_readings': total_count,
-                        'bad_quality_count': bad_quality_count,
-                        'bad_quality_percentage': round((bad_quality_count / total_count) * 100, 2),
-                        'quality_status': 'BAD'
-                    }
-                }
-
-        except Exception as e:
-            return {
-                'status': 'error',
-                'message': f'Error checking quality: {str(e)}',
-                'details': {}
+            # Default result structure
+            result = {
+                'bad_quality_count': 0,
+                'total_readings': 0,
+                'status': 'pass',
+                'details': f'No data found for {tag_name}'
             }
 
-    def _test_14_quality_is_good_review(self, meter_name: str, review_file: str,
-                                        time_start: str, time_end: str, data_dir: str = None) -> Dict[str, Any]:
+            # Determine data directory
+            if data_dir is None:
+                data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
+
+            # Determine CSV file based on signal type
+            if signal_type.lower() == 'digital':
+                csv_file = os.path.join(data_dir, "SCADATagID_DIG.csv")
+            elif signal_type.lower() == 'analog':
+                csv_file = os.path.join(data_dir, "SCADATagID_ANL.csv")
+            else:
+                result['status'] = 'fail'
+                result['details'] = f'Unknown signal type: {signal_type}'
+                return result
+
+            if not os.path.exists(csv_file):
+                result['status'] = 'fail'
+                result['details'] = f'CSV file not found: {csv_file}'
+                return result
+
+            # Load CSV data
+            df = pd.read_csv(csv_file)
+
+            # Filter for the specific tag
+            if 'tag_name' not in df.columns:
+                result['status'] = 'fail'
+                result['details'] = f'No tag_name column found in {csv_file}'
+                return result
+
+            tag_data = df[df['tag_name'] == tag_name]
+
+            if tag_data.empty:
+                result['details'] = f'No data found for tag {tag_name}'
+                result['status'] = 'fail'
+                return result
+
+            # Check quality column (matches original logic)
+            if 'quality' not in tag_data.columns:
+                result['status'] = 'fail'
+                result['details'] = 'No quality column found in data'
+                return result
+
+            quality_values = tag_data['quality']
+            result['total_readings'] = len(quality_values)
+
+            # Count bad quality instances (original logic: != "GOOD")
+            bad_quality_count = len(quality_values[quality_values != 'GOOD'])
+            result['bad_quality_count'] = bad_quality_count
+
+            # Original logic: if bad_quality == 0, pass; otherwise fail
+            if bad_quality_count == 0:
+                result['status'] = 'pass'
+                result['details'] = f'Quality for tag {tag_name} is all GOOD'
+            else:
+                result['status'] = 'fail'
+                result['details'] = f'BAD Quality present with {bad_quality_count} number of instances'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error in Test 1.3 for {tag_name}: {e}")
+            return {
+                'bad_quality_count': 0,
+                'total_readings': 0,
+                'status': 'fail',
+                'details': f'Test execution error: {str(e)}'
+            }
+
+    def _test_14_quality_review(self, meter_name: str, review_file: str,
+                                data_dir: str = None) -> Dict[str, Any]:
         """
         Test 1.4: Quality of the Signals is GOOD in the Review File
 
-        Based on the original flowmeter acceptance reliability_check_4_function.
-        Checks the 'ST' (status) column in Review data and counts how many readings
-        are NOT equal to 1 (which means GOOD status).
+        Matches original flowmeter_main.py reliability_check_4_function logic.
+        Checks if all ST (status) column values == 1 (GOOD) in Review data.
+        CSV is already filtered by date range, no need to filter again.
 
         Args:
             meter_name: The MBS tag ID (meter name) to check
-            review_file: Path to Review data file (not used directly, we look for CSV)
-            time_start: Start time for analysis
-            time_end: End time for analysis
+            review_file: Path to Review data file
+            data_dir: Directory containing CSV data files
 
         Returns:
             Dictionary with test results including bad_status_count and status
@@ -741,81 +615,56 @@ class FlowmeterAcceptanceService:
                 'bad_status_count': 0,
                 'total_readings': 0,
                 'status': 'pass',
-                'details': f'No data found for meter {meter_name}',
-                'good_status_percentage': 0.0
+                'details': f'No data found for meter {meter_name}'
             }
 
-            # Look for the MBSTagID.csv file in _Data directory relative to review file
+            # Determine data directory
             if data_dir is None:
                 data_dir = os.path.join(os.path.dirname(review_file), '_Data')
-            mbs_csv_file = os.path.join(data_dir, 'MBSTagID.csv')
 
-            # If not found in _Data, look in the same directory as review file
-            if not os.path.exists(mbs_csv_file):
-                mbs_csv_file = os.path.join(
-                    os.path.dirname(review_file), 'MBSTagID.csv')
+            mbs_csv_file = os.path.join(data_dir, 'MBSTagID.csv')
 
             if not os.path.exists(mbs_csv_file):
                 result['details'] = f'No MBSTagID.csv file found for meter {meter_name}'
                 result['status'] = 'fail'
                 return result
 
-            self.logger.info(f"Using MBS CSV file: {mbs_csv_file}")
-
             # Load the MBS CSV data
             df = pd.read_csv(mbs_csv_file)
 
-            # The column format is: timestamp, {meter_name}:VAL, {meter_name}:ST, {meter_name}:FLAT
-            # We need to check the ST (status) column
-            # Note the space before the meter name
+            # The column format is: TIME, {meter_name}:VAL, {meter_name}:ST, {meter_name}:FLAT
+            # We need to check the ST (status) column (matches CSV format)
             st_column = f' {meter_name}:ST'
 
             if st_column not in df.columns:
                 # Try without space
                 st_column = f'{meter_name}:ST'
                 if st_column not in df.columns:
-                    result['details'] = f'No status column found for meter {meter_name} in MBSTagID.csv'
+                    result[
+                        'details'] = f'No status column found for meter {meter_name} in MBSTagID.csv. Available columns: {list(df.columns)}'
                     result['status'] = 'fail'
                     return result
 
-            # Filter by time range if possible
-            if 'timestamp' in df.columns and time_start and time_end:
-                try:
-                    df['timestamp'] = pd.to_datetime(df['timestamp'])
-                    start_dt = datetime.strptime(
-                        time_start, "%Y/%m/%d %H:%M:%S")
-                    end_dt = datetime.strptime(time_end, "%Y/%m/%d %H:%M:%S")
-                    df = df[(df['timestamp'] >= start_dt)
-                            & (df['timestamp'] <= end_dt)]
-                except Exception as time_error:
-                    self.logger.warning(
-                        f"Could not filter by time range: {time_error}")
-
-            # Count bad status readings (following original logic: ST != 1 means bad)
+            # Count readings (CSV is already date-filtered)
             total_readings = len(df)
             result['total_readings'] = total_readings
 
             if total_readings == 0:
-                result['details'] = f'No data found for meter {meter_name} in time range'
+                result['details'] = f'No data found for meter {meter_name}'
+                result['status'] = 'fail'
                 return result
 
-            # Original logic: if ST != 1, it's a bad status
+            # Original logic: count where ST != 1 (bad status)
             bad_status_count = len(df[df[st_column] != 1])
             result['bad_status_count'] = bad_status_count
 
-            # Calculate good status percentage
-            if total_readings > 0:
-                good_status_count = total_readings - bad_status_count
-                result['good_status_percentage'] = (
-                    good_status_count / total_readings) * 100
-
-            # Determine status and details (following original logic)
+            # Original logic: uses .all() check - if all ST == 1, then pass
             if bad_status_count == 0:
                 result['status'] = 'pass'
-                result['details'] = f'Review file status for {meter_name} is all GOOD (ST=1)'
+                result['details'] = 'Values appear GOOD in the review file'
             else:
                 result['status'] = 'fail'
-                result['details'] = f'BAD Status present with {bad_status_count} number of instances out of {total_readings} total readings'
+                result['details'] = 'Some values appear BAD in the review file - Requires further investigation from the LC'
 
             return result
 
@@ -825,8 +674,234 @@ class FlowmeterAcceptanceService:
                 'bad_status_count': 0,
                 'total_readings': 0,
                 'status': 'fail',
-                'details': f'Test execution error: {str(e)}',
-                'good_status_percentage': 0.0
+                'details': f'Test execution error: {str(e)}'
+            }
+
+    def _test_21_time_differences(self, tag_name: str, rtu_file: str,
+                                  signal_type: str, data_dir: str = None) -> Dict[str, Any]:
+        """
+        Test 2.1: Timeliness and Completeness Check 1 - Time Differences
+
+        Matches original flowmeter_main.py timeliness_and_completeness logic.
+        Calculates time differences between consecutive readings and reports 
+        max and mean time differences.
+
+        Args:
+            tag_name: The SCADA tag ID to check
+            rtu_file: Path to RTU data file
+            signal_type: 'digital' or 'analog'
+            data_dir: Directory containing CSV data files
+
+        Returns:
+            Dictionary with test results including max_time_diff and mean_time_diff
+        """
+        try:
+            self.logger.info(
+                f"Running Test 2.1 for {signal_type} signal: {tag_name}")
+
+            # Default result structure
+            result = {
+                'max_time_diff': 0,
+                'mean_time_diff': 0.0,
+                'total_readings': 0,
+                'status': 'pass',
+                'details': f'No data found for {tag_name}'
+            }
+
+            # Determine data directory
+            if data_dir is None:
+                data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
+
+            # Determine CSV file based on signal type
+            if signal_type.lower() == 'digital':
+                csv_file = os.path.join(data_dir, "SCADATagID_DIG.csv")
+            elif signal_type.lower() == 'analog':
+                csv_file = os.path.join(data_dir, "SCADATagID_ANL.csv")
+            else:
+                result['status'] = 'fail'
+                result['details'] = f'Unknown signal type: {signal_type}'
+                return result
+
+            if not os.path.exists(csv_file):
+                result['status'] = 'fail'
+                result['details'] = f'CSV file not found: {csv_file}'
+                return result
+
+            # Load CSV data
+            df = pd.read_csv(csv_file)
+
+            # Filter for the specific tag
+            if 'tag_name' not in df.columns:
+                result['status'] = 'fail'
+                result['details'] = f'No tag_name column found in {csv_file}'
+                return result
+
+            tag_data = df[df['tag_name'] == tag_name].copy()
+
+            if tag_data.empty:
+                result['details'] = f'No data found for tag {tag_name}'
+                result['status'] = 'fail'
+                return result
+
+            # Check for timestamp column
+            if 'timestamp' not in tag_data.columns:
+                result['status'] = 'fail'
+                result['details'] = 'No timestamp column found in data'
+                return result
+
+            # Sort by timestamp to ensure proper order
+            tag_data = tag_data.sort_values('timestamp')
+            result['total_readings'] = len(tag_data)
+
+            if result['total_readings'] < 2:
+                result['status'] = 'fail'
+                result['details'] = 'Need at least 2 readings to calculate time differences'
+                return result
+
+            # Calculate time differences (original logic)
+            timestamps = tag_data['timestamp'].values
+            time_differences = []
+
+            for k in range(len(timestamps) - 1):
+                x = timestamps[k]
+                y = timestamps[k + 1]
+                time_diff = y - x
+                time_differences.append(time_diff)
+
+            # Calculate max and mean time differences
+            result['max_time_diff'] = max(time_differences)
+            result['mean_time_diff'] = round(np.mean(time_differences), 2)
+
+            # Determine status (original doesn't have pass/fail for Test 2.1, just reports values)
+            result['status'] = 'pass'
+            result['details'] = f'Max: {result["max_time_diff"]}s, Mean: {result["mean_time_diff"]}s'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error in Test 2.1 for {tag_name}: {e}")
+            return {
+                'max_time_diff': 0,
+                'mean_time_diff': 0.0,
+                'total_readings': 0,
+                'status': 'fail',
+                'details': f'Test execution error: {str(e)}'
+            }
+
+    def _test_22_flat_attribute(self, meter_name: str, review_file: str,
+                                flat_threshold: float, data_dir: str = None) -> Dict[str, Any]:
+        """
+        Test 2.2: Timeliness and Completeness Check 2 - FLAT Attribute
+
+        Matches original flowmeter_main.py timeliness_check_2 logic.
+        Checks if FLAT attribute values are <= threshold, excluding shutdown periods
+        (where VAL <= 1).
+
+        Args:
+            meter_name: The MBS tag ID (meter name) to check
+            review_file: Path to Review data file
+            flat_threshold: FLAT threshold value (from UI)
+            data_dir: Directory containing CSV data files
+
+        Returns:
+            Dictionary with test results including flat_check_status
+        """
+        try:
+            self.logger.info(f"Running Test 2.2 for meter: {meter_name}")
+
+            # Default result structure
+            result = {
+                'flat_check_status': 'unknown',
+                'total_readings': 0,
+                'non_shutdown_readings': 0,
+                'status': 'pass',
+                'details': f'No data found for meter {meter_name}'
+            }
+
+            # Determine data directory
+            if data_dir is None:
+                data_dir = os.path.join(os.path.dirname(review_file), '_Data')
+
+            mbs_csv_file = os.path.join(data_dir, 'MBSTagID.csv')
+
+            if not os.path.exists(mbs_csv_file):
+                result['details'] = f'No MBSTagID.csv file found for meter {meter_name}'
+                result['status'] = 'fail'
+                return result
+
+            # Load the MBS CSV data
+            df = pd.read_csv(mbs_csv_file)
+
+            # The column format is: TIME, {meter_name}:VAL, {meter_name}:ST, {meter_name}:FLAT
+            val_column = f' {meter_name}:VAL'
+            flat_column = f' {meter_name}:FLAT'
+
+            # Try without space if needed
+            if val_column not in df.columns:
+                val_column = f'{meter_name}:VAL'
+            if flat_column not in df.columns:
+                flat_column = f'{meter_name}:FLAT'
+
+            # Check required columns exist
+            missing_columns = []
+            if val_column not in df.columns:
+                missing_columns.append('VAL column')
+            if flat_column not in df.columns:
+                missing_columns.append('FLAT column')
+
+            if missing_columns:
+                result[
+                    'details'] = f'Missing columns for meter {meter_name}: {missing_columns}. Available: {list(df.columns)}'
+                result['status'] = 'fail'
+                return result
+
+            result['total_readings'] = len(df)
+
+            if result['total_readings'] == 0:
+                result['details'] = f'No data found for meter {meter_name}'
+                result['status'] = 'fail'
+                return result
+
+            try:
+                # Original logic: Filter out shutdown periods (VAL <= 1)
+                dataframe_not_shutdown = df[df[val_column] > 1]
+                result['non_shutdown_readings'] = len(dataframe_not_shutdown)
+
+                if result['non_shutdown_readings'] == 0:
+                    result['details'] = f'No non-shutdown readings found for meter {meter_name}'
+                    result['status'] = 'fail'
+                    result['flat_check_status'] = 'no_data'
+                    return result
+
+                # Check if all FLAT values are <= threshold (original logic uses .all())
+                review_flat = (
+                    dataframe_not_shutdown[flat_column] <= flat_threshold).all()
+
+                if review_flat:
+                    result['status'] = 'pass'
+                    result['flat_check_status'] = 'GOOD'
+                    result['details'] = f'FLAT attribute check passed: all values <= {flat_threshold}'
+                else:
+                    result['status'] = 'fail'
+                    result['flat_check_status'] = 'BAD'
+                    result['details'] = f'FLAT attribute check failed: some values > {flat_threshold}'
+
+            except Exception as inner_e:
+                # Original logic has this fallback
+                result['status'] = 'fail'
+                result['flat_check_status'] = 'FLAT Not Available'
+                result['details'] = f'FLAT Attribute Not Accessible: {str(inner_e)}'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error in Test 2.2 for {meter_name}: {e}")
+            return {
+                'flat_check_status': 'error',
+                'total_readings': 0,
+                'non_shutdown_readings': 0,
+                'status': 'fail',
+                'details': f'Test execution error: {str(e)}'
             }
 
     def get_test_results_summary(self) -> Dict[str, Any]:

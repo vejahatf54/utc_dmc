@@ -118,8 +118,7 @@ class TestReliabilityChecksIntegration(unittest.TestCase):
 
         try:
             result = self.service._test_11_readings_within_range(
-                self.digital_tag, dummy_dt_file, self.time_start, self.time_end, 'digital',
-                min_range=1500.0, max_range=4000.0, data_dir=data_dir)
+                self.digital_tag, dummy_dt_file, 'digital', 1500.0, 4000.0, data_dir)
 
             self.assertGreater(result['total_readings'],
                                0, "Should have readings")
@@ -150,8 +149,7 @@ class TestReliabilityChecksIntegration(unittest.TestCase):
 
         try:
             result = self.service._test_11_readings_within_range(
-                self.analog_tag, dummy_dt_file, self.time_start, self.time_end, 'analog',
-                min_range=1500.0, max_range=4000.0, data_dir=data_dir)
+                self.analog_tag, dummy_dt_file, 'analog', 1500.0, 4000.0, data_dir)
 
             self.logger.info(f"Test result: {result}")
             self.assertGreater(result['total_readings'],
@@ -179,8 +177,7 @@ class TestReliabilityChecksIntegration(unittest.TestCase):
 
         try:
             result = self.service._test_12_units_verified(
-                self.digital_tag, dummy_dt_file, self.time_start, self.time_end, 'digital',
-                min_range=1500.0, max_range=4000.0, data_dir=data_dir)
+                self.digital_tag, dummy_dt_file, 'digital', 100.0, 15000.0, data_dir)
 
             self.assertGreater(result['total_readings'],
                                0, "Should have readings")
@@ -207,8 +204,7 @@ class TestReliabilityChecksIntegration(unittest.TestCase):
 
         try:
             result = self.service._test_13_quality_is_good(
-                self.digital_tag, dummy_dt_file, self.time_start, self.time_end, 'digital',
-                data_dir=data_dir)
+                self.digital_tag, dummy_dt_file, 'digital', data_dir)
 
             self.assertGreater(result['total_readings'],
                                0, "Should have readings")
@@ -235,8 +231,7 @@ class TestReliabilityChecksIntegration(unittest.TestCase):
 
         try:
             result = self.service._test_13_quality_is_good(
-                self.analog_tag, dummy_dt_file, self.time_start, self.time_end, 'analog',
-                data_dir=data_dir)
+                self.analog_tag, dummy_dt_file, 'analog', data_dir)
 
             self.assertGreater(result['total_readings'],
                                0, "Should have readings")
@@ -250,13 +245,86 @@ class TestReliabilityChecksIntegration(unittest.TestCase):
         # Test 1.4 uses MBSTagID.csv directly, no need to create temp files
         # It looks for the file in the L05 data directory
 
-        result = self.service._test_14_quality_is_good_review(
-            self.mbs_tag, "dummy_review_file", self.time_start, self.time_end,
-            data_dir=self.data_dir)
+        result = self.service._test_14_quality_review(
+            self.mbs_tag, "dummy_review_file", self.data_dir)
 
         self.assertGreater(result['total_readings'], 0, "Should have readings")
         self.logger.info(
             f"Test 1.4 Review: {result['total_readings']} readings, status: {result['status']}")
+
+    def test_21_digital_time_differences(self):
+        """Test 2.1: Digital Signal Time Differences - using actual L05 data"""
+        # Create temporary structure for test with _Data subdirectory
+        test_dir = tempfile.mkdtemp(prefix="test_21_digital_")
+        dummy_dt_file = os.path.join(test_dir, "dummy.dt")
+        data_dir = os.path.join(test_dir, "_Data")
+        os.makedirs(data_dir, exist_ok=True)
+
+        # Copy the actual L05 data to the _Data directory
+        shutil.copy(self.digital_csv, os.path.join(
+            data_dir, "SCADATagID_DIG.csv"))
+
+        # Create dummy .dt file
+        with open(dummy_dt_file, 'w') as f:
+            f.write("dummy file")
+
+        try:
+            result = self.service._test_21_time_differences(
+                self.digital_tag, dummy_dt_file, 'digital', data_dir)
+
+            self.assertGreater(result['total_readings'],
+                               0, "Should have readings")
+            self.assertGreaterEqual(
+                result['max_time_diff'], 0, "Max time diff should be >= 0")
+            self.assertGreaterEqual(
+                result['mean_time_diff'], 0.0, "Mean time diff should be >= 0")
+            self.logger.info(
+                f"Test 2.1 Digital: {result['total_readings']} readings, Max: {result['max_time_diff']}s, Mean: {result['mean_time_diff']}s")
+        finally:
+            shutil.rmtree(test_dir)
+
+    def test_21_analog_time_differences(self):
+        """Test 2.1: Analog Signal Time Differences - using actual L05 data"""
+        # Create temporary structure for test with _Data subdirectory
+        test_dir = tempfile.mkdtemp(prefix="test_21_analog_")
+        dummy_dt_file = os.path.join(test_dir, "dummy.dt")
+        data_dir = os.path.join(test_dir, "_Data")
+        os.makedirs(data_dir, exist_ok=True)
+
+        # Copy the actual L05 data to the _Data directory
+        shutil.copy(self.analog_csv, os.path.join(
+            data_dir, "SCADATagID_ANL.csv"))
+
+        # Create dummy .dt file
+        with open(dummy_dt_file, 'w') as f:
+            f.write("dummy file")
+
+        try:
+            result = self.service._test_21_time_differences(
+                self.analog_tag, dummy_dt_file, 'analog', data_dir)
+
+            self.assertGreater(result['total_readings'],
+                               0, "Should have readings")
+            self.assertGreaterEqual(
+                result['max_time_diff'], 0, "Max time diff should be >= 0")
+            self.assertGreaterEqual(
+                result['mean_time_diff'], 0.0, "Mean time diff should be >= 0")
+            self.logger.info(
+                f"Test 2.1 Analog: {result['total_readings']} readings, Max: {result['max_time_diff']}s, Mean: {result['mean_time_diff']}s")
+        finally:
+            shutil.rmtree(test_dir)
+
+    def test_22_flat_attribute(self):
+        """Test 2.2: FLAT Attribute Check - using actual L05 MBSTagID.csv data"""
+        # Test 2.2 uses MBSTagID.csv directly from the L05 data directory
+        result = self.service._test_22_flat_attribute(
+            self.mbs_tag, "dummy_review_file", 5.0, self.data_dir)
+
+        self.assertGreater(result['total_readings'], 0, "Should have readings")
+        self.assertIn(result['flat_check_status'], ['GOOD', 'BAD', 'FLAT Not Available', 'no_data'],
+                      "Should have valid flat check status")
+        self.logger.info(
+            f"Test 2.2 FLAT: {result['total_readings']} total readings, {result['non_shutdown_readings']} non-shutdown, status: {result['flat_check_status']}")
 
 
 if __name__ == '__main__':

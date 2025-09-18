@@ -102,63 +102,148 @@ class TestReliabilityChecksIntegration(unittest.TestCase):
 
     def test_11_digital_range(self):
         """Test 1.1: Digital Signal Range - using actual L05 data"""
-        temp_csv = self._create_test_csv(
-            self.digital_csv, self.digital_tag, "digital_RTU.csv")
+        # Create temporary structure for test with _Data subdirectory
+        test_dir = tempfile.mkdtemp(prefix="test_11_digital_")
+        dummy_dt_file = os.path.join(test_dir, "dummy.dt")
+        data_dir = os.path.join(test_dir, "_Data")
+        os.makedirs(data_dir, exist_ok=True)
 
-        result = self.service._test_11_readings_within_range(
-            self.digital_tag, temp_csv, self.time_start, self.time_end, 'digital')
+        # Copy the actual L05 data to the _Data directory
+        shutil.copy(self.digital_csv, os.path.join(
+            data_dir, "SCADATagID_DIG.csv"))
 
-        self.assertGreater(result['total_readings'], 0, "Should have readings")
-        self.logger.info(
-            f"Test 1.1 Digital: {result['total_readings']} readings, status: {result['status']}")
+        # Create dummy .dt file
+        with open(dummy_dt_file, 'w') as f:
+            f.write("dummy file")
+
+        try:
+            result = self.service._test_11_readings_within_range(
+                self.digital_tag, dummy_dt_file, self.time_start, self.time_end, 'digital',
+                min_range=1500.0, max_range=4000.0, data_dir=data_dir)
+
+            self.assertGreater(result['total_readings'],
+                               0, "Should have readings")
+            self.logger.info(
+                f"Test 1.1 Digital: {result['total_readings']} readings, status: {result['status']}")
+        finally:
+            shutil.rmtree(test_dir)
 
     def test_11_analog_range(self):
         """Test 1.1: Analog Signal Range - using actual L05 data"""
-        temp_csv = self._create_test_csv(
-            self.analog_csv, self.analog_tag, "analog_RTU.csv")
+        # Create temporary structure for test with _Data subdirectory
+        test_dir = tempfile.mkdtemp(prefix="test_11_analog_")
+        dummy_dt_file = os.path.join(test_dir, "dummy.dt")
+        data_dir = os.path.join(test_dir, "_Data")
+        os.makedirs(data_dir, exist_ok=True)
 
-        result = self.service._test_11_readings_within_range(
-            self.analog_tag, temp_csv, self.time_start, self.time_end, 'analog')
-
-        self.assertGreater(result['total_readings'], 0, "Should have readings")
+        # Copy the actual L05 data to the _Data directory
+        target_csv = os.path.join(data_dir, "SCADATagID_ANL.csv")
+        shutil.copy(self.analog_csv, target_csv)
+        self.logger.info(f"Copied {self.analog_csv} to {target_csv}")
         self.logger.info(
-            f"Test 1.1 Analog: {result['total_readings']} readings, status: {result['status']}")
+            f"File exists after copy: {os.path.exists(target_csv)}")
+
+        # Create dummy .dt file
+        with open(dummy_dt_file, 'w') as f:
+            f.write("dummy file")
+        self.logger.info(f"Created dummy file: {dummy_dt_file}")
+
+        try:
+            result = self.service._test_11_readings_within_range(
+                self.analog_tag, dummy_dt_file, self.time_start, self.time_end, 'analog',
+                min_range=1500.0, max_range=4000.0, data_dir=data_dir)
+
+            self.logger.info(f"Test result: {result}")
+            self.assertGreater(result['total_readings'],
+                               0, "Should have readings")
+            self.logger.info(
+                f"Test 1.1 Analog: {result['total_readings']} readings, status: {result['status']}")
+        finally:
+            shutil.rmtree(test_dir)
 
     def test_12_digital_units(self):
         """Test 1.2: Digital Signal Units - using actual L05 data"""
-        temp_csv = self._create_test_csv(
-            self.digital_csv, self.digital_tag, "digital_units_RTU.csv")
+        # Create temporary structure for test with _Data subdirectory
+        test_dir = tempfile.mkdtemp(prefix="test_12_digital_")
+        dummy_dt_file = os.path.join(test_dir, "dummy.dt")
+        data_dir = os.path.join(test_dir, "_Data")
+        os.makedirs(data_dir, exist_ok=True)
 
-        result = self.service._test_12_units_verified(
-            self.digital_tag, temp_csv, self.time_start, self.time_end, 'digital')
+        # Copy the actual L05 data to the _Data directory
+        shutil.copy(self.digital_csv, os.path.join(
+            data_dir, "SCADATagID_DIG.csv"))
 
-        self.assertGreater(result['total_readings'], 0, "Should have readings")
-        self.logger.info(
-            f"Test 1.2 Digital: {result['total_readings']} readings, status: {result['status']}")
+        # Create dummy .dt file
+        with open(dummy_dt_file, 'w') as f:
+            f.write("dummy file")
+
+        try:
+            result = self.service._test_12_units_verified(
+                self.digital_tag, dummy_dt_file, self.time_start, self.time_end, 'digital',
+                min_range=1500.0, max_range=4000.0, data_dir=data_dir)
+
+            self.assertGreater(result['total_readings'],
+                               0, "Should have readings")
+            self.logger.info(
+                f"Test 1.2 Digital: {result['total_readings']} readings, status: {result['status']}")
+        finally:
+            shutil.rmtree(test_dir)
 
     def test_13_digital_quality(self):
         """Test 1.3: Digital Signal Quality - using actual L05 data"""
-        temp_csv = self._create_test_csv(
-            self.digital_csv, self.digital_tag, "digital_quality_RTU.csv")
+        # Create temporary structure for test with _Data subdirectory
+        test_dir = tempfile.mkdtemp(prefix="test_13_digital_")
+        dummy_dt_file = os.path.join(test_dir, "dummy.dt")
+        data_dir = os.path.join(test_dir, "_Data")
+        os.makedirs(data_dir, exist_ok=True)
 
-        result = self.service._test_13_quality_is_good(
-            self.digital_tag, temp_csv, self.time_start, self.time_end, 'digital')
+        # Copy the actual L05 data to the _Data directory
+        shutil.copy(self.digital_csv, os.path.join(
+            data_dir, "SCADATagID_DIG.csv"))
 
-        self.assertGreater(result['total_readings'], 0, "Should have readings")
-        self.logger.info(
-            f"Test 1.3 Digital: {result['total_readings']} readings, status: {result['status']}")
+        # Create dummy .dt file
+        with open(dummy_dt_file, 'w') as f:
+            f.write("dummy file")
+
+        try:
+            result = self.service._test_13_quality_is_good(
+                self.digital_tag, dummy_dt_file, self.time_start, self.time_end, 'digital',
+                data_dir=data_dir)
+
+            self.assertGreater(result['total_readings'],
+                               0, "Should have readings")
+            self.logger.info(
+                f"Test 1.3 Digital: {result['total_readings']} readings, status: {result['status']}")
+        finally:
+            shutil.rmtree(test_dir)
 
     def test_13_analog_quality(self):
         """Test 1.3: Analog Signal Quality - using actual L05 data"""
-        temp_csv = self._create_test_csv(
-            self.analog_csv, self.analog_tag, "analog_quality_RTU.csv")
+        # Create temporary structure for test with _Data subdirectory
+        test_dir = tempfile.mkdtemp(prefix="test_13_analog_")
+        dummy_dt_file = os.path.join(test_dir, "dummy.dt")
+        data_dir = os.path.join(test_dir, "_Data")
+        os.makedirs(data_dir, exist_ok=True)
 
-        result = self.service._test_13_quality_is_good(
-            self.analog_tag, temp_csv, self.time_start, self.time_end, 'analog')
+        # Copy the actual L05 data to the _Data directory
+        shutil.copy(self.analog_csv, os.path.join(
+            data_dir, "SCADATagID_ANL.csv"))
 
-        self.assertGreater(result['total_readings'], 0, "Should have readings")
-        self.logger.info(
-            f"Test 1.3 Analog: {result['total_readings']} readings, status: {result['status']}")
+        # Create dummy .dt file
+        with open(dummy_dt_file, 'w') as f:
+            f.write("dummy file")
+
+        try:
+            result = self.service._test_13_quality_is_good(
+                self.analog_tag, dummy_dt_file, self.time_start, self.time_end, 'analog',
+                data_dir=data_dir)
+
+            self.assertGreater(result['total_readings'],
+                               0, "Should have readings")
+            self.logger.info(
+                f"Test 1.3 Analog: {result['total_readings']} readings, status: {result['status']}")
+        finally:
+            shutil.rmtree(test_dir)
 
     def test_14_review_quality(self):
         """Test 1.4: Review File Quality - using actual L05 MBSTagID.csv data"""
@@ -166,7 +251,8 @@ class TestReliabilityChecksIntegration(unittest.TestCase):
         # It looks for the file in the L05 data directory
 
         result = self.service._test_14_quality_is_good_review(
-            self.mbs_tag, "dummy_review_file", self.time_start, self.time_end)
+            self.mbs_tag, "dummy_review_file", self.time_start, self.time_end,
+            data_dir=self.data_dir)
 
         self.assertGreater(result['total_readings'], 0, "Should have readings")
         self.logger.info(

@@ -186,7 +186,7 @@ class FlowmeterAcceptanceService:
                 analog_tag, rtu_file, time_start, time_end, signal_type='analog')
 
             # Test 1.4 - Quality verification in Review file
-            review_quality_result = self._test_14_quality_is_good_review(
+            review_quality_result = self._test_14_quality_review(
                 meter_name, review_file, time_start, time_end)
 
             results['accuracy_tests'] = {
@@ -265,13 +265,13 @@ class FlowmeterAcceptanceService:
 
     def _test_11_readings_within_range(self, tag_name: str, rtu_file: str,
                                        time_start: str, time_end: str,
-                                       signal_type: str) -> Dict[str, Any]:
+                                       signal_type: str, min_range: float = None,
+                                       max_range: float = None, data_dir: str = None) -> Dict[str, Any]:
         """
         Test 1.1: Readings within Expected Range of Operation
 
         This test checks if the readings from the specified tag are within 
-        the expected operational range. For digital signals, it checks 0-1 range.
-        For analog signals, it checks against configurable min/max bounds.
+        the expected operational range. Range values come from UI parameters.
 
         Args:
             tag_name: The SCADA tag ID to check
@@ -279,6 +279,9 @@ class FlowmeterAcceptanceService:
             time_start: Start time for analysis
             time_end: End time for analysis  
             signal_type: 'digital' or 'analog'
+            min_range: Minimum acceptable range value (from UI)
+            max_range: Maximum acceptable range value (from UI)
+            data_dir: Directory containing CSV data files (from UI)
 
         Returns:
             Dictionary with test results including out_of_range_count and status
@@ -303,16 +306,31 @@ class FlowmeterAcceptanceService:
 
             # Try to load and process RTU data from already exported CSV
             try:
-                # Look for the already exported CSV file in _Data directory
-                data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
+                # Look for the already exported CSV file in data directory
+                if data_dir is None:
+                    data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
                 rtu_csv_file = None
 
                 # Look for RTU CSV files in _Data directory
                 if os.path.exists(data_dir):
-                    for file in os.listdir(data_dir):
-                        if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
-                            rtu_csv_file = os.path.join(data_dir, file)
-                            break
+                    # First try to find signal-specific files
+                    if signal_type.lower() == 'digital':
+                        scada_file = os.path.join(
+                            data_dir, "SCADATagID_DIG.csv")
+                        if os.path.exists(scada_file):
+                            rtu_csv_file = scada_file
+                    elif signal_type.lower() == 'analog':
+                        scada_file = os.path.join(
+                            data_dir, "SCADATagID_ANL.csv")
+                        if os.path.exists(scada_file):
+                            rtu_csv_file = scada_file
+
+                    # If no signal-specific file found, look for RTU files
+                    if not rtu_csv_file:
+                        for file in os.listdir(data_dir):
+                            if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
+                                rtu_csv_file = os.path.join(data_dir, file)
+                                break
 
                 # If no CSV found in _Data, look for any CSV with similar name to RTU file
                 if not rtu_csv_file:
@@ -331,8 +349,16 @@ class FlowmeterAcceptanceService:
                 # Load the already exported CSV data
                 df = pd.read_csv(rtu_csv_file)
 
-                # Filter for the specific tag
-                tag_data = df[df['ident'].str.upper() == tag_name.upper()]
+                # Filter for the specific tag (check both 'ident' and 'tag_name' columns)
+                if 'ident' in df.columns:
+                    tag_data = df[df['ident'].str.upper() == tag_name.upper()]
+                elif 'tag_name' in df.columns:
+                    tag_data = df[df['tag_name'].str.upper() ==
+                                  tag_name.upper()]
+                else:
+                    result['details'] = f'No tag identifier column found (expected ident or tag_name)'
+                    result['status'] = 'fail'
+                    return result
 
                 if tag_data.empty:
                     result['details'] = f'No data found for tag {tag_name}'
@@ -348,20 +374,17 @@ class FlowmeterAcceptanceService:
                 values = tag_data['value'].dropna()
                 result['total_readings'] = len(values)
 
-                if signal_type.lower() == 'digital':
-                    # Digital signals should be 0 or 1
-                    out_of_range = values[(values < 0) | (values > 1)]
-                    result['out_of_range_count'] = len(out_of_range)
-                    result['details'] = f'Digital signal range check (0-1): {result["out_of_range_count"]} out of {result["total_readings"]} readings out of range'
-
-                elif signal_type.lower() == 'analog':
-                    # For analog signals, use bounds from tags file or defaults
+                # Use provided range parameters or fallback to defaults
+                if min_range is not None and max_range is not None:
+                    min_flow, max_flow = min_range, max_range
+                else:
+                    # Fallback to bounds from tags file or defaults
                     min_flow, max_flow = self._get_analog_bounds(tag_name)
 
-                    out_of_range = values[(
-                        values < min_flow) | (values > max_flow)]
-                    result['out_of_range_count'] = len(out_of_range)
-                    result['details'] = f'Analog signal range check ({min_flow}-{max_flow}): {result["out_of_range_count"]} out of {result["total_readings"]} readings out of range'
+                out_of_range = values[(values < min_flow)
+                                      | (values > max_flow)]
+                result['out_of_range_count'] = len(out_of_range)
+                result['details'] = f'{signal_type.title()} signal range check ({min_flow}-{max_flow}): {result["out_of_range_count"]} out of {result["total_readings"]} readings out of range'
 
                 # Determine pass/fail status
                 # Pass if less than 5% of readings are out of range
@@ -429,13 +452,14 @@ class FlowmeterAcceptanceService:
             self.logger.warning(
                 f"Could not get bounds from tags file for {tag_name}: {e}")
 
-        # Default bounds for analog signals (flowmeters)
-        # These are reasonable defaults for most flowmeter applications
-        return (1500.0, 4000.0)  # 1500 to 4000 units (m3/h, bbl/h, etc.)
+        # No default bounds - should come from UI parameters
+        # Return None to indicate bounds should be provided by caller
+        return (None, None)
 
     def _test_12_units_verified(self, tag_name: str, rtu_file: str,
                                 time_start: str, time_end: str,
-                                signal_type: str) -> Dict[str, Any]:
+                                signal_type: str, min_range: float = None,
+                                max_range: float = None, data_dir: str = None) -> Dict[str, Any]:
         """
         Test 1.2: Measurement Units were Verified
 
@@ -468,15 +492,28 @@ class FlowmeterAcceptanceService:
             }
 
             # Look for the already exported CSV file in _Data directory
-            data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
+            if data_dir is None:
+                data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
             rtu_csv_file = None
 
             # Look for RTU CSV files in _Data directory
             if os.path.exists(data_dir):
-                for file in os.listdir(data_dir):
-                    if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
-                        rtu_csv_file = os.path.join(data_dir, file)
-                        break
+                # First try to find signal-specific files
+                if signal_type.lower() == 'digital':
+                    scada_file = os.path.join(data_dir, "SCADATagID_DIG.csv")
+                    if os.path.exists(scada_file):
+                        rtu_csv_file = scada_file
+                elif signal_type.lower() == 'analog':
+                    scada_file = os.path.join(data_dir, "SCADATagID_ANL.csv")
+                    if os.path.exists(scada_file):
+                        rtu_csv_file = scada_file
+
+                # If no signal-specific file found, look for RTU files
+                if not rtu_csv_file:
+                    for file in os.listdir(data_dir):
+                        if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
+                            rtu_csv_file = os.path.join(data_dir, file)
+                            break
 
             # If no CSV found in _Data, look for any CSV with similar name to RTU file
             if not rtu_csv_file:
@@ -495,7 +532,21 @@ class FlowmeterAcceptanceService:
             df = pd.read_csv(rtu_csv_file)
 
             # Filter for the specific tag
-            tag_data = df[df['ident'].str.upper() == tag_name.upper()]
+            # Filter for the specific tag (check both 'ident' and 'tag_name' columns)
+            if 'ident' in df.columns:
+                tag_data = df[df['ident'].str.upper() == tag_name.upper()]
+            elif 'tag_name' in df.columns:
+                tag_data = df[df['tag_name'].str.upper() == tag_name.upper()]
+            else:
+                result['details'] = f'No tag identifier column found (expected ident or tag_name)'
+                result['status'] = 'fail'
+                return result
+
+            if tag_data.empty:
+                result['details'] = f'No data found for tag {tag_name}'
+                return result
+
+            tag_data = tag_data
 
             if tag_data.empty:
                 result['details'] = f'No data found for tag {tag_name}'
@@ -506,19 +557,39 @@ class FlowmeterAcceptanceService:
             result['total_readings'] = len(values)
 
             if signal_type.lower() == 'digital':
-                # Digital signals should only be 0 or 1 (dimensionless)
-                # Based on original logic - digital signals are binary
-                unit_issues = len(values[(values != 0) & (values != 1)])
-                result['unit_issues_count'] = unit_issues
-                result['conversions_applied'] = 0
+                # Check if digital values are actually flow rates (not binary 0/1)
+                if values.min() > 100 or values.max() > 100:
+                    # These are flow rate values, treat as analog for unit verification
+                    lower_bound, upper_bound = self._get_analog_bounds(
+                        tag_name)
 
-                if unit_issues == 0:
-                    result['status'] = 'pass'
-                    result[
-                        'details'] = 'Digital signal units verified: All values are 0 or 1 (dimensionless)'
+                    # Check if values are in expected unit range
+                    unit_issues = len(
+                        values[(values < lower_bound) | (values > upper_bound)])
+                    result['unit_issues_count'] = unit_issues
+                    result['conversions_applied'] = 0
+
+                    if unit_issues == 0:
+                        result['status'] = 'pass'
+                        result[
+                            'details'] = f'Digital signal units verified: All values in expected range ({lower_bound}-{upper_bound})'
+                    else:
+                        result['status'] = 'fail'
+                        result[
+                            'details'] = f'Digital signal unit issues: {unit_issues} values outside expected range ({lower_bound}-{upper_bound})'
                 else:
-                    result['status'] = 'fail'
-                    result['details'] = f'Digital signal unit issues: {unit_issues} values are not 0 or 1'
+                    # True digital signals should only be 0 or 1 (dimensionless)
+                    unit_issues = len(values[(values != 0) & (values != 1)])
+                    result['unit_issues_count'] = unit_issues
+                    result['conversions_applied'] = 0
+
+                    if unit_issues == 0:
+                        result['status'] = 'pass'
+                        result[
+                            'details'] = 'Digital signal units verified: All values are 0 or 1 (dimensionless)'
+                    else:
+                        result['status'] = 'fail'
+                        result['details'] = f'Digital signal unit issues: {unit_issues} values are not 0 or 1'
 
             elif signal_type.lower() == 'analog':
                 # Analog signals - implement original unit_check logic
@@ -574,115 +645,78 @@ class FlowmeterAcceptanceService:
                 'conversions_applied': 0
             }
 
-    def _test_13_quality_is_good(self, tag_name: str, rtu_file: str,
-                                 time_start: str, time_end: str,
-                                 signal_type: str) -> Dict[str, Any]:
-        """
-        Test 1.3: Quality of the Signals is GOOD in the RTU File
-
-        Based on the original flowmeter acceptance reliability_check_3_function.
-        Checks the 'quality' column in RTU data and counts how many readings
-        are NOT "GOOD". 
-
-        Args:
-            tag_name: The SCADA tag ID to check
-            rtu_file: Path to RTU data file
-            time_start: Start time for analysis
-            time_end: End time for analysis  
-            signal_type: 'digital' or 'analog'
-
-        Returns:
-            Dictionary with test results including bad_quality_count and status
-        """
+    def _test_13_quality_is_good(self, tag_info: Dict[str, Any]) -> Dict[str, Any]:
+        """Test 1.3: Quality of the Signals is GOOD in the rtu File"""
         try:
-            self.logger.info(
-                f"Running Test 1.3 for {signal_type} signal: {tag_name}")
+            tag_id = tag_info.get('LDTagID', '')
+            if not tag_id:
+                return {
+                    'status': 'error',
+                    'message': 'No tag ID provided',
+                    'details': {}
+                }
 
-            # Default result structure
-            result = {
-                'bad_quality_count': 0,
-                'total_readings': 0,
-                'status': 'pass',
-                'details': f'No data found for {tag_name}',
-                'good_quality_percentage': 0.0
-            }
+            # Get CSV file path
+            csv_path = self._get_csv_path(tag_id)
+            if not os.path.exists(csv_path):
+                return {
+                    'status': 'error',
+                    'message': f'Data file not found for tag {tag_id}',
+                    'details': {'file_path': csv_path}
+                }
 
-            # Look for the already exported CSV file in _Data directory
-            data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
-            rtu_csv_file = None
+            # Load tag data
+            df = pd.read_csv(csv_path)
 
-            # Look for RTU CSV files in _Data directory
-            if os.path.exists(data_dir):
-                for file in os.listdir(data_dir):
-                    if file.endswith('_RTU.csv') or 'rtu' in file.lower() and file.endswith('.csv'):
-                        rtu_csv_file = os.path.join(data_dir, file)
-                        break
+            # Check if quality column exists (last column)
+            if len(df.columns) < 1:
+                return {
+                    'status': 'error',
+                    'message': 'No quality column found in data',
+                    'details': {}
+                }
 
-            # If no CSV found in _Data, look for any CSV with similar name to RTU file
-            if not rtu_csv_file:
-                base_name = os.path.splitext(os.path.basename(rtu_file))[0]
-                potential_csv = os.path.join(
-                    os.path.dirname(rtu_file), f"{base_name}.csv")
-                if os.path.exists(potential_csv):
-                    rtu_csv_file = potential_csv
+            # Get quality column (last column)
+            quality_col = df.columns[-1]
+            quality_values = df[quality_col]
 
-            if not rtu_csv_file or not os.path.exists(rtu_csv_file):
-                result['details'] = f'No exported CSV file found for RTU data. Please run CSV export first.'
-                result['status'] = 'fail'
-                return result
+            # Count bad quality instances (not "GOOD")
+            bad_quality_mask = quality_values != 'GOOD'
+            bad_quality_count = bad_quality_mask.sum()
+            total_count = len(quality_values)
 
-            # Load the already exported CSV data
-            df = pd.read_csv(rtu_csv_file)
-
-            # Filter for the specific tag
-            tag_data = df[df['ident'].str.upper() == tag_name.upper()]
-
-            if tag_data.empty:
-                result['details'] = f'No data found for tag {tag_name}'
-                return result
-
-            # Check if quality column exists
-            if 'quality' not in tag_data.columns:
-                result['details'] = f'No quality column found in RTU data for {tag_name}'
-                result['status'] = 'fail'
-                return result
-
-            # Count bad quality readings (following original logic)
-            total_readings = len(tag_data)
-            result['total_readings'] = total_readings
-
-            # Original logic: if quality != "GOOD", increment bad_quality
-            bad_quality_count = len(tag_data[tag_data['quality'] != 'GOOD'])
-            result['bad_quality_count'] = bad_quality_count
-
-            # Calculate good quality percentage
-            if total_readings > 0:
-                good_quality_count = total_readings - bad_quality_count
-                result['good_quality_percentage'] = (
-                    good_quality_count / total_readings) * 100
-
-            # Determine status and details (following original logic)
+            # Match original logic: ALL must be GOOD to pass
             if bad_quality_count == 0:
-                result['status'] = 'pass'
-                result['details'] = f'Quality for {signal_type} signal {tag_name} is all GOOD'
+                return {
+                    'status': 'pass',
+                    'message': f'Quality for tag {tag_id} is all GOOD',
+                    'details': {
+                        'total_readings': total_count,
+                        'bad_quality_count': 0,
+                        'quality_status': 'GOOD'
+                    }
+                }
             else:
-                result['status'] = 'fail'
-                result['details'] = f'BAD Quality present with {bad_quality_count} number of instances out of {total_readings} total readings'
-
-            return result
+                return {
+                    'status': 'fail',
+                    'message': f'BAD Quality present with {bad_quality_count} number of instances',
+                    'details': {
+                        'total_readings': total_count,
+                        'bad_quality_count': bad_quality_count,
+                        'bad_quality_percentage': round((bad_quality_count / total_count) * 100, 2),
+                        'quality_status': 'BAD'
+                    }
+                }
 
         except Exception as e:
-            self.logger.error(f"Error in Test 1.3 for {tag_name}: {e}")
             return {
-                'bad_quality_count': 0,
-                'total_readings': 0,
-                'status': 'fail',
-                'details': f'Test execution error: {str(e)}',
-                'good_quality_percentage': 0.0
+                'status': 'error',
+                'message': f'Error checking quality: {str(e)}',
+                'details': {}
             }
 
     def _test_14_quality_is_good_review(self, meter_name: str, review_file: str,
-                                        time_start: str, time_end: str) -> Dict[str, Any]:
+                                        time_start: str, time_end: str, data_dir: str = None) -> Dict[str, Any]:
         """
         Test 1.4: Quality of the Signals is GOOD in the Review File
 
@@ -712,18 +746,14 @@ class FlowmeterAcceptanceService:
             }
 
             # Look for the MBSTagID.csv file in _Data directory relative to review file
-            data_dir = os.path.join(os.path.dirname(review_file), '_Data')
+            if data_dir is None:
+                data_dir = os.path.join(os.path.dirname(review_file), '_Data')
             mbs_csv_file = os.path.join(data_dir, 'MBSTagID.csv')
 
             # If not found in _Data, look in the same directory as review file
             if not os.path.exists(mbs_csv_file):
                 mbs_csv_file = os.path.join(
                     os.path.dirname(review_file), 'MBSTagID.csv')
-
-            # Also check the L05 data directory directly
-            if not os.path.exists(mbs_csv_file):
-                l05_data_dir = r"C:\Temp\python_projects\Flow Meter Acceptance L05\_Data"
-                mbs_csv_file = os.path.join(l05_data_dir, 'MBSTagID.csv')
 
             if not os.path.exists(mbs_csv_file):
                 result['details'] = f'No MBSTagID.csv file found for meter {meter_name}'

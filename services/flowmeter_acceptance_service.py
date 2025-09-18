@@ -210,6 +210,10 @@ class FlowmeterAcceptanceService:
             review_quality_result = self._test_14_quality_review(
                 meter_name, review_file, data_dir)
 
+            # Test 3.1 - Mean Squared Error between digital and analog signals
+            mse_result = self._test_31_mean_squared_error(
+                digital_tag, analog_tag, rtu_file, data_dir)
+
             results['accuracy_tests'] = {
                 'Test 1.1 - Digital Signal Range': {
                     'status': digital_range_result['status'],
@@ -245,6 +249,11 @@ class FlowmeterAcceptanceService:
                     'status': review_quality_result['status'],
                     'value': f"{review_quality_result['bad_status_count']} bad status readings",
                     'description': 'Review file status values are GOOD (ST=1)'
+                },
+                'Test 3.1 - Mean Squared Error': {
+                    'status': mse_result['status'],
+                    'value': f"MSE: {mse_result['mse_value']}, Avg: {mse_result['nominal_flowrate']}",
+                    'description': 'Mean squared error between digital and analog signals'
                 }
             }            # Determine overall status
             all_tests = []
@@ -900,6 +909,118 @@ class FlowmeterAcceptanceService:
                 'flat_check_status': 'error',
                 'total_readings': 0,
                 'non_shutdown_readings': 0,
+                'status': 'fail',
+                'details': f'Test execution error: {str(e)}'
+            }
+
+    def _test_31_mean_squared_error(self, digital_tag: str, analog_tag: str,
+                                    rtu_file: str, data_dir: str = None) -> Dict[str, Any]:
+        """
+        Test 3.1: Mean Squared Error between Digital and Analog Signals
+
+        Calculates MSE using the correct formula: MSE = mean((digital - analog)²)
+        Does not normalize by digital mean or convert to percentage.
+
+        Args:
+            digital_tag: The digital SCADA tag ID
+            analog_tag: The analog SCADA tag ID
+            rtu_file: Path to RTU data file
+            data_dir: Directory containing CSV data files
+
+        Returns:
+            Dictionary with test results including mse_value and nominal_flowrate
+        """
+        try:
+            self.logger.info(
+                f"Running Test 3.1 MSE for digital: {digital_tag}, analog: {analog_tag}")
+
+            # Default result structure
+            result = {
+                'mse_value': 0.0,
+                'nominal_flowrate': 0.0,
+                'total_readings': 0,
+                'status': 'pass',
+                'details': 'No data found'
+            }
+
+            # Determine data directory
+            if data_dir is None:
+                data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
+
+            # CSV file paths
+            digital_csv = os.path.join(data_dir, "SCADATagID_DIG.csv")
+            analog_csv = os.path.join(data_dir, "SCADATagID_ANL.csv")
+
+            # Check if both CSV files exist
+            if not os.path.exists(digital_csv):
+                result['status'] = 'fail'
+                result['details'] = f'Digital CSV file not found: {digital_csv}'
+                return result
+
+            if not os.path.exists(analog_csv):
+                result['status'] = 'fail'
+                result['details'] = f'Analog CSV file not found: {analog_csv}'
+                return result
+
+            # Load CSV data
+            digital_df = pd.read_csv(digital_csv)
+            analog_df = pd.read_csv(analog_csv)
+
+            # Filter for specific tags
+            if 'tag_name' not in digital_df.columns or 'tag_name' not in analog_df.columns:
+                result['status'] = 'fail'
+                result['details'] = 'No tag_name column found in CSV files'
+                return result
+
+            digital_data = digital_df[digital_df['tag_name'] == digital_tag]
+            analog_data = analog_df[analog_df['tag_name'] == analog_tag]
+
+            if digital_data.empty:
+                result['status'] = 'fail'
+                result['details'] = f'No data found for digital tag {digital_tag}'
+                return result
+
+            if analog_data.empty:
+                result['status'] = 'fail'
+                result['details'] = f'No data found for analog tag {analog_tag}'
+                return result
+
+            # Get values
+            digital_values = digital_data['value'].dropna().values
+            analog_values = analog_data['value'].dropna().values
+
+            if len(digital_values) == 0 or len(analog_values) == 0:
+                result['status'] = 'fail'
+                result['details'] = 'No valid readings found in one or both signals'
+                return result
+
+            # Align data lengths (trim to shorter length)
+            min_length = min(len(digital_values), len(analog_values))
+            digital_values = digital_values[:min_length]
+            analog_values = analog_values[:min_length]
+
+            result['total_readings'] = min_length
+
+            # Calculate MSE using correct formula: mean((digital - analog)²)
+            # Not normalized by digital mean or converted to percentage
+            mse_value = np.square(np.subtract(
+                digital_values, analog_values)).mean()
+            nominal_flowrate = np.mean(digital_values)
+
+            result['mse_value'] = round(mse_value, 3)
+            result['nominal_flowrate'] = round(nominal_flowrate, 2)
+            result['status'] = 'pass'
+            result['details'] = f'MSE: {result["mse_value"]}, Avg Flow: {result["nominal_flowrate"]}'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(
+                f"Error in Test 3.1 for {digital_tag}/{analog_tag}: {e}")
+            return {
+                'mse_value': 0.0,
+                'nominal_flowrate': 0.0,
+                'total_readings': 0,
                 'status': 'fail',
                 'details': f'Test execution error: {str(e)}'
             }

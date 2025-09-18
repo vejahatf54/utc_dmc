@@ -285,87 +285,6 @@ def create_flowmeter_acceptance_page():
                                     ], gap="sm", style={"flex": "1"})
                                 ], align="stretch", gap="md"),
                             ], shadow="sm", p="md"),
-                            dmc.Card([
-                                dmc.Group([
-                                    dmc.Text("Robustness Parameters",
-                                             fw=600, size="md"),
-                                    BootstrapIcon(icon="cpu", width=16)
-                                ], gap="xs", mb="lg"),
-                                dmc.Group([
-                                    # First column - Signal Stability (Test 4.1)
-                                    dmc.Stack([
-                                        dmc.Text(
-                                            "Test 4.1 - Signal Stability", size="sm", fw=500, c="dimmed"),
-                                        dmc.NumberInput(
-                                            label="Window Size",
-                                            id="stability-window-input",
-                                            value=50,
-                                            min=10,
-                                            max=200,
-                                            size="sm",
-                                            description="Rolling window size for stability analysis"
-                                        ),
-                                        dmc.NumberInput(
-                                            label="Drift Threshold (%)",
-                                            id="drift-threshold-input",
-                                            value=5.0,
-                                            min=0.1,
-                                            max=20.0,
-                                            step=0.1,
-                                            size="sm",
-                                            description="Max allowed drift from mean"
-                                        ),
-                                        dmc.NumberInput(
-                                            label="Stability Threshold (%)",
-                                            id="stability-threshold-input",
-                                            value=90.0,
-                                            min=50.0,
-                                            max=100.0,
-                                            step=1.0,
-                                            size="sm",
-                                            description="Required percentage of stable readings"
-                                        )
-                                    ], gap="xs", style={"flex": "1"}),
-                                    # Vertical divider
-                                    dmc.Divider(
-                                        orientation="vertical", size="sm"),
-                                    # Second column - Spectral Analysis (Test 4.2)
-                                    dmc.Stack([
-                                        dmc.Text(
-                                            "Test 4.2 - Spectral Analysis", size="sm", fw=500, c="dimmed"),
-                                        dmc.NumberInput(
-                                            label="Noise Threshold (%)",
-                                            id="noise-threshold-input",
-                                            value=15.0,
-                                            min=1.0,
-                                            max=50.0,
-                                            step=0.1,
-                                            size="sm",
-                                            description="Max allowed high-frequency noise"
-                                        ),
-                                        dmc.NumberInput(
-                                            label="Low Freq Cutoff (Hz)",
-                                            id="low-freq-cutoff-input",
-                                            value=0.05,
-                                            min=0.001,
-                                            max=1.0,
-                                            step=0.001,
-                                            size="sm",
-                                            description="Frequency threshold for stability"
-                                        ),
-                                        dmc.NumberInput(
-                                            label="Entropy Threshold",
-                                            id="entropy-threshold-input",
-                                            value=0.7,
-                                            min=0.1,
-                                            max=1.0,
-                                            step=0.01,
-                                            size="sm",
-                                            description="Min spectral entropy for good signal"
-                                        )
-                                    ], gap="xs", style={"flex": "1"})
-                                ], align="stretch", gap="md"),
-                            ], shadow="sm", p="md"),
                         ], gap="md"),
                         # Column 2
                         dmc.Stack([
@@ -445,7 +364,92 @@ def create_flowmeter_acceptance_page():
                                         ], gap="xs")
                                     ], withBorder=True, p="sm")
                                 ], cols=2, spacing="md"),
-                            ], shadow="sm", p="xl"),
+                            ], shadow="sm", p="md"),
+                            # Test 4.1 Signal Stability Parameters (conditional)
+                            dmc.Card([
+                                dmc.Group([
+                                    dmc.Text(
+                                        "Test 4.1 - Signal Stability Parameters", fw=500, size="sm", c="orange"),
+                                    BootstrapIcon(icon="graph-up", width=14)
+                                ], gap="xs", mb="sm"),
+                                dmc.Group([
+                                    dmc.NumberInput(
+                                        label="Window Size",
+                                        id="stability-window-input",
+                                        value=50,
+                                        min=10,
+                                        max=200,
+                                        size="xs",
+                                        style={"flex": "1"},
+                                        description="Rolling window"
+                                    ),
+                                    dmc.NumberInput(
+                                        label="Drift Threshold (%)",
+                                        id="drift-threshold-input",
+                                        value=5.0,
+                                        min=0.1,
+                                        max=20.0,
+                                        step=0.1,
+                                        size="xs",
+                                        style={"flex": "1"},
+                                        description="Max drift"
+                                    ),
+                                    dmc.NumberInput(
+                                        label="Stability Threshold (%)",
+                                        id="stability-threshold-input",
+                                        value=90.0,
+                                        min=50.0,
+                                        max=100.0,
+                                        step=1.0,
+                                        size="xs",
+                                        style={"flex": "1"},
+                                        description="Required stability"
+                                    )
+                                ], gap="sm", align="stretch")
+                            ], shadow="sm", p="sm", id="test-41-params-card", style={"display": "none"}),
+                            # Test 4.2 Spectral Analysis Parameters (conditional)
+                            dmc.Card([
+                                dmc.Group([
+                                    dmc.Text(
+                                        "Test 4.2 - Spectral Analysis Parameters", fw=500, size="sm", c="orange"),
+                                    BootstrapIcon(icon="soundwave", width=14)
+                                ], gap="xs", mb="sm"),
+                                dmc.Group([
+                                    dmc.NumberInput(
+                                        label="Noise Threshold (%)",
+                                        id="noise-threshold-input",
+                                        value=15.0,
+                                        min=1.0,
+                                        max=50.0,
+                                        step=0.1,
+                                        size="xs",
+                                        style={"flex": "1"},
+                                        description="Max noise"
+                                    ),
+                                    dmc.NumberInput(
+                                        label="Low Freq Cutoff (Hz)",
+                                        id="low-freq-cutoff-input",
+                                        value=0.05,
+                                        min=0.001,
+                                        max=1.0,
+                                        step=0.001,
+                                        size="xs",
+                                        style={"flex": "1"},
+                                        description="Freq threshold"
+                                    ),
+                                    dmc.NumberInput(
+                                        label="Entropy Threshold",
+                                        id="entropy-threshold-input",
+                                        value=0.7,
+                                        min=0.1,
+                                        max=1.0,
+                                        step=0.01,
+                                        size="xs",
+                                        style={"flex": "1"},
+                                        description="Min entropy"
+                                    )
+                                ], gap="sm", align="stretch")
+                            ], shadow="sm", p="sm", id="test-42-params-card", style={"display": "none"}),
                             dmc.Card([
                                 dmc.Group([
                                     dmc.Button(
@@ -467,8 +471,8 @@ def create_flowmeter_acceptance_page():
                                     )
                                 ], justify="center", gap="md")
                             ], shadow="sm", p="md"),
-                        ], gap="md"),
-                    ], cols=2, spacing="lg", style={"width": "100%"}),
+                        ], gap="sm"),
+                    ], cols=2, spacing="md", style={"width": "100%"}),
                     dmc.LoadingOverlay(
                         visible=False,
                         id="analysis-loading",
@@ -507,7 +511,7 @@ def create_flowmeter_acceptance_page():
         rtu_file_store,
         csv_tags_store,
         review_file_store
-    ], fluid=True, py="md")
+    ], fluid=True, py="sm")
 
 
 # File validation callback
@@ -548,6 +552,21 @@ def validate_file_inputs(rtu_file, csv_file, review_file):
 )
 def toggle_help_modal(n_clicks, opened):
     return not opened
+
+
+# Callback to show/hide robustness parameter cards
+@callback(
+    [Output("test-41-params-card", "style"),
+     Output("test-42-params-card", "style")],
+    [Input("robustness-check-1", "checked"),
+     Input("robustness-check-2", "checked")],
+    prevent_initial_call=True
+)
+def toggle_robustness_params(rob1_checked, rob2_checked):
+    """Show/hide robustness parameter cards based on checkbox selection."""
+    style_41 = {"display": "block"} if rob1_checked else {"display": "none"}
+    style_42 = {"display": "block"} if rob2_checked else {"display": "none"}
+    return style_41, style_42
 
 
 # Combined callback for preset checks and form clearing

@@ -1,7 +1,7 @@
 """
-Integration Tests for Flowmeter Acceptance Tests 1.1-1.4, 2.1-2.2, and 3.1
+Integration Tests for Flowmeter Acceptance Tests 1.1-1.4, 2.1-2.2, 3.1-3.2
 
-10 integration tests using real L05 data:
+12 integration tests using real L05 data:
 - Test 1.1: Digital Signal Range 
 - Test 1.1: Analog Signal Range
 - Test 1.2: Digital Signal Units 
@@ -12,6 +12,8 @@ Integration Tests for Flowmeter Acceptance Tests 1.1-1.4, 2.1-2.2, and 3.1
 - Test 2.1: Analog Signal Time Differences  
 - Test 2.2: FLAT Attribute Check
 - Test 3.1: Mean Squared Error
+- Test 3.2: Digital Signal SNR
+- Test 3.2: Analog Signal SNR
 
 Test Configuration:
 - Data Range: 1500-4000
@@ -277,3 +279,59 @@ def test_31_mean_squared_error(setup_test_environment, service):
 
     # Verify MSE is calculated properly (should be reasonable for real data)
     assert result['mse_value'] < 1000000, "MSE should be reasonable for real data"
+
+
+def test_32_signal_noise_ratio_digital(setup_test_environment, service):
+    """Test 3.2: Signal-to-Noise Ratio for Digital Signal - using actual L05 data"""
+    env = setup_test_environment
+    result = service._test_32_signal_noise_ratio(
+        DIGITAL_TAG, env['dummy_rtu_file'], 'digital', MIN_Q, env['data_dir'])
+
+    assert result['total_readings'] > 0, "Should have readings"
+    assert result['steady_state_readings'] > 0, "Should have steady state readings above min_q"
+
+    if result['snr_value'] is not None:
+        assert result['status'] == 'pass', "SNR test should pass when SNR is calculated"
+        assert result['snr_value'] > 0, "SNR value should be positive"
+        env['logger'].info(
+            f"Test 3.2 Digital SNR: {result['total_readings']} total readings, "
+            f"{result['steady_state_readings']} steady state, SNR: {result['snr_value']}")
+
+        # Verify specific result structure
+        assert 'snr_value' in result
+        assert 'steady_state_readings' in result
+
+        # Verify SNR is reasonable for real data (should be positive and not too extreme)
+        assert 0.1 < result['snr_value'] < 10000, "SNR should be reasonable for real data"
+    else:
+        # If no SNR calculated, should have proper failure reason
+        assert result['status'] == 'fail', "Should fail when SNR cannot be calculated"
+        env['logger'].info(f"Test 3.2 Digital SNR failed: {result['details']}")
+
+
+def test_32_signal_noise_ratio_analog(setup_test_environment, service):
+    """Test 3.2: Signal-to-Noise Ratio for Analog Signal - using actual L05 data"""
+    env = setup_test_environment
+    result = service._test_32_signal_noise_ratio(
+        ANALOG_TAG, env['dummy_rtu_file'], 'analog', MIN_Q, env['data_dir'])
+
+    assert result['total_readings'] > 0, "Should have readings"
+    assert result['steady_state_readings'] > 0, "Should have steady state readings above min_q"
+
+    if result['snr_value'] is not None:
+        assert result['status'] == 'pass', "SNR test should pass when SNR is calculated"
+        assert result['snr_value'] > 0, "SNR value should be positive"
+        env['logger'].info(
+            f"Test 3.2 Analog SNR: {result['total_readings']} total readings, "
+            f"{result['steady_state_readings']} steady state, SNR: {result['snr_value']}")
+
+        # Verify specific result structure
+        assert 'snr_value' in result
+        assert 'steady_state_readings' in result
+
+        # Verify SNR is reasonable for real data (should be positive and not too extreme)
+        assert 0.1 < result['snr_value'] < 10000, "SNR should be reasonable for real data"
+    else:
+        # If no SNR calculated, should have proper failure reason
+        assert result['status'] == 'fail', "Should fail when SNR cannot be calculated"
+        env['logger'].info(f"Test 3.2 Analog SNR failed: {result['details']}")

@@ -214,6 +214,12 @@ class FlowmeterAcceptanceService:
             mse_result = self._test_31_mean_squared_error(
                 digital_tag, analog_tag, rtu_file, data_dir)
 
+            # Test 3.2 - Signal-to-Noise Ratio for both digital and analog signals
+            digital_snr_result = self._test_32_signal_noise_ratio(
+                digital_tag, rtu_file, 'digital', min_q, data_dir)
+            analog_snr_result = self._test_32_signal_noise_ratio(
+                analog_tag, rtu_file, 'analog', min_q, data_dir)
+
             results['accuracy_tests'] = {
                 'Test 1.1 - Digital Signal Range': {
                     'status': digital_range_result['status'],
@@ -254,6 +260,16 @@ class FlowmeterAcceptanceService:
                     'status': mse_result['status'],
                     'value': f"MSE: {mse_result['mse_value']}, Avg: {mse_result['nominal_flowrate']}",
                     'description': 'Mean squared error between digital and analog signals'
+                },
+                'Test 3.2 - Digital Signal SNR': {
+                    'status': digital_snr_result['status'],
+                    'value': f"SNR: {digital_snr_result['snr_value']}" if digital_snr_result['snr_value'] is not None else "N/A",
+                    'description': 'Digital signal-to-noise ratio for steady state section'
+                },
+                'Test 3.2 - Analog Signal SNR': {
+                    'status': analog_snr_result['status'],
+                    'value': f"SNR: {analog_snr_result['snr_value']}" if analog_snr_result['snr_value'] is not None else "N/A",
+                    'description': 'Analog signal-to-noise ratio for steady state section'
                 }
             }            # Determine overall status
             all_tests = []
@@ -1021,6 +1037,122 @@ class FlowmeterAcceptanceService:
                 'mse_value': 0.0,
                 'nominal_flowrate': 0.0,
                 'total_readings': 0,
+                'status': 'fail',
+                'details': f'Test execution error: {str(e)}'
+            }
+
+    def _test_32_signal_noise_ratio(self, tag_name: str, rtu_file: str,
+                                    signal_type: str, min_q: float,
+                                    data_dir: str = None) -> Dict[str, Any]:
+        """
+        Test 3.2: Signal-to-Noise Ratio (Accuracy Check 2)
+
+        Calculates SNR for a steady state section using 1 hour of data above min_q.
+        Matches original flowmeter_main.py signal_noise_ratio logic.
+        Note: Steady state logic (hour_check) is simplified for now.
+
+        Args:
+            tag_name: The SCADA tag ID to check
+            rtu_file: Path to RTU data file
+            signal_type: 'digital' or 'analog'
+            min_q: Minimum operating flowrate (from UI)
+            data_dir: Directory containing CSV data files
+
+        Returns:
+            Dictionary with test results including snr_value and status
+        """
+        try:
+            self.logger.info(
+                f"Running Test 3.2 SNR for {signal_type} signal: {tag_name}")
+
+            # Default result structure
+            result = {
+                'snr_value': None,
+                'total_readings': 0,
+                'steady_state_readings': 0,
+                'status': 'pass',
+                'details': f'No data found for {tag_name}'
+            }
+
+            # Determine data directory
+            if data_dir is None:
+                data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
+
+            # Determine CSV file based on signal type
+            if signal_type.lower() == 'digital':
+                csv_file = os.path.join(data_dir, "SCADATagID_DIG.csv")
+            elif signal_type.lower() == 'analog':
+                csv_file = os.path.join(data_dir, "SCADATagID_ANL.csv")
+            else:
+                result['status'] = 'fail'
+                result['details'] = f'Unknown signal type: {signal_type}'
+                return result
+
+            if not os.path.exists(csv_file):
+                result['status'] = 'fail'
+                result['details'] = f'CSV file not found: {csv_file}'
+                return result
+
+            # Load CSV data
+            df = pd.read_csv(csv_file)
+
+            # Filter for the specific tag
+            if 'tag_name' not in df.columns:
+                result['status'] = 'fail'
+                result['details'] = f'No tag_name column found in {csv_file}'
+                return result
+
+            tag_data = df[df['tag_name'] == tag_name].copy()
+
+            if tag_data.empty:
+                result['details'] = f'No data found for tag {tag_name}'
+                result['status'] = 'fail'
+                return result
+
+            # Get values
+            values = tag_data['value'].dropna().values
+            result['total_readings'] = len(values)
+
+            if result['total_readings'] == 0:
+                result['status'] = 'fail'
+                result['details'] = 'No valid readings found'
+                return result
+
+            # Simplified steady state logic (placeholder for step 5)
+            # For now, use all values above min_q as steady state
+            steady_state_values = values[values > min_q]
+            result['steady_state_readings'] = len(steady_state_values)
+
+            if len(steady_state_values) < 2:
+                result['status'] = 'fail'
+                result['details'] = f'Insufficient steady state data above min_q ({min_q}). Found {len(steady_state_values)} readings.'
+                result['snr_value'] = None
+                return result
+
+            # Calculate SNR: mean / std_dev (original formula)
+            mean_steady_state = np.mean(steady_state_values)
+            std_steady_state = np.std(steady_state_values)
+
+            if std_steady_state == 0:
+                result['status'] = 'fail'
+                result['details'] = 'Standard deviation is zero - cannot calculate SNR'
+                result['snr_value'] = None
+                return result
+
+            snr_value = mean_steady_state / std_steady_state
+            result['snr_value'] = round(snr_value, 3)
+
+            result['status'] = 'pass'
+            result['details'] = f'SNR: {result["snr_value"]} (Mean: {round(mean_steady_state, 2)}, Std: {round(std_steady_state, 2)})'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error in Test 3.2 for {tag_name}: {e}")
+            return {
+                'snr_value': None,
+                'total_readings': 0,
+                'steady_state_readings': 0,
                 'status': 'fail',
                 'details': f'Test execution error: {str(e)}'
             }

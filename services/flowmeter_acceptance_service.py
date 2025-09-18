@@ -1157,6 +1157,271 @@ class FlowmeterAcceptanceService:
                 'details': f'Test execution error: {str(e)}'
             }
 
+    def _test_33_target_vs_digital_comparison(self, target_csv: str, digital_csv: str,
+                                              accuracy_range: float, data_folder: str) -> Dict[str, Any]:
+        """
+        Test 3.3: Target vs Digital Signal Comparison
+        Compares Target meter values (MBSTagID.csv from Review) with Digital RTU values (SCADATagID_DIG.csv)
+
+        Args:
+            target_csv: Path to MBSTagID.csv (Target meter from Review file)
+            digital_csv: Path to SCADATagID_DIG.csv (Digital signal from RTU)
+            accuracy_range: Percentage tolerance for comparison (e.g., 1.0 for ±1%)
+            data_folder: Folder containing the CSV files
+
+        Returns:
+            Dict with comparison results including percentage within range
+        """
+        result = {
+            'percentage_within_range': 0.0,
+            'total_comparisons': 0,
+            'values_within_range': 0,
+            'target_readings': 0,
+            'digital_readings': 0,
+            'status': 'fail',
+            'details': ''
+        }
+
+        try:
+            # Read Target meter data (MBSTagID.csv - Review file format)
+            target_file = os.path.join(
+                data_folder, os.path.basename(target_csv))
+            if not os.path.exists(target_file):
+                result['details'] = f'Target CSV file not found: {target_file}'
+                return result
+
+            target_df = pd.read_csv(target_file)
+
+            # Find the :VAL column in target data
+            val_column = None
+            for col in target_df.columns:
+                if ':VAL' in col:
+                    val_column = col
+                    break
+
+            if val_column is None:
+                result['details'] = 'No :VAL column found in target CSV file'
+                return result
+
+            # Clean and prepare target data
+            target_df['TIME'] = pd.to_datetime(
+                target_df['TIME'], errors='coerce')
+            target_df = target_df.dropna(subset=['TIME', val_column])
+            target_values = target_df[val_column].values
+            target_times = target_df['TIME'].values
+            result['target_readings'] = len(target_values)
+
+            # Read Digital RTU data (SCADATagID_DIG.csv - RTU file format)
+            digital_file = os.path.join(
+                data_folder, os.path.basename(digital_csv))
+            if not os.path.exists(digital_file):
+                result['details'] = f'Digital CSV file not found: {digital_file}'
+                return result
+
+            digital_df = pd.read_csv(digital_file)
+
+            # Prepare digital data
+            digital_df['datetime'] = pd.to_datetime(
+                digital_df['datetime'], errors='coerce')
+            digital_df = digital_df.dropna(subset=['datetime', 'value'])
+            digital_values = digital_df['value'].values
+            digital_times = digital_df['datetime'].values
+            result['digital_readings'] = len(digital_values)
+
+            if len(target_values) == 0 or len(digital_values) == 0:
+                result['details'] = f'Insufficient data: Target={len(target_values)}, Digital={len(digital_values)}'
+                return result
+
+            # Time-align the datasets by finding nearest timestamps
+            aligned_pairs = []
+            for i, target_time in enumerate(target_times):
+                target_val = target_values[i]
+
+                # Find closest digital timestamp (within reasonable time window, e.g., 30 seconds)
+                time_diffs = np.abs(digital_times - target_time)
+                min_diff_idx = np.argmin(time_diffs)
+                min_diff_seconds = time_diffs[min_diff_idx] / \
+                    np.timedelta64(1, 's')
+
+                if min_diff_seconds <= 30:  # Within 30 seconds
+                    digital_val = digital_values[min_diff_idx]
+                    aligned_pairs.append((target_val, digital_val))
+
+            result['total_comparisons'] = len(aligned_pairs)
+
+            if result['total_comparisons'] == 0:
+                result['details'] = 'No time-aligned data points found between target and digital signals'
+                return result
+
+            # Calculate target mean for comparison
+            target_vals = [pair[0] for pair in aligned_pairs]
+            target_mean = np.mean(target_vals)
+
+            # Count values within accuracy range
+            lower_bound = target_mean * (1 - accuracy_range / 100)
+            upper_bound = target_mean * (1 + accuracy_range / 100)
+
+            values_within_range = 0
+            for target_val, digital_val in aligned_pairs:
+                if lower_bound <= digital_val <= upper_bound:
+                    values_within_range += 1
+
+            result['values_within_range'] = values_within_range
+            result['percentage_within_range'] = round(
+                (values_within_range / result['total_comparisons']) * 100, 2)
+
+            result['status'] = 'pass'
+            result[
+                'details'] = f'{result["percentage_within_range"]}% of digital values within ±{accuracy_range}% of target mean ({round(target_mean, 2)})'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(
+                f"Error in Test 3.3 Target vs Digital comparison: {e}")
+            result['details'] = f'Test execution error: {str(e)}'
+            return result
+
+    def _test_34_target_vs_reference_comparison(self, target_csv: str, reference_csv: str,
+                                                accuracy_range: float, data_folder: str) -> Dict[str, Any]:
+        """
+        Test 3.4: Target vs Reference Meter Comparison (formerly Test 3.5)
+        Compares Target meter values (MBSTagID.csv) with Reference meter values (Reference_Meter.csv)
+        Both from Review files
+
+        Args:
+            target_csv: Path to MBSTagID.csv (Target meter from Review file)
+            reference_csv: Path to Reference_Meter.csv (Reference meter from Review file)
+            accuracy_range: Percentage tolerance for comparison (e.g., 1.0 for ±1%)
+            data_folder: Folder containing the CSV files
+
+        Returns:
+            Dict with comparison results including percentage within range
+        """
+        result = {
+            'percentage_within_range': 0.0,
+            'total_comparisons': 0,
+            'values_within_range': 0,
+            'target_readings': 0,
+            'reference_readings': 0,
+            'reference_mean': 0.0,
+            'status': 'fail',
+            'details': ''
+        }
+
+        try:
+            # Read Target meter data (MBSTagID.csv - Review file format)
+            target_file = os.path.join(
+                data_folder, os.path.basename(target_csv))
+            if not os.path.exists(target_file):
+                result['details'] = f'Target CSV file not found: {target_file}'
+                return result
+
+            target_df = pd.read_csv(target_file)
+
+            # Find the :VAL column in target data
+            target_val_column = None
+            for col in target_df.columns:
+                if ':VAL' in col:
+                    target_val_column = col
+                    break
+
+            if target_val_column is None:
+                result['details'] = 'No :VAL column found in target CSV file'
+                return result
+
+            # Read Reference meter data (Reference_Meter.csv - Review file format)
+            reference_file = os.path.join(
+                data_folder, os.path.basename(reference_csv))
+            if not os.path.exists(reference_file):
+                result['details'] = f'Reference CSV file not found: {reference_file}'
+                return result
+
+            reference_df = pd.read_csv(reference_file)
+
+            # Find the :VAL column in reference data
+            reference_val_column = None
+            for col in reference_df.columns:
+                if ':VAL' in col:
+                    reference_val_column = col
+                    break
+
+            if reference_val_column is None:
+                result['details'] = 'No :VAL column found in reference CSV file'
+                return result
+
+            # Clean and prepare target data
+            target_df['TIME'] = pd.to_datetime(
+                target_df['TIME'], errors='coerce')
+            target_df = target_df.dropna(subset=['TIME', target_val_column])
+            target_values = target_df[target_val_column].values
+            target_times = target_df['TIME'].values
+            result['target_readings'] = len(target_values)
+
+            # Clean and prepare reference data
+            reference_df['TIME'] = pd.to_datetime(
+                reference_df['TIME'], errors='coerce')
+            reference_df = reference_df.dropna(
+                subset=['TIME', reference_val_column])
+            reference_values = reference_df[reference_val_column].values
+            reference_times = reference_df['TIME'].values
+            result['reference_readings'] = len(reference_values)
+
+            if len(target_values) == 0 or len(reference_values) == 0:
+                result['details'] = f'Insufficient data: Target={len(target_values)}, Reference={len(reference_values)}'
+                return result
+
+            # Time-align the datasets by finding nearest timestamps
+            aligned_pairs = []
+            for i, target_time in enumerate(target_times):
+                target_val = target_values[i]
+
+                # Find closest reference timestamp (within reasonable time window, e.g., 30 seconds)
+                time_diffs = np.abs(reference_times - target_time)
+                min_diff_idx = np.argmin(time_diffs)
+                min_diff_seconds = time_diffs[min_diff_idx] / \
+                    np.timedelta64(1, 's')
+
+                if min_diff_seconds <= 30:  # Within 30 seconds
+                    reference_val = reference_values[min_diff_idx]
+                    aligned_pairs.append((target_val, reference_val))
+
+            result['total_comparisons'] = len(aligned_pairs)
+
+            if result['total_comparisons'] == 0:
+                result['details'] = 'No time-aligned data points found between target and reference meters'
+                return result
+
+            # Calculate reference mean for comparison (following original project logic)
+            reference_vals = [pair[1] for pair in aligned_pairs]
+            reference_mean = np.mean(reference_vals)
+            result['reference_mean'] = round(reference_mean, 2)
+
+            # Count target values within accuracy range of reference mean
+            lower_bound = reference_mean * (1 - accuracy_range / 100)
+            upper_bound = reference_mean * (1 + accuracy_range / 100)
+
+            values_within_range = 0
+            for target_val, reference_val in aligned_pairs:
+                if lower_bound <= target_val <= upper_bound:
+                    values_within_range += 1
+
+            result['values_within_range'] = values_within_range
+            result['percentage_within_range'] = round(
+                (values_within_range / result['total_comparisons']) * 100, 2)
+
+            result['status'] = 'pass'
+            result[
+                'details'] = f'{result["percentage_within_range"]}% of target values within ±{accuracy_range}% of reference mean ({reference_mean})'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(
+                f"Error in Test 3.4 Target vs Reference comparison: {e}")
+            result['details'] = f'Test execution error: {str(e)}'
+            return result
+
     def get_test_results_summary(self) -> Dict[str, Any]:
         """Get test results formatted for UI display with pass/fail icons."""
         if not self.test_results:

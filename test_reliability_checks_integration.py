@@ -1,7 +1,7 @@
 """
-Integration Tests for Flowmeter Acceptance Tests 1.1-1.4, 2.1-2.2, 3.1-3.2
+Integration Tests for Flowmeter Acceptance Tests 1.1-1.4, 2.1-2.2, 3.1-3.4
 
-12 integration tests using real L05 data:
+14 integration tests using real L05 data:
 - Test 1.1: Digital Signal Range 
 - Test 1.1: Analog Signal Range
 - Test 1.2: Digital Signal Units 
@@ -14,6 +14,8 @@ Integration Tests for Flowmeter Acceptance Tests 1.1-1.4, 2.1-2.2, 3.1-3.2
 - Test 3.1: Mean Squared Error
 - Test 3.2: Digital Signal SNR
 - Test 3.2: Analog Signal SNR
+- Test 3.3: Target vs Digital Signal Comparison
+- Test 3.4: Target vs Reference Meter Comparison
 
 Test Configuration:
 - Data Range: 1500-4000
@@ -335,3 +337,69 @@ def test_32_signal_noise_ratio_analog(setup_test_environment, service):
         # If no SNR calculated, should have proper failure reason
         assert result['status'] == 'fail', "Should fail when SNR cannot be calculated"
         env['logger'].info(f"Test 3.2 Analog SNR failed: {result['details']}")
+
+
+def test_33_target_vs_digital_comparison(setup_test_environment, service):
+    """Test 3.3: Target vs Digital Signal Comparison - using actual L05 data"""
+    env = setup_test_environment
+
+    # Hardcoded test parameters (as requested - NOT in service)
+    ACCURACY_RANGE = 1.0  # ±1% tolerance
+    TARGET_CSV = "MBSTagID.csv"
+    DIGITAL_CSV = "SCADATagID_DIG.csv"
+
+    result = service._test_33_target_vs_digital_comparison(
+        TARGET_CSV, DIGITAL_CSV, ACCURACY_RANGE, env['data_dir'])
+
+    assert result['target_readings'] > 0, "Should have target readings"
+    assert result['digital_readings'] > 0, "Should have digital readings"
+    assert result['total_comparisons'] > 0, "Should have time-aligned comparisons"
+
+    if result['status'] == 'pass':
+        assert result['percentage_within_range'] >= 0, "Percentage should be non-negative"
+        assert result['values_within_range'] >= 0, "Values within range should be non-negative"
+        env['logger'].info(
+            f"Test 3.3 Target vs Digital: {result['total_comparisons']} comparisons, "
+            f"{result['percentage_within_range']}% within ±{ACCURACY_RANGE}% range")
+    else:
+        env['logger'].info(
+            f"Test 3.3 Target vs Digital failed: {result['details']}")
+
+    # Verify result structure
+    assert 'percentage_within_range' in result
+    assert 'total_comparisons' in result
+    assert 'values_within_range' in result
+
+
+def test_34_target_vs_reference_comparison(setup_test_environment, service):
+    """Test 3.4: Target vs Reference Meter Comparison - using actual L05 data"""
+    env = setup_test_environment
+
+    # Hardcoded test parameters (as requested - NOT in service)
+    ACCURACY_RANGE = 1.0  # ±1% tolerance
+    TARGET_CSV = "MBSTagID.csv"
+    REFERENCE_CSV = "Reference_Meter.csv"
+
+    result = service._test_34_target_vs_reference_comparison(
+        TARGET_CSV, REFERENCE_CSV, ACCURACY_RANGE, env['data_dir'])
+
+    assert result['target_readings'] > 0, "Should have target readings"
+    assert result['reference_readings'] > 0, "Should have reference readings"
+    assert result['total_comparisons'] > 0, "Should have time-aligned comparisons"
+
+    if result['status'] == 'pass':
+        assert result['percentage_within_range'] >= 0, "Percentage should be non-negative"
+        assert result['values_within_range'] >= 0, "Values within range should be non-negative"
+        assert result['reference_mean'] > 0, "Reference mean should be positive"
+        env['logger'].info(
+            f"Test 3.4 Target vs Reference: {result['total_comparisons']} comparisons, "
+            f"{result['percentage_within_range']}% within ±{ACCURACY_RANGE}% of reference mean ({result['reference_mean']})")
+    else:
+        env['logger'].info(
+            f"Test 3.4 Target vs Reference failed: {result['details']}")
+
+    # Verify result structure
+    assert 'percentage_within_range' in result
+    assert 'total_comparisons' in result
+    assert 'values_within_range' in result
+    assert 'reference_mean' in result

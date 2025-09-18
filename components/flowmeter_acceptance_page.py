@@ -137,7 +137,7 @@ def create_flowmeter_acceptance_page():
                                         BootstrapIcon(
                                             icon="activity", width=16),
                                         dmc.Text(
-                                            "Accuracy Tests (3.1-3.5)", fw=500, c="red")
+                                            "Accuracy Tests (3.1-3.4)", fw=500, c="red")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
@@ -147,11 +147,9 @@ def create_flowmeter_acceptance_page():
                                         dmc.ListItem(
                                             "3.2: Signal-to-Noise Ratio - Evaluates signal quality by analyzing noise content and calculating SNR in dB"),
                                         dmc.ListItem(
-                                            "3.3: Trend Stability - Analyzes signal drift over time and variance stability between first/second half of data"),
+                                            "3.3: Target vs Digital Signal Comparison - Compares target meter readings from review file against digital RTU signals"),
                                         dmc.ListItem(
-                                            "3.4: Spectral Analysis - Frequency domain analysis to detect anomalies, excessive noise, and signal concentration"),
-                                        dmc.ListItem(
-                                            "3.5: Flow Agreement - Cross-validation of flow readings against other measurement references")
+                                            "3.4: Target vs Reference Comparison - Cross-validation of target flow readings against reference meter measurements")
                                     ], size="xs")
                                 ])
                             ], value="accuracy"),
@@ -161,13 +159,15 @@ def create_flowmeter_acceptance_page():
                                         BootstrapIcon(
                                             icon="graph-up", width=16),
                                         dmc.Text(
-                                            "Robustness Check (4.1)", fw=500, c="orange")
+                                            "Robustness Checks (4.1-4.2)", fw=500, c="orange")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
                                     dmc.List([
                                         dmc.ListItem(
-                                            "4.1: Signal Stability - Long-term stability analysis ensuring flowmeter signals remain consistent over extended periods")
+                                            "4.1: Signal Stability - Long-term stability analysis ensuring flowmeter signals remain consistent over extended periods"),
+                                        dmc.ListItem(
+                                            "4.2: Spectral Analysis for Anomaly Detection - Frequency domain analysis to detect anomalies, excessive noise, and signal concentration")
                                     ], size="xs")
                                 ])
                             ], value="robustness")
@@ -320,9 +320,9 @@ def create_flowmeter_acceptance_page():
                                             dmc.Text("Reliability Checks",
                                              fw=500, c="blue"),
                                             dmc.Checkbox(
-                                                label="1.1: Readings within Expected Range of Operation", id="reliability-check-1"),
+                                                label="1.1: Readings within expected range of operation in the rtu File", id="reliability-check-1"),
                                             dmc.Checkbox(
-                                                label="1.2: Measurement Units were Verified", id="reliability-check-2"),
+                                                label="1.2: Measurement units were verified in the rtu File", id="reliability-check-2"),
                                             dmc.Checkbox(
                                                 label="1.3: Quality of the Signals is GOOD in the rtu File", id="reliability-check-3"),
                                             dmc.Checkbox(
@@ -344,7 +344,9 @@ def create_flowmeter_acceptance_page():
                                             dmc.Text("Robustness Checks",
                                              fw=500, c="orange"),
                                             dmc.Checkbox(
-                                                label="4.1: Signals are Stable", id="robustness-check-1")
+                                                label="4.1: Signals are Stable", id="robustness-check-1"),
+                                            dmc.Checkbox(
+                                                label="4.2: Spectral Analysis for Anomaly Detection", id="robustness-check-2")
                                         ], gap="xs")
                                     ], withBorder=True, p="sm"),
                                     dmc.Card([
@@ -352,15 +354,13 @@ def create_flowmeter_acceptance_page():
                                             dmc.Text("Accuracy Checks",
                                              fw=500, c="red"),
                                             dmc.Checkbox(
-                                                label="3.1: Digital/Analog Signals are in Close Agreement", id="accuracy-check-1"),
+                                                label="3.1: Digital/Analog Signals are in Close Agreement in the rtu File", id="accuracy-check-1"),
                                             dmc.Checkbox(
-                                                label="3.2: Acceptable Signal-to-Noise Ratio", id="accuracy-check-2"),
+                                                label="3.2: Acceptable Signal-to-Noise ratio for D/A signals in the rtu File", id="accuracy-check-2"),
                                             dmc.Checkbox(
-                                                label="3.3: Signal Trend Stability Analysis", id="accuracy-check-3"),
+                                                label="3.3: MBS Target vs rtu Digital Signal Comparison", id="accuracy-check-3"),
                                             dmc.Checkbox(
-                                                label="3.4: Spectral Analysis for Anomaly Detection", id="accuracy-check-4"),
-                                            dmc.Checkbox(
-                                                label="3.5: Flow Readings Agreement with References", id="accuracy-check-5")
+                                                label="3.4: MBS target vs MBS reference signals Comparison", id="accuracy-check-4")
                                         ], gap="xs")
                                     ], withBorder=True, p="sm")
                                 ], cols=2, spacing="md"),
@@ -478,11 +478,11 @@ def toggle_help_modal(n_clicks, opened):
      Output("tc-check-1", "checked"),
      Output("tc-check-2", "checked"),
      Output("robustness-check-1", "checked"),
+     Output("robustness-check-2", "checked"),
      Output("accuracy-check-1", "checked"),
      Output("accuracy-check-2", "checked"),
      Output("accuracy-check-3", "checked"),
      Output("accuracy-check-4", "checked"),
-     Output("accuracy-check-5", "checked"),
      Output("flat-threshold-input", "value"),
      Output("min-flowrate-input", "value"),
      Output("max-flowrate-input", "value"),
@@ -508,9 +508,9 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if button_id == "partial-commissioning-btn":
-        # Partial commissioning preset: rel 1-4, tc 1-2, rob 1, acc 1&3&4 (core tests, skip SNR and flow agreement)
+        # Partial commissioning preset: rel 1-4, tc 1-2, rob 1-2, acc 1&3&4 (core tests, skip SNR)
         checks = [True, True, True, True, True, True,
-                  True, True, False, True, True, False]
+                  True, True, True, False, True, True]
         form_values = [flat_threshold or 5, min_flow,
                        max_flow, accuracy_range or 1.0]
         # Keep results tab disabled, stay on setup
@@ -560,17 +560,17 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
      State("tc-check-1", "checked"),
      State("tc-check-2", "checked"),
      State("robustness-check-1", "checked"),
+     State("robustness-check-2", "checked"),
      State("accuracy-check-1", "checked"),
      State("accuracy-check-2", "checked"),
      State("accuracy-check-3", "checked"),
      State("accuracy-check-4", "checked"),
-     State("accuracy-check-5", "checked"),
      State("plotly-theme-store", "data")],
     prevent_initial_call=True
 )
 def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time, end_time,
                            flat_threshold, min_flow, max_flow, accuracy_range,
-                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4, acc5, theme_data):
+                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, rob2, acc1, acc2, acc3, acc4, theme_data):
     """Run the flowmeter analysis with all parameters."""
     if not all([rtu_file, csv_file, review_file]):
         missing_files_notification = dmc.Notification(
@@ -581,7 +581,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             action="show",
             icon=BootstrapIcon(icon="exclamation-triangle")
         )
-        
+
         return False, "setup", dmc.Alert(
             "Please select all required files (RTU, CSV Tags, and Review files).",
             title="Missing Files",
@@ -678,11 +678,11 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             'tc_check_1': tc1,
             'tc_check_2': tc2,
             'robustness_check_1': rob1,
+            'robustness_check_2': rob2,
             'accuracy_check_1': acc1,
             'accuracy_check_2': acc2,
             'accuracy_check_3': acc3,
-            'accuracy_check_4': acc4,
-            'accuracy_check_5': acc5
+            'accuracy_check_4': acc4
         }
 
         # Run analysis
@@ -690,7 +690,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
 
         # Create results display
         checks_selected = [rel1, rel2, rel3, rel4,
-                           tc1, tc2, rob1, acc1, acc2, acc3, acc4, acc5]
+                           tc1, tc2, rob1, rob2, acc1, acc2, acc3, acc4]
         selected_count = sum(checks_selected)
 
         # Generate comprehensive time series visualizations
@@ -699,7 +699,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
         # Create CSV export notification
         csv_export_info = results.get('csv_export', {})
         exported_files = csv_export_info.get('exported_files', [])
-        
+
         csv_notification = dmc.Notification(
             title="CSV Data Exported",
             message=f"Successfully exported {len(exported_files)} CSV files to _Data directory: SCADATagID_DIG.csv, SCADATagID_ANL.csv, MBSTagID.csv, Reference_Meter.csv",
@@ -810,9 +810,9 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                             dmc.Text(
                                 f"⏱️ Timeliness & Completeness: {sum([tc1, tc2])}/2", size="sm"),
                             dmc.Text(
-                                f"💪 Robustness: {sum([rob1])}/1", size="sm"),
+                                f"💪 Robustness: {sum([rob1, rob2])}/2", size="sm"),
                             dmc.Text(
-                                f"🎯 Accuracy: {sum([acc1, acc2, acc3, acc4, acc5])}/5", size="sm")
+                                f"🎯 Accuracy: {sum([acc1, acc2, acc3, acc4])}/4", size="sm")
                         ], gap="xs")
                     ], withBorder=True, p="md")
                 ], cols=2, spacing="md")
@@ -830,7 +830,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             action="show",
             icon=BootstrapIcon(icon="exclamation-triangle")
         )
-        
+
         return False, "results", dmc.Stack([
             dmc.Alert(
                 f"Analysis failed: {str(e)}",

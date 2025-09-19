@@ -55,14 +55,19 @@ class FlowmeterAcceptanceService:
             time_start = params['time_start']
             time_end = params['time_end']
 
-            # Extract UI parameters (no hardcoding in service)
-            min_range = params.get('min_range', 0.0)
-            max_range = params.get('max_range', 10000.0)
-            min_q = params.get('min_q', 100.0)
-            max_q = params.get('max_q', 15000.0)
-            flat_threshold = params.get('flat_threshold', 0.5)
-            accuracy_range = params.get('accuracy_range', 2.0)
+            # Extract UI parameters (UI must provide all required values)
+            min_range = params.get('min_range')
+            max_range = params.get('max_range')
+            min_q = params.get('min_q')
+            max_q = params.get('max_q')
+            flat_threshold = params.get('flat_threshold')
+            accuracy_range = params.get('accuracy_range')
             data_dir = params.get('data_dir')
+
+            # Validate required parameters
+            if any(x is None for x in [min_range, max_range, min_q, max_q, flat_threshold, accuracy_range]):
+                raise ValueError(
+                    "Missing required parameters: min_range, max_range, min_q, max_q, flat_threshold, accuracy_range must be provided by UI")
 
             # Load tags configuration (Tags.in format only)
             self.tags_df = pd.read_csv(tags_file)
@@ -81,6 +86,13 @@ class FlowmeterAcceptanceService:
             # Initialize test results
             self.test_results = {}
 
+            # Export CSV data FIRST - tests need these files to exist
+            csv_export_result = self.export_csv_data(params)
+
+            # Get the data directory from CSV export result
+            if 'data_dir' in csv_export_result:
+                data_dir = csv_export_result['data_dir']
+
             # Process each meter using Tags.in format
             for index, row in self.tags_df.iterrows():
                 meter_name = row['MBSTagID'].strip()
@@ -98,9 +110,6 @@ class FlowmeterAcceptanceService:
                 )
 
                 self.test_results[meter_name] = meter_results
-
-            # Export CSV data
-            csv_export_result = self.export_csv_data(params)
 
             # Create plots data with actual CSV files
             self.plots_data = self._generate_plots_data(data_dir)
@@ -155,87 +164,121 @@ class FlowmeterAcceptanceService:
                 if os.path.exists(mbs_file):
                     try:
                         mbs_df = pd.read_csv(mbs_file)
-                        if ':VAL' in mbs_df.columns and 'Time' in mbs_df.columns:
-                            # Filter data for this meter if multiple meters exist
-                            # Use the :VAL column as requested
+                        # Get the correct column names - MBS files have TIME and meter-specific VAL columns
+                        time_col = 'TIME' if 'TIME' in mbs_df.columns else None
+                        val_col = None
+
+                        # Find the VAL column for this meter (look for exact match first, then fallback to pattern)
+                        exact_match = f"{meter_name}:VAL"
+
+                        # First try exact match on meter name
+                        if exact_match in mbs_df.columns:
+                            val_col = exact_match
+                        else:
+                            # Fallback: look for any column with :VAL suffix
+                            for col in mbs_df.columns:
+                                if ':VAL' in col:
+                                    val_col = col
+                                    self.logger.warning(
+                                        f"Could not find exact column match for {exact_match}, using {col} instead")
+                                    break
+
+                        if time_col and val_col:
+                            # Use actual MBS data without any fake generation
                             meter_plots_data['time_series']['digital_signal'] = {
-                                'timestamps': mbs_df['Time'].tolist(),
-                                'values': mbs_df[':VAL'].tolist()
-                            }
-                            # For analog, create slight variation (since same file)
-                            meter_plots_data['time_series']['analog_signal'] = {
-                                'timestamps': mbs_df['Time'].tolist(),
-                                # Simulate analog variation
-                                'values': (mbs_df[':VAL'] * 1.02 + np.random.normal(0, 1, len(mbs_df))).tolist()
+                                'timestamps': mbs_df[time_col].tolist(),
+                                'values': mbs_df[val_col].tolist()
                             }
 
-                            # Statistics
+                            # Statistics from real data
                             meter_plots_data['statistics']['digital'] = {
-                                'mean': float(mbs_df[':VAL'].mean()),
-                                'std': float(mbs_df[':VAL'].std()),
-                                'min': float(mbs_df[':VAL'].min()),
-                                'max': float(mbs_df[':VAL'].max())
+                                'mean': float(mbs_df[val_col].mean()),
+                                'std': float(mbs_df[val_col].std()),
+                                'min': float(mbs_df[val_col].min()),
+                                'max': float(mbs_df[val_col].max())
                             }
                         else:
                             self.logger.warning(
-                                f"MBSTagID.csv missing expected columns (:VAL, Time)")
+                                f"MBSTagID.csv missing expected columns (TIME, :VAL pattern). Found columns: {list(mbs_df.columns)}")
                     except Exception as e:
                         self.logger.error(f"Error reading MBSTagID.csv: {e}")
+
+                # Load analog signal from exported SCADA analog CSV
+                analog_csv = os.path.join(
+                    data_dir, "SCADATagID_ANL.csv") if data_dir else None
+                if analog_csv and os.path.exists(analog_csv):
+                    try:
+                        analog_df = pd.read_csv(analog_csv)
+                        # Filter for this specific analog tag
+                        if 'tag_name' in analog_df.columns and 'timestamp' in analog_df.columns and 'value' in analog_df.columns:
+                            tag_data = analog_df[analog_df['tag_name']
+                                                 == analog_tag]
+                            if not tag_data.empty:
+                                meter_plots_data['time_series']['analog_signal'] = {
+                                    'timestamps': tag_data['timestamp'].tolist(),
+                                    'values': tag_data['value'].tolist()
+                                }
+                                # Statistics from real analog data
+                                meter_plots_data['statistics']['analog'] = {
+                                    'mean': float(tag_data['value'].mean()),
+                                    'std': float(tag_data['value'].std()),
+                                    'min': float(tag_data['value'].min()),
+                                    'max': float(tag_data['value'].max())
+                                }
+                        else:
+                            self.logger.warning(
+                                f"SCADATagID_ANL.csv missing expected columns (tag_name, timestamp, value)")
+                    except Exception as e:
+                        self.logger.error(
+                            f"Error reading SCADATagID_ANL.csv: {e}")
 
                 # Load and process Reference_Meter.csv data
                 if os.path.exists(ref_file):
                     try:
                         ref_df = pd.read_csv(ref_file)
-                        if ':VAL' in ref_df.columns and 'Time' in ref_df.columns:
+                        # Use correct column names for Reference_Meter.csv
+                        time_col = 'TIME' if 'TIME' in ref_df.columns else None
+                        val_col = None
+
+                        # Find the VAL column for reference meter
+                        exact_match = f"{ref_tag}:VAL"
+
+                        # First try exact match on reference meter name
+                        if exact_match in ref_df.columns:
+                            val_col = exact_match
+                        else:
+                            # Fallback: look for any column with :VAL suffix
+                            for col in ref_df.columns:
+                                if ':VAL' in col:
+                                    val_col = col
+                                    self.logger.warning(
+                                        f"Could not find exact column match for {exact_match}, using {col} instead")
+                                    break
+
+                        if time_col and val_col:
                             meter_plots_data['time_series']['reference_signal'] = {
-                                'timestamps': ref_df['Time'].tolist(),
-                                'values': ref_df[':VAL'].tolist()
+                                'timestamps': ref_df[time_col].tolist(),
+                                'values': ref_df[val_col].tolist()
                             }
 
                             # Statistics
                             meter_plots_data['statistics']['reference'] = {
-                                'mean': float(ref_df[':VAL'].mean()),
-                                'std': float(ref_df[':VAL'].std()),
-                                'min': float(ref_df[':VAL'].min()),
-                                'max': float(ref_df[':VAL'].max())
+                                'mean': float(ref_df[val_col].mean()),
+                                'std': float(ref_df[val_col].std()),
+                                'min': float(ref_df[val_col].min()),
+                                'max': float(ref_df[val_col].max())
                             }
                         else:
                             self.logger.warning(
-                                f"Reference_Meter.csv missing expected columns (:VAL, Time)")
+                                f"Reference_Meter.csv missing expected columns (TIME, :VAL pattern). Found columns: {list(ref_df.columns)}")
                     except Exception as e:
                         self.logger.error(
                             f"Error reading Reference_Meter.csv: {e}")
 
-                # If no real data, generate sample data for demonstration
+                # Only use real data from CSV files - NO fake data generation
                 if not meter_plots_data['time_series']:
-                    self.logger.info(
-                        f"No CSV data found, generating sample data for {meter_name}")
-                    import numpy as np
-                    times = pd.date_range(
-                        '2024-01-01', periods=1000, freq='1min')
-                    base_flow = 1000 + 200 * np.sin(np.arange(1000) * 0.01)
-                    noise = np.random.normal(0, 10, 1000)
-
-                    meter_plots_data['time_series'] = {
-                        'digital_signal': {
-                            'timestamps': times.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-                            'values': (base_flow + noise).tolist()
-                        },
-                        'analog_signal': {
-                            'timestamps': times.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-                            'values': (base_flow * 1.05 + noise * 1.2).tolist()
-                        },
-                        'reference_signal': {
-                            'timestamps': times.strftime('%Y-%m-%d %H:%M:%S').tolist(),
-                            'values': (base_flow * 0.98 + noise * 0.8).tolist()
-                        }
-                    }
-
-                    meter_plots_data['statistics'] = {
-                        'digital': {'mean': 1000.0, 'std': 200.0, 'min': 600.0, 'max': 1400.0},
-                        'analog': {'mean': 1050.0, 'std': 210.0, 'min': 630.0, 'max': 1470.0},
-                        'reference': {'mean': 980.0, 'std': 196.0, 'min': 588.0, 'max': 1372.0}
-                    }
+                    self.logger.warning(
+                        f"No valid CSV data found for {meter_name}. Analysis requires actual data files.")
 
                 plots_data[meter_name] = meter_plots_data
 
@@ -267,6 +310,12 @@ class FlowmeterAcceptanceService:
             review_data_available = self._check_review_data(
                 meter_name, ref_tag, review_file, time_start, time_end)
 
+            # Test 1.3 - Quality verification for both digital and analog signals (CSV-based)
+            digital_quality_result = self._test_13_quality_is_good(
+                digital_tag, rtu_file, 'digital', data_dir)
+            analog_quality_result = self._test_13_quality_is_good(
+                analog_tag, rtu_file, 'analog', data_dir)
+
             results['reliability_tests'] = {
                 'Data Availability (RTU)': {
                     'status': 'pass' if rtu_data_available else 'fail',
@@ -278,15 +327,15 @@ class FlowmeterAcceptanceService:
                     'value': 'Available' if review_data_available else 'Missing',
                     'description': 'Review data found in time range'
                 },
-                'Data Quality Check': {
-                    'status': 'pass',
-                    'value': 'Good',
-                    'description': 'Data quality acceptable'
+                'Digital Signal Quality Check': {
+                    'status': digital_quality_result['status'],
+                    'value': f"{digital_quality_result['bad_quality_count']} bad quality readings",
+                    'description': 'Digital signal quality is GOOD in CSV data'
                 },
-                'Connectivity Test': {
-                    'status': 'pass' if rtu_data_available and review_data_available else 'fail',
-                    'value': 'Connected' if rtu_data_available and review_data_available else 'Disconnected',
-                    'description': 'Both systems connected'
+                'Analog Signal Quality Check': {
+                    'status': analog_quality_result['status'],
+                    'value': f"{analog_quality_result['bad_quality_count']} bad quality readings",
+                    'description': 'Analog signal quality is GOOD in CSV data'
                 }
             }
 
@@ -369,16 +418,7 @@ class FlowmeterAcceptanceService:
                     'value': f"{analog_units_result['conversions_applied']} conversions applied",
                     'description': 'Analog signal measurement units verified'
                 },
-                'Test 1.3 - Digital Signal Quality': {
-                    'status': digital_quality_result['status'],
-                    'value': f"{digital_quality_result['bad_quality_count']} bad quality readings",
-                    'description': 'Digital signal quality is GOOD in RTU file'
-                },
-                'Test 1.3 - Analog Signal Quality': {
-                    'status': analog_quality_result['status'],
-                    'value': f"{analog_quality_result['bad_quality_count']} bad quality readings",
-                    'description': 'Analog signal quality is GOOD in RTU file'
-                },
+
                 'Test 1.4 - Review File Quality': {
                     'status': review_quality_result['status'],
                     'value': f"{review_quality_result['bad_status_count']} bad status readings",
@@ -401,43 +441,41 @@ class FlowmeterAcceptanceService:
                 }
             }
 
-            # Test 3.3 and 3.4 - Target vs Digital/Reference comparisons
-            # Note: These tests require specific CSV files and accuracy_range parameter
-            # For now, we'll add placeholders - actual implementation depends on UI parameters
-            test_33_result = {
-                'status': 'pass',
-                'percentage_within_range': 95.0,
-                'total_comparisons': 0,
-                'details': 'Test 3.3 not run - requires target CSV and accuracy range parameters'
-            }
+            # Test 3.3 and 3.4 - Target vs Digital/Reference comparisons - Real implementation required
+            test_33_result = self._test_33_target_vs_digital(
+                meter_name, digital_tag, rtu_file, data_dir, accuracy_range)
+            test_34_result = self._test_34_target_vs_reference(
+                meter_name, ref_tag, review_file, data_dir, accuracy_range)
 
-            test_34_result = {
-                'status': 'pass',
-                'percentage_within_range': 94.0,
-                'total_comparisons': 0,
-                'details': 'Test 3.4 not run - requires reference CSV and accuracy range parameters'
-            }
-
-            # Add Test 3.3 and 3.4 to accuracy tests
+            # Add Test 3.3 and 3.4 to accuracy tests with real results
             results['accuracy_tests']['Test 3.3 - Target vs Digital'] = {
                 'status': test_33_result['status'],
-                'value': f"{test_33_result['percentage_within_range']}% within range",
+                'value': test_33_result['value'],
                 'description': 'Target meter vs Digital signal comparison'
             }
 
             results['accuracy_tests']['Test 3.4 - Target vs Reference'] = {
                 'status': test_34_result['status'],
-                'value': f"{test_34_result['percentage_within_range']}% within range",
+                'value': test_34_result['value'],
                 'description': 'Target meter vs Reference meter comparison'
             }
 
-            # Robustness Tests (4.1 and 4.2) - extract parameters from params if available
-            stability_window = params.get('stability_window_size', 50)
-            drift_threshold = params.get('drift_threshold', 5.0)
-            stability_threshold = params.get('stability_threshold', 90.0)
-            noise_threshold = params.get('noise_threshold', 15.0)
-            low_freq_cutoff = params.get('low_freq_cutoff', 0.05)
-            entropy_threshold = params.get('entropy_threshold', 0.7)
+            # Robustness Tests (4.1 and 4.2) - extract parameters from params (UI must provide values)
+            stability_window = params.get('stability_window_size')
+            drift_threshold = params.get('drift_threshold')
+            stability_threshold = params.get('stability_threshold')
+            noise_threshold = params.get('noise_threshold')
+            low_freq_cutoff = params.get('low_freq_cutoff')
+            entropy_threshold = params.get('entropy_threshold')
+
+            # Validate required parameters for robustness tests
+            if params.get('robustness_check_1') and any(x is None for x in [stability_window, drift_threshold, stability_threshold]):
+                raise ValueError(
+                    "Test 4.1 parameters missing: stability_window_size, drift_threshold, stability_threshold are required")
+
+            if params.get('robustness_check_2') and any(x is None for x in [noise_threshold, low_freq_cutoff, entropy_threshold]):
+                raise ValueError(
+                    "Test 4.2 parameters missing: noise_threshold, low_freq_cutoff, entropy_threshold are required")
 
             digital_stability_result = self._test_41_signal_stability(
                 digital_tag, rtu_file, 'digital',
@@ -1372,6 +1410,76 @@ class FlowmeterAcceptanceService:
                 'steady_state_readings': 0,
                 'status': 'fail',
                 'details': f'Test execution error: {str(e)}'
+            }
+
+    def _test_33_target_vs_digital(self, meter_name: str, digital_tag: str, rtu_file: str,
+                                   data_dir: str, accuracy_range: float) -> Dict[str, Any]:
+        """Wrapper for Test 3.3 - Target vs Digital comparison using real CSV data."""
+        try:
+            if not data_dir:
+                return {
+                    'status': 'fail',
+                    'value': 'No data directory available',
+                    'details': 'CSV export required for Test 3.3'
+                }
+
+            target_csv = os.path.join(data_dir, "MBSTagID.csv")
+            digital_csv = os.path.join(data_dir, "SCADATagID_DIG.csv")
+
+            if not os.path.exists(target_csv) or not os.path.exists(digital_csv):
+                return {
+                    'status': 'fail',
+                    'value': 'Required CSV files not found',
+                    'details': f'Missing: {target_csv} or {digital_csv}'
+                }
+
+            result = self._test_33_target_vs_digital_comparison(
+                target_csv, digital_csv, accuracy_range, data_dir)
+            return {
+                'status': result['status'],
+                'value': f"{result.get('percentage_within_range', 0):.1f}% within ±{accuracy_range}%",
+                'details': result.get('details', '')
+            }
+        except Exception as e:
+            return {
+                'status': 'fail',
+                'value': f'Test error: {str(e)}',
+                'details': 'Test 3.3 execution failed'
+            }
+
+    def _test_34_target_vs_reference(self, meter_name: str, ref_tag: str, review_file: str,
+                                     data_dir: str, accuracy_range: float) -> Dict[str, Any]:
+        """Wrapper for Test 3.4 - Target vs Reference comparison using real CSV data."""
+        try:
+            if not data_dir:
+                return {
+                    'status': 'fail',
+                    'value': 'No data directory available',
+                    'details': 'CSV export required for Test 3.4'
+                }
+
+            target_csv = os.path.join(data_dir, "MBSTagID.csv")
+            reference_csv = os.path.join(data_dir, "Reference_Meter.csv")
+
+            if not os.path.exists(target_csv) or not os.path.exists(reference_csv):
+                return {
+                    'status': 'fail',
+                    'value': 'Required CSV files not found',
+                    'details': f'Missing: {target_csv} or {reference_csv}'
+                }
+
+            result = self._test_34_target_vs_reference_comparison(
+                target_csv, reference_csv, accuracy_range, data_dir)
+            return {
+                'status': result['status'],
+                'value': f"{result.get('percentage_within_range', 0):.1f}% within ±{accuracy_range}%",
+                'details': result.get('details', '')
+            }
+        except Exception as e:
+            return {
+                'status': 'fail',
+                'value': f'Test error: {str(e)}',
+                'details': 'Test 3.4 execution failed'
             }
 
     def _test_33_target_vs_digital_comparison(self, target_csv: str, digital_csv: str,
@@ -2349,3 +2457,19 @@ class FlowmeterAcceptanceService:
         except Exception as e:
             self.logger.error(f"Failed to export Review tag {tag_name}: {e}")
             raise ProcessingError(f"Review export error for {tag_name}: {e}")
+
+            return {
+                'success': True,
+                'exported_files': exported_files,
+                'data_dir': data_dir,
+                'message': f'Successfully exported {len(exported_files)} CSV files to {data_dir}'
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error in CSV export: {e}")
+            return {
+                'success': False,
+                'exported_files': [],
+                'data_dir': None,
+                'message': f'CSV export failed: {str(e)}'
+            }

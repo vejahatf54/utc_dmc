@@ -10,6 +10,7 @@ from datetime import datetime, date
 import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
+import pandas as pd
 import os
 from components.bootstrap_icon import BootstrapIcon
 from components.file_selector import create_file_selector, create_file_selector_callback
@@ -272,15 +273,17 @@ def create_flowmeter_acceptance_page():
                                         dmc.NumberInput(
                                             label="FLAT Threshold",
                                             id="flat-threshold-input",
-                                            value=5,
+                                            placeholder="Enter FLAT threshold",
                                             min=0,
+                                            value=5.0,
                                             size="sm"
                                         ),
                                         dmc.NumberInput(
                                             label="Accuracy Range",
                                             id="accuracy-range-input",
-                                            value=1.0,
+                                            placeholder="Enter accuracy range",
                                             min=0,
+                                            value=1.0,
                                             step=0.1,
                                             size="sm"
                                         )
@@ -378,9 +381,10 @@ def create_flowmeter_acceptance_page():
                                     dmc.NumberInput(
                                         label="Window Size",
                                         id="stability-window-input",
-                                        value=50,
+                                        placeholder="Enter window size",
                                         min=10,
                                         max=200,
+                                        value=50,
                                         size="xs",
                                         style={"flex": "1"},
                                         description="Rolling window"
@@ -388,9 +392,10 @@ def create_flowmeter_acceptance_page():
                                     dmc.NumberInput(
                                         label="Drift Threshold (%)",
                                         id="drift-threshold-input",
-                                        value=5.0,
+                                        placeholder="Enter drift threshold",
                                         min=0.1,
                                         max=20.0,
+                                        value=5.0,
                                         step=0.1,
                                         size="xs",
                                         style={"flex": "1"},
@@ -399,9 +404,10 @@ def create_flowmeter_acceptance_page():
                                     dmc.NumberInput(
                                         label="Stability Threshold (%)",
                                         id="stability-threshold-input",
-                                        value=90.0,
+                                        placeholder="Enter stability threshold",
                                         min=50.0,
                                         max=100.0,
+                                        value=90.0,
                                         step=1.0,
                                         size="xs",
                                         style={"flex": "1"},
@@ -420,9 +426,10 @@ def create_flowmeter_acceptance_page():
                                     dmc.NumberInput(
                                         label="Noise Threshold (%)",
                                         id="noise-threshold-input",
-                                        value=15.0,
+                                        placeholder="Enter noise threshold",
                                         min=1.0,
                                         max=50.0,
+                                        value=15.0,
                                         step=0.1,
                                         size="xs",
                                         style={"flex": "1"},
@@ -431,9 +438,10 @@ def create_flowmeter_acceptance_page():
                                     dmc.NumberInput(
                                         label="Low Freq Cutoff (Hz)",
                                         id="low-freq-cutoff-input",
-                                        value=0.05,
+                                        placeholder="Enter frequency cutoff",
                                         min=0.001,
                                         max=1.0,
+                                        value=0.05,
                                         step=0.001,
                                         size="xs",
                                         style={"flex": "1"},
@@ -442,9 +450,10 @@ def create_flowmeter_acceptance_page():
                                     dmc.NumberInput(
                                         label="Entropy Threshold",
                                         id="entropy-threshold-input",
-                                        value=0.7,
+                                        placeholder="Enter entropy threshold",
                                         min=0.1,
                                         max=1.0,
+                                        value=0.7,
                                         step=0.01,
                                         size="xs",
                                         style={"flex": "1"},
@@ -875,7 +884,36 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
                 # If it's a datetime object
                 end_str = end_time.strftime("%y/%m/%d %H:%M:%S")
 
-        # Prepare parameters dictionary
+        # Validate required parameters based on selected tests
+        validation_errors = []
+
+        # Basic parameters validation
+        if not all([flat_threshold, min_flow, max_flow, accuracy_range]):
+            validation_errors.append(
+                "Missing required parameters: FLAT Threshold, Min/Max Flowrate, and Accuracy Range must be provided")
+
+        # Test 4.1 parameter validation
+        if rob1 and not all([stability_window, drift_threshold, stability_threshold]):
+            validation_errors.append(
+                "Test 4.1 selected but missing parameters: Window Size, Drift Threshold, and Stability Threshold are required")
+
+        # Test 4.2 parameter validation
+        if rob2 and not all([noise_threshold, low_freq_cutoff, entropy_threshold]):
+            validation_errors.append(
+                "Test 4.2 selected but missing parameters: Noise Threshold, Low Freq Cutoff, and Entropy Threshold are required")
+
+        if validation_errors:
+            error_notification = dmc.Notification(
+                title="Parameter Validation Failed",
+                message="; ".join(validation_errors),
+                color="red",
+                autoClose=False,
+                action="show",
+                icon=BootstrapIcon(icon="exclamation-triangle")
+            )
+            return False, "setup", dash.no_update, True, dash.no_update, error_notification
+
+        # Prepare parameters dictionary - UI must provide all required values, no defaults
         params = {
             'rtu_file': rtu_file,
             'csv_tags_file': csv_file,
@@ -884,10 +922,12 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             'report_name': "flowmeter_report",
             'time_start': start_str,
             'time_end': end_str,
-            'threshold_FLAT': int(flat_threshold) if flat_threshold else 5,
-            'min_Q': float(min_flow) if min_flow else None,
-            'max_Q': float(max_flow) if max_flow else None,
-            'accuracy_range': float(accuracy_range) if accuracy_range else 1.0,
+            'flat_threshold': float(flat_threshold),
+            'min_range': float(min_flow),
+            'max_range': float(max_flow),
+            'min_q': float(min_flow),
+            'max_q': float(max_flow),
+            'accuracy_range': float(accuracy_range),
             'reliability_check_1': rel1,
             'reliability_check_2': rel2,
             'reliability_check_3': rel3,
@@ -900,13 +940,13 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             'accuracy_check_2': acc2,
             'accuracy_check_3': acc3,
             'accuracy_check_4': acc4,
-            # Robustness Test Parameters
-            'stability_window_size': int(stability_window) if stability_window else 50,
-            'drift_threshold': float(drift_threshold) if drift_threshold else 5.0,
-            'stability_threshold': float(stability_threshold) if stability_threshold else 90.0,
-            'noise_threshold': float(noise_threshold) if noise_threshold else 15.0,
-            'low_freq_cutoff': float(low_freq_cutoff) if low_freq_cutoff else 0.05,
-            'entropy_threshold': float(entropy_threshold) if entropy_threshold else 0.7
+            # Robustness Test Parameters - only include if tests are selected
+            'stability_window_size': int(stability_window) if rob1 else None,
+            'drift_threshold': float(drift_threshold) if rob1 else None,
+            'stability_threshold': float(stability_threshold) if rob1 else None,
+            'noise_threshold': float(noise_threshold) if rob2 else None,
+            'low_freq_cutoff': float(low_freq_cutoff) if rob2 else None,
+            'entropy_threshold': float(entropy_threshold) if rob2 else None
         }
 
         # Run analysis
@@ -1242,15 +1282,17 @@ def update_distributions_plot(results_data, theme_data):
         return fig
 
     # Calculate time deltas from actual CSV data
-    import pandas as pd
-    import numpy as np
-    from datetime import datetime
 
     plots_data = results_data.get('plots_data', {})
 
-    # Load the actual CSV data to calculate time deltas
+    # Load the actual CSV data to calculate time deltas from analysis results
     try:
-        data_dir = r"C:\Temp\python_projects\Flow Meter Acceptance L05\_Data"
+        csv_export_info = results_data.get('csv_export', {})
+        data_dir = csv_export_info.get('data_dir')
+
+        if not data_dir:
+            raise ValueError("No data directory found in analysis results")
+
         digital_csv = os.path.join(data_dir, "SCADATagID_DIG.csv")
         analog_csv = os.path.join(data_dir, "SCADATagID_ANL.csv")
 
@@ -1258,19 +1300,21 @@ def update_distributions_plot(results_data, theme_data):
 
         if os.path.exists(digital_csv):
             df_dig = pd.read_csv(digital_csv)
-            df_dig['datetime'] = pd.to_datetime(df_dig['datetime'])
-            df_dig = df_dig.sort_values('datetime')
-            dig_deltas = df_dig['datetime'].diff(
-            ).dt.total_seconds().dropna().values
-            time_deltas.extend(dig_deltas)
+            if 'timestamp' in df_dig.columns:
+                df_dig['datetime'] = pd.to_datetime(df_dig['timestamp'])
+                df_dig = df_dig.sort_values('datetime')
+                dig_deltas = df_dig['datetime'].diff(
+                ).dt.total_seconds().dropna().values
+                time_deltas.extend(dig_deltas)
 
         if os.path.exists(analog_csv):
             df_anl = pd.read_csv(analog_csv)
-            df_anl['datetime'] = pd.to_datetime(df_anl['datetime'])
-            df_anl = df_anl.sort_values('datetime')
-            anl_deltas = df_anl['datetime'].diff(
-            ).dt.total_seconds().dropna().values
-            time_deltas.extend(anl_deltas)
+            if 'timestamp' in df_anl.columns:
+                df_anl['datetime'] = pd.to_datetime(df_anl['timestamp'])
+                df_anl = df_anl.sort_values('datetime')
+                anl_deltas = df_anl['datetime'].diff(
+                ).dt.total_seconds().dropna().values
+                time_deltas.extend(anl_deltas)
 
         if time_deltas:
             # Create single histogram showing time delta distribution
@@ -1377,67 +1421,39 @@ def update_spectral_plot(results_data, theme_data):
         vertical_spacing=0.12
     )
 
-    # Generate sample spectral data for demonstration
-    import numpy as np
-
+    # Use ONLY real spectral analysis data from test results
     test_results = results_data.get('test_results', {})
-    # Distinct color palette for spectral analysis
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
               '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
 
     for i, (meter_name, meter_results) in enumerate(test_results.items()):
         color = colors[i % len(colors)]
 
-        # Sample frequency spectrum
-        freqs = np.logspace(-2, 2, 100)  # 0.01 to 100 Hz
-        power = 1/(1 + freqs**2) + 0.1*np.random.random(100)  # 1/f + noise
+        # Extract real Test 4.1 (Stability) data if available
+        if 'robustness_tests' in meter_results:
+            stability_test = meter_results['robustness_tests'].get(
+                'Test 4.1 - Signal Stability')
+            if stability_test and stability_test.get('status') != 'fail':
+                # Add actual stability data visualization here when available from test results
+                pass
 
-        fig.add_trace(
-            go.Scatter(x=freqs, y=power, mode='lines', name=f'{meter_name}',
-                       line=dict(color=color)),
-            row=1, col=2
+        # Extract real Test 4.2 (Spectral) data if available
+        if 'robustness_tests' in meter_results:
+            spectral_test = meter_results['robustness_tests'].get(
+                'Test 4.2 - Spectral Analysis')
+            if spectral_test and spectral_test.get('status') != 'fail':
+                # Add actual spectral analysis data visualization here when available from test results
+                pass
+
+    # Show message if no real spectral data available
+    if not any('robustness_tests' in meter_results for meter_results in test_results.values()):
+        fig.add_annotation(
+            x=0.5, y=0.5,
+            xref="paper", yref="paper",
+            text="Run Test 4.1 and 4.2 to view spectral analysis data",
+            showarrow=False,
+            font=dict(size=16)
         )
-
-        # Sample stability data
-        time_windows = np.arange(0, 100, 1)
-        stability = 90 + 5*np.sin(time_windows/10) + 2*np.random.random(100)
-
-        fig.add_trace(
-            go.Scatter(x=time_windows, y=stability, mode='lines+markers',
-                       name=f'{meter_name} Stability', line=dict(color=color),
-                       marker=dict(size=4)),
-            row=1, col=1
-        )
-
-        # Rolling window stability
-        window_stability = np.convolve(stability, np.ones(10)/10, mode='same')
-        fig.add_trace(
-            go.Scatter(x=time_windows, y=window_stability, mode='lines',
-                       name=f'{meter_name} Rolling Avg', line=dict(color=color, dash='dash')),
-            row=2, col=1
-        )
-
-        # Spectral entropy over time
-        entropy_time = time_windows
-        entropy_vals = 0.5 + 0.3 * \
-            np.sin(entropy_time/20) + 0.1*np.random.random(100)
-
-        fig.add_trace(
-            go.Scatter(x=entropy_time, y=entropy_vals, mode='lines',
-                       name=f'{meter_name} Entropy', line=dict(color=color)),
-            row=2, col=2
-        )
-
-    # Add threshold lines if we have data
-    if test_results:
-        try:
-            fig.add_hline(y=90, line_dash="dot", line_color="red",
-                          row=1, col=1)  # Stability threshold
-            fig.add_hline(y=0.7, line_dash="dot", line_color="red",
-                          row=2, col=2)  # Entropy threshold
-        except Exception:
-            # Skip adding threshold lines if there's an issue
-            pass
 
     fig.update_layout(
         template=template,
@@ -1531,9 +1547,35 @@ def update_quality_metrics_plot(results_data, theme_data):
                         total_fail += 1
                         meter_fail += 1
 
-        # Extract SNR and MSE values (sample data)
-        snr_data.append(25.5 + 5*np.random.random())  # Sample SNR
-        mse_data.append(0.1 + 0.05*np.random.random())  # Sample MSE
+        # Extract real SNR and MSE values from test results if available
+        snr_value = 0
+        mse_value = 0
+
+        # Get real SNR from Test 3.2 results
+        if 'accuracy_tests' in meter_results:
+            snr_test = meter_results['accuracy_tests'].get(
+                'Test 3.2 - Digital Signal SNR')
+            if snr_test and 'SNR:' in snr_test.get('value', ''):
+                try:
+                    snr_str = snr_test['value'].split('SNR:')[1].strip()
+                    snr_value = float(
+                        snr_str.split()[0]) if snr_str != 'N/A' else 0
+                except:
+                    snr_value = 0
+
+            # Get real MSE from Test 3.1 results
+            mse_test = meter_results['accuracy_tests'].get(
+                'Test 3.1 - Mean Squared Error')
+            if mse_test and 'MSE:' in mse_test.get('value', ''):
+                try:
+                    mse_str = mse_test['value'].split(
+                        'MSE:')[1].split(',')[0].strip()
+                    mse_value = float(mse_str)
+                except:
+                    mse_value = 0
+
+        snr_data.append(snr_value)
+        mse_data.append(mse_value)
 
     # Pie chart for overall results
     fig.add_trace(

@@ -12,6 +12,8 @@ import plotly.express as px
 import numpy as np
 import pandas as pd
 import os
+import io
+import base64
 from components.bootstrap_icon import BootstrapIcon
 from components.file_selector import create_file_selector, create_file_selector_callback
 from services.flowmeter_acceptance_service import FlowmeterAcceptanceService
@@ -432,7 +434,16 @@ def create_flowmeter_acceptance_page():
                                         leftSection=BootstrapIcon(
                                             icon="arrow-clockwise", width=20)
                                     )
-                                ], justify="center", gap="md")
+                                ], justify="center", gap="md"),
+                                dmc.Space(h="sm"),
+                                dmc.Group([
+                                    dmc.Checkbox(
+                                        id="use-existing-data-checkbox",
+                                        label="Run Analysis with existing Data",
+                                        description="Skip data extraction and use existing CSV files in _Data folder",
+                                        size="sm"
+                                    )
+                                ], justify="center")
                             ], shadow="sm", p="md"),
                         ], gap="sm"),
                     ], cols=2, spacing="md", style={"width": "100%"}),
@@ -456,6 +467,96 @@ def create_flowmeter_acceptance_page():
                                            icon="file-pdf", width=16),
                                        id="export-pdf-btn")
                         ], justify="space-between", align="center"),
+
+                        # PDF Export Modal
+                        dmc.Modal(
+                            title="Export PDF Report - Flowmeter Details",
+                            id="pdf-export-modal",
+                            size="lg",
+                            children=[
+                                dmc.Stack([
+                                    dmc.Text("Please provide the following details for the PDF report:",
+                                             size="sm", c="dimmed"),
+                                    dmc.SimpleGrid([
+                                        # Left column
+                                        dmc.Stack([
+                                            dmc.TextInput(
+                                                label="Flowmeter Accepted",
+                                                placeholder="Enter flowmeter identifier",
+                                                id="pdf-flowmeter-name",
+                                                required=True
+                                            ),
+                                            dmc.TextInput(
+                                                label="Line Number",
+                                                placeholder="Enter line number",
+                                                id="pdf-line-number"
+                                            ),
+                                            dmc.TextInput(
+                                                label="Location",
+                                                placeholder="Enter location",
+                                                id="pdf-location"
+                                            )
+                                        ], gap="md"),
+                                        # Right column
+                                        dmc.Stack([
+                                            dmc.Select(
+                                                label="Reason",
+                                                placeholder="Select reason",
+                                                id="pdf-reason",
+                                                data=[
+                                                    {"value": "New Installation",
+                                                        "label": "New Installation"},
+                                                    {"value": "Firmware Upgrade",
+                                                        "label": "Firmware Upgrade"},
+                                                    {"value": "Replacement",
+                                                        "label": "Replacement"},
+                                                    {"value": "Database Parameters Update",
+                                                        "label": "Database Parameters Update"},
+                                                    {"value": "Field Maintenance",
+                                                        "label": "Field Maintenance"}
+                                                ]
+                                            ),
+                                            dmc.TextInput(
+                                                label="LDS Number",
+                                                placeholder="Enter LDS number",
+                                                id="pdf-lds-number"
+                                            ),
+                                            dmc.Select(
+                                                label="Type",
+                                                placeholder="Select type",
+                                                id="pdf-type",
+                                                data=[
+                                                    {"value": "Mainline",
+                                                        "label": "Mainline"},
+                                                    {"value": "Injection",
+                                                        "label": "Injection"},
+                                                    {"value": "Delivery",
+                                                        "label": "Delivery"},
+                                                    {"value": "Injection/Mainline",
+                                                        "label": "Injection/Mainline"},
+                                                    {"value": "Delivery/Mainline",
+                                                        "label": "Delivery/Mainline"}
+                                                ]
+                                            )
+                                        ], gap="md")
+                                    ], cols=2, spacing="xl"),
+                                    dmc.Group([
+                                        dmc.Button(
+                                            "Cancel",
+                                            variant="outline",
+                                            id="pdf-cancel-btn"
+                                        ),
+                                        dmc.Button(
+                                            "Generate PDF Report",
+                                            leftSection=BootstrapIcon(
+                                                icon="file-pdf", width=16),
+                                            id="pdf-generate-btn"
+                                        )
+                                    ], justify="flex-end", gap="md", mt="xl")
+                                ], gap="lg")
+                            ]
+                        ),
+
                         dmc.Divider(),
 
                         # Main Results Layout - Left column for test results, right column for plots
@@ -681,13 +782,14 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
      State("stability-window-input", "value"),
      State("drift-threshold-input", "value"),
      State("stability-threshold-input", "value"),
+     State("use-existing-data-checkbox", "checked"),
      State("plotly-theme-store", "data")],
     prevent_initial_call=True
 )
 def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time, end_time,
                            flat_threshold, min_flow, max_flow, accuracy_range,
                            rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4,
-                           stability_window, drift_threshold, stability_threshold, theme_data):
+                           stability_window, drift_threshold, stability_threshold, use_existing_data, theme_data):
     """Run the flowmeter analysis with all parameters."""
     if not all([rtu_file, csv_file, review_file]):
         missing_files_notification = dmc.Notification(
@@ -828,7 +930,9 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             # Robustness Test Parameters - only include if tests are selected
             'stability_window_size': int(stability_window) if rob1 else None,
             'drift_threshold': float(drift_threshold) if rob1 else None,
-            'stability_threshold': float(stability_threshold) if rob1 else None
+            'stability_threshold': float(stability_threshold) if rob1 else None,
+            # Skip data extraction flag
+            'use_existing_data': use_existing_data or False
         }
 
         # Run analysis
@@ -1798,3 +1902,357 @@ def update_quality_metrics_cards(results_data, theme_data):
         ], style={"height": "100%"})
 
     return dmc.Stack(cards, gap="md")
+
+
+# Modal Toggle Callback
+@callback(
+    Output("pdf-export-modal", "opened"),
+    [Input("export-pdf-btn", "n_clicks"),
+     Input("pdf-cancel-btn", "n_clicks")],
+    [State("pdf-export-modal", "opened"),
+     State("analysis-results-store", "data")],
+    prevent_initial_call=True
+)
+def toggle_pdf_modal(export_clicks, cancel_clicks, modal_opened, results_data):
+    """Toggle PDF export modal."""
+    triggered = callback_context.triggered[0]["prop_id"]
+
+    if triggered == "export-pdf-btn.n_clicks" and results_data:
+        return True
+    elif triggered == "pdf-cancel-btn.n_clicks":
+        return False
+
+    return modal_opened
+
+
+# PDF Export Callback
+@callback(
+    [Output("pdf-export-modal", "opened", allow_duplicate=True),
+     Output("export-pdf-btn", "children")],
+    [Input("pdf-generate-btn", "n_clicks")],
+    [State("analysis-results-store", "data"),
+     State("plotly-theme-store", "data"),
+     State("file-store-flowmeter-csv-tags", "data"),
+     State("time-trends-plot", "figure"),
+     State("distributions-plot", "figure"),
+     State("spectral-plot", "figure"),
+     State("pdf-flowmeter-name", "value"),
+     State("pdf-line-number", "value"),
+     State("pdf-location", "value"),
+     State("pdf-reason", "value"),
+     State("pdf-lds-number", "value"),
+     State("pdf-type", "value")],
+    prevent_initial_call=True
+)
+def generate_pdf_report(n_clicks, results_data, theme_data, tags_file_data,
+                        trends_fig, dist_fig, stability_fig,
+                        flowmeter_name, line_number, location, reason, lds_number, type_val):
+    """Generate comprehensive PDF report with flowmeter details."""
+    if not n_clicks or not results_data:
+        return False, "Export PDF"
+
+    # Validate required fields
+    if not flowmeter_name or not flowmeter_name.strip():
+        return True, [
+            BootstrapIcon(icon="exclamation-triangle-fill",
+                          width=16, color="red"),
+            " Flowmeter name required"
+        ]
+
+    try:
+        # Get the tags file path to determine where to save the PDF
+        tags_file_path = None
+        if tags_file_data and tags_file_data.get('path'):
+            tags_file_path = tags_file_data['path']
+            # Create PDF path next to tags file with flowmeter name
+            safe_name = "".join(
+                c for c in flowmeter_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+            pdf_filename = f"FinalReport_{safe_name}.pdf"
+            pdf_path = os.path.join(
+                os.path.dirname(tags_file_path), pdf_filename)
+        else:
+            # Fallback to current directory
+            safe_name = "".join(
+                c for c in flowmeter_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+            pdf_path = f"FinalReport_{safe_name}.pdf"
+
+        # Prepare flowmeter details
+        flowmeter_details = {
+            'flowmeter_name': flowmeter_name,
+            'line_number': line_number or 'N/A',
+            'location': location or 'N/A',
+            'reason': reason or 'N/A',
+            'lds_number': lds_number or 'N/A',
+            'type': type_val or 'N/A'
+        }
+
+        # Generate comprehensive PDF report using available libraries
+        result = generate_comprehensive_pdf_report(
+            pdf_path, results_data, trends_fig, dist_fig, stability_fig, flowmeter_details)
+
+        return False, result  # Close modal and return result
+
+    except Exception as e:
+        return True, [
+            BootstrapIcon(icon="exclamation-triangle-fill",
+                          width=16, color="red"),
+            f" Error: {str(e)}"
+        ]
+
+
+def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_fig, stability_fig, flowmeter_details=None):
+    """Generate comprehensive PDF report using matplotlib and plotly."""
+    try:
+        import matplotlib
+        matplotlib.use('Agg')  # Use non-interactive backend
+        import matplotlib.pyplot as plt
+        from matplotlib.backends.backend_pdf import PdfPages
+        import matplotlib.patches as patches
+        import plotly.graph_objects as go
+        from datetime import datetime
+
+        # Create PDF with multiple pages
+        with PdfPages(pdf_path) as pdf:
+            # Page 1: Title and Test Results Summary
+            fig, ax = plt.subplots(figsize=(8.5, 11))
+            ax.axis('off')
+
+            # Title
+            fig.suptitle('Flowmeter Acceptance Test Report',
+                         fontsize=24, fontweight='bold', y=0.95)
+            ax.text(0.5, 0.9, f'Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
+                    ha='center', va='top', transform=ax.transAxes, fontsize=12)
+
+            # Flowmeter Details Table (if provided)
+            y_start = 0.85
+            if flowmeter_details:
+                ax.text(0.05, y_start, 'Flowmeter Details', transform=ax.transAxes,
+                        fontsize=16, fontweight='bold')
+                y_start -= 0.05
+
+                # Create table-like layout
+                details_y = y_start
+                row_height = 0.03
+
+                details_mapping = [
+                    ('Flowmeter Name:', flowmeter_details.get(
+                        'flowmeter_name', 'N/A')),
+                    ('Line Number:', flowmeter_details.get('line_number', 'N/A')),
+                    ('Location:', flowmeter_details.get('location', 'N/A')),
+                    ('Reason:', flowmeter_details.get('reason', 'N/A')),
+                    ('LDS Number:', flowmeter_details.get('lds_number', 'N/A')),
+                    ('Type:', flowmeter_details.get('type', 'N/A'))
+                ]
+
+                # Draw table border
+                rect = patches.Rectangle((0.05, details_y - len(details_mapping) * row_height - 0.01),
+                                         0.9, len(details_mapping) *
+                                         row_height + 0.02,
+                                         linewidth=1, edgecolor='black', facecolor='lightgray', alpha=0.3,
+                                         transform=ax.transAxes)
+                ax.add_patch(rect)
+
+                for label, value in details_mapping:
+                    ax.text(0.07, details_y, label, transform=ax.transAxes,
+                            fontsize=10, fontweight='bold')
+                    ax.text(0.25, details_y, str(value), transform=ax.transAxes,
+                            fontsize=10)
+                    details_y -= row_height
+
+                y_start = details_y - 0.05
+
+            # Test Results Summary with better spacing
+            if results_data and results_data.get('test_results'):
+                # Add a border around the test results section
+                results_rect = patches.Rectangle((0.03, y_start - 0.4), 0.94, 0.35,
+                                                 linewidth=1, edgecolor='black',
+                                                 facecolor='lightgray', alpha=0.1,
+                                                 transform=ax.transAxes)
+                ax.add_patch(results_rect)
+
+                ax.text(0.05, y_start - 0.02, 'Test Results Summary', transform=ax.transAxes,
+                        fontsize=18, fontweight='bold')
+
+                test_results = results_data['test_results']
+                y_pos = y_start - 0.07
+
+                target_tests = [
+                    ('Test 1.1 - Digital Signal Range', 'Test 1.1 - Range Check'),
+                    ('Test 1.1 - Analog Signal Range', 'Test 1.1 - Range Check'),
+                    ('Test 2.1 - Digital Signal Time Diff', 'Test 2.1 - Time Diff'),
+                    ('Test 2.1 - Analog Signal Time Diff', 'Test 2.1 - Time Diff'),
+                    ('Test 3.1 - Mean Squared Error', 'Test 3.1 - MSE Analysis'),
+                    ('Test 3.2 - Digital Signal SNR', 'Test 3.2 - SNR Analysis'),
+                    ('Test 3.2 - Analog Signal SNR', 'Test 3.2 - SNR Analysis'),
+                    ('Test 3.3 - Target vs Digital',
+                     'Test 3.3 - Target vs Digital'),
+                    ('Test 3.4 - Target vs Reference',
+                     'Test 3.4 - Target vs Reference'),
+                    ('Test 4.1 - Digital Signal Stability',
+                     'Test 4.1 - Signal Stability'),
+                    ('Test 4.1 - Analog Signal Stability',
+                     'Test 4.1 - Signal Stability')
+                ]
+
+                total_tests = 0
+                passed_tests = 0
+
+                for meter_name, meter_results in test_results.items():
+                    # Meter header with better formatting
+                    ax.text(0.05, y_pos, f'Meter: {meter_name}', transform=ax.transAxes,
+                            fontsize=14, fontweight='bold', color='darkblue')
+                    y_pos -= 0.04
+
+                    # Collect all tests
+                    all_tests = {}
+                    for category_name, category_tests in meter_results.items():
+                        if category_name in ['reliability_tests', 'timeliness_tests', 'accuracy_tests', 'robustness_tests']:
+                            all_tests.update(category_tests)
+
+                    # Add test results
+                    for test_key, display_name in target_tests:
+                        if test_key in all_tests:
+                            total_tests += 1
+                            test_result = all_tests[test_key]
+                            test_status = test_result.get('status', 'unknown')
+                            test_value = str(test_result.get('value', 'N/A'))
+
+                            if test_status == 'pass':
+                                passed_tests += 1
+                                status_color = 'green'
+                                status_symbol = '✓'
+                            elif test_status == 'fail':
+                                status_color = 'red'
+                                status_symbol = '✗'
+                            else:
+                                status_color = 'orange'
+                                status_symbol = '?'
+
+                            # Test name with better alignment
+                            ax.text(0.07, y_pos, display_name,
+                                    transform=ax.transAxes, fontsize=10)
+                            # Status with better symbols
+                            status_text = 'PASS' if test_status == 'pass' else 'FAIL' if test_status == 'fail' else 'WARN'
+                            ax.text(0.55, y_pos, f'{status_symbol} {status_text}',
+                                    transform=ax.transAxes, fontsize=10, color=status_color, fontweight='bold')
+                            # Value (truncated if too long)
+                            value_display = test_value[:25] + \
+                                '...' if len(test_value) > 25 else test_value
+                            ax.text(0.72, y_pos, value_display,
+                                    transform=ax.transAxes, fontsize=9)
+
+                            y_pos -= 0.03  # Better spacing between rows
+
+                            if y_pos < 0.1:  # Start new page if needed
+                                break
+
+                    if y_pos < 0.1:
+                        break
+
+                # Overall results with proper spacing
+                y_pos -= 0.05
+                all_passed = total_tests > 0 and passed_tests == total_tests
+                overall_text = f'Overall Result: {passed_tests}/{total_tests} tests passed'
+                if all_passed:
+                    overall_text += ' - ALL TESTS PASSED!'
+                    color = 'green'
+                else:
+                    color = 'red'
+
+                # Add border around overall result
+                overall_rect = patches.Rectangle((0.03, y_pos - 0.03), 0.94, 0.06,
+                                                 linewidth=2, edgecolor=color,
+                                                 facecolor=color, alpha=0.1,
+                                                 transform=ax.transAxes)
+                ax.add_patch(overall_rect)
+
+                ax.text(0.05, y_pos, overall_text, transform=ax.transAxes,
+                        fontsize=14, fontweight='bold', color=color)
+
+            pdf.savefig(fig, bbox_inches='tight')
+            plt.close(fig)
+
+            # Page 2: Time Trends Plot
+            if trends_fig and trends_fig.get('data'):
+                try:
+                    # Convert dict to plotly figure object
+                    plotly_fig = go.Figure(trends_fig)
+                    # Convert plotly figure to image
+                    img_bytes = plotly_fig.to_image(
+                        format="png", width=1200, height=800, scale=2)
+
+                    # Create matplotlib figure to display the image with proper margins
+                    fig, ax = plt.subplots(figsize=(11, 8.5))
+                    ax.axis('off')
+                    fig.subplots_adjust(top=0.9, bottom=0.1,
+                                        left=0.1, right=0.9)
+
+                    # Load and display image
+                    import PIL.Image
+                    img = PIL.Image.open(io.BytesIO(img_bytes))
+                    ax.imshow(img)
+                    ax.set_title('Time Trends - Target, Reference, RTU Analog & Digital Signals',
+                                 fontsize=16, fontweight='bold', pad=20)
+
+                    pdf.savefig(fig, bbox_inches='tight')
+                    plt.close(fig)
+                except Exception as e:
+                    print(f"Error adding trends plot: {e}")
+
+            # Page 3: Distribution Plot
+            if dist_fig and dist_fig.get('data'):
+                try:
+                    # Convert dict to plotly figure object
+                    plotly_fig = go.Figure(dist_fig)
+                    img_bytes = plotly_fig.to_image(
+                        format="png", width=1200, height=800, scale=2)
+
+                    fig, ax = plt.subplots(figsize=(11, 8.5))
+                    ax.axis('off')
+                    fig.subplots_adjust(top=0.9, bottom=0.1,
+                                        left=0.1, right=0.9)
+
+                    img = PIL.Image.open(io.BytesIO(img_bytes))
+                    ax.imshow(img)
+                    ax.set_title('Digital and Analog Signal Reporting Frequency Distribution',
+                                 fontsize=16, fontweight='bold', pad=20)
+
+                    pdf.savefig(fig, bbox_inches='tight')
+                    plt.close(fig)
+                except Exception as e:
+                    print(f"Error adding distribution plot: {e}")
+
+            # Page 4: Stability Analysis Plot
+            if stability_fig and stability_fig.get('data'):
+                try:
+                    # Convert dict to plotly figure object
+                    plotly_fig = go.Figure(stability_fig)
+                    img_bytes = plotly_fig.to_image(
+                        format="png", width=1200, height=800, scale=2)
+
+                    fig, ax = plt.subplots(figsize=(11, 8.5))
+                    ax.axis('off')
+                    fig.subplots_adjust(top=0.9, bottom=0.1,
+                                        left=0.1, right=0.9)
+
+                    img = PIL.Image.open(io.BytesIO(img_bytes))
+                    ax.imshow(img)
+                    ax.set_title('Signal Stability Analysis - Test 4.1',
+                                 fontsize=16, fontweight='bold', pad=20)
+
+                    pdf.savefig(fig, bbox_inches='tight')
+                    plt.close(fig)
+                except Exception as e:
+                    print(f"Error adding stability plot: {e}")
+
+        return [
+            BootstrapIcon(icon="check-circle-fill", width=16, color="green"),
+            " PDF Report Generated!"
+        ]
+
+    except Exception as e:
+        return [
+            BootstrapIcon(icon="exclamation-triangle-fill",
+                          width=16, color="red"),
+            f" Error: {str(e)}"
+        ]

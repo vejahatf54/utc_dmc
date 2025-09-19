@@ -86,8 +86,29 @@ class FlowmeterAcceptanceService:
             # Initialize test results
             self.test_results = {}
 
-            # Export CSV data FIRST - tests need these files to exist
-            csv_export_result = self.export_csv_data(params)
+            # Check if we should use existing data or extract new data
+            use_existing_data = params.get('use_existing_data', False)
+
+            if use_existing_data:
+                # Use existing CSV files in _Data directory
+                self.logger.info(
+                    "Using existing CSV data (skipping extraction)")
+                tags_file_dir = os.path.dirname(params['csv_tags_file'])
+                data_dir = os.path.join(tags_file_dir, "_Data")
+
+                # Verify _Data directory exists
+                if not os.path.exists(data_dir):
+                    raise ProcessingError(
+                        f"_Data directory not found at {data_dir}. Please run analysis without 'Use existing data' option first.")
+
+                csv_export_result = {
+                    'data_dir': data_dir,
+                    'message': 'Using existing CSV data from _Data directory',
+                    'exported_files': []  # We don't know which files exist, tests will handle this
+                }
+            else:
+                # Export CSV data FIRST - tests need these files to exist
+                csv_export_result = self.export_csv_data(params)
 
             # Get the data directory from CSV export result
             if 'data_dir' in csv_export_result:

@@ -162,7 +162,7 @@ def create_flowmeter_acceptance_page():
                                         BootstrapIcon(
                                             icon="graph-up", width=16),
                                         dmc.Text(
-                                            "Robustness Checks (4.1-4.2)", fw=500, c="orange")
+                                            "Robustness Checks (4.1)", fw=500, c="orange")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
@@ -170,7 +170,7 @@ def create_flowmeter_acceptance_page():
                                         dmc.ListItem(
                                             "4.1: Signal Stability - Long-term stability analysis ensuring flowmeter signals remain consistent over extended periods"),
                                         dmc.ListItem(
-                                            "4.2: Spectral Analysis for Anomaly Detection - Frequency domain analysis to detect anomalies, excessive noise, and signal concentration")
+                                        )  # Removed Test 4.2
                                     ], size="xs")
                                 ])
                             ], value="robustness")
@@ -349,9 +349,7 @@ def create_flowmeter_acceptance_page():
                                             dmc.Text("Robustness Checks",
                                              fw=500, c="orange"),
                                             dmc.Checkbox(
-                                                label="4.1: Signals are Stable", id="robustness-check-1"),
-                                            dmc.Checkbox(
-                                                label="4.2: Spectral Analysis for Anomaly Detection", id="robustness-check-2")
+                                                label="4.1: Signals are Stable", id="robustness-check-1")
                                         ], gap="xs")
                                     ], withBorder=True, p="sm"),
                                     dmc.Card([
@@ -415,52 +413,6 @@ def create_flowmeter_acceptance_page():
                                     )
                                 ], gap="sm", align="stretch")
                             ], shadow="sm", p="sm", id="test-41-params-card", style={"display": "none"}),
-                            # Test 4.2 Spectral Analysis Parameters (conditional)
-                            dmc.Card([
-                                dmc.Group([
-                                    dmc.Text(
-                                        "Test 4.2 - Spectral Analysis Parameters", fw=500, size="sm", c="orange"),
-                                    BootstrapIcon(icon="soundwave", width=14)
-                                ], gap="xs", mb="sm"),
-                                dmc.Group([
-                                    dmc.NumberInput(
-                                        label="Noise Threshold (%)",
-                                        id="noise-threshold-input",
-                                        placeholder="Enter noise threshold",
-                                        min=1.0,
-                                        max=50.0,
-                                        value=15.0,
-                                        step=0.1,
-                                        size="xs",
-                                        style={"flex": "1"},
-                                        description="Max noise"
-                                    ),
-                                    dmc.NumberInput(
-                                        label="Low Freq Cutoff (Hz)",
-                                        id="low-freq-cutoff-input",
-                                        placeholder="Enter frequency cutoff",
-                                        min=0.001,
-                                        max=1.0,
-                                        value=0.05,
-                                        step=0.001,
-                                        size="xs",
-                                        style={"flex": "1"},
-                                        description="Freq threshold"
-                                    ),
-                                    dmc.NumberInput(
-                                        label="Entropy Threshold",
-                                        id="entropy-threshold-input",
-                                        placeholder="Enter entropy threshold",
-                                        min=0.1,
-                                        max=1.0,
-                                        value=0.7,
-                                        step=0.01,
-                                        size="xs",
-                                        style={"flex": "1"},
-                                        description="Min entropy"
-                                    )
-                                ], gap="sm", align="stretch")
-                            ], shadow="sm", p="sm", id="test-42-params-card", style={"display": "none"}),
                             dmc.Card([
                                 dmc.Group([
                                     dmc.Button(
@@ -526,7 +478,7 @@ def create_flowmeter_acceptance_page():
                                         dmc.TabsTab("Distributions",
                                                     value="distributions"),
                                         dmc.TabsTab(
-                                            "Spectral Analysis", value="spectral"),
+                                            "Signal Stability Analysis", value="spectral"),
                                         dmc.TabsTab(
                                             "Quality Metrics", value="quality")
                                     ]),
@@ -673,17 +625,14 @@ def toggle_help_modal(n_clicks, opened):
 
 # Callback to show/hide robustness parameter cards
 @callback(
-    [Output("test-41-params-card", "style"),
-     Output("test-42-params-card", "style")],
-    [Input("robustness-check-1", "checked"),
-     Input("robustness-check-2", "checked")],
+    [Output("test-41-params-card", "style")],
+    [Input("robustness-check-1", "checked")],
     prevent_initial_call=True
 )
-def toggle_robustness_params(rob1_checked, rob2_checked):
+def toggle_robustness_params(rob1_checked):
     """Show/hide robustness parameter cards based on checkbox selection."""
     style_41 = {"display": "block"} if rob1_checked else {"display": "none"}
-    style_42 = {"display": "block"} if rob2_checked else {"display": "none"}
-    return style_41, style_42
+    return [style_41]
 
 
 # Combined callback for preset checks and form clearing
@@ -695,7 +644,6 @@ def toggle_robustness_params(rob1_checked, rob2_checked):
      Output("tc-check-1", "checked"),
      Output("tc-check-2", "checked"),
      Output("robustness-check-1", "checked"),
-     Output("robustness-check-2", "checked"),
      Output("accuracy-check-1", "checked"),
      Output("accuracy-check-2", "checked"),
      Output("accuracy-check-3", "checked"),
@@ -720,14 +668,14 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
     """Handle preset check selection and form clearing."""
     ctx = callback_context
     if not ctx.triggered:
-        return [False] * 12 + [5, None, None, 1.0] + [True, "setup"]
+        return [False] * 11 + [5, None, None, 1.0] + [True, "setup"]
 
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if button_id == "partial-commissioning-btn":
-        # Partial commissioning preset: rel 1-4, tc 1-2, rob 1-2, acc 1&3&4 (core tests, skip SNR)
+        # Partial commissioning preset: rel 1-4, tc 1-2, rob 1, acc 1&3&4 (core tests, skip SNR)
         checks = [True, True, True, True, True, True,
-                  True, True, True, False, True, True]
+                  True, True, False, True, True]
         form_values = [flat_threshold or 5, min_flow,
                        max_flow, accuracy_range or 1.0]
         # Keep results tab disabled, stay on setup
@@ -736,7 +684,7 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
     elif button_id == "full-acceptance-btn":
         # Full acceptance preset: ALL checks enabled for comprehensive validation
         checks = [True, True, True, True, True,
-                  True, True, True, True, True, True, True]
+                  True, True, True, True, True, True]
         form_values = [flat_threshold or 5, min_flow,
                        max_flow, accuracy_range or 1.0]
         # Keep results tab disabled, stay on setup
@@ -744,13 +692,13 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
 
     elif button_id == "clear-form-btn":
         # Clear form - reset everything
-        checks = [False] * 12
+        checks = [False] * 11
         form_values = [5, None, None, 1.0]
         # Disable results tab, go back to setup
         return checks + form_values + [True, "setup"]
 
     # Default return
-    return [False] * 12 + [5, None, None, 1.0] + [True, "setup"]
+    return [False] * 11 + [5, None, None, 1.0] + [True, "setup"]
 
 
 # Main analysis handler
@@ -778,7 +726,6 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
      State("tc-check-1", "checked"),
      State("tc-check-2", "checked"),
      State("robustness-check-1", "checked"),
-     State("robustness-check-2", "checked"),
      State("accuracy-check-1", "checked"),
      State("accuracy-check-2", "checked"),
      State("accuracy-check-3", "checked"),
@@ -786,17 +733,13 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
      State("stability-window-input", "value"),
      State("drift-threshold-input", "value"),
      State("stability-threshold-input", "value"),
-     State("noise-threshold-input", "value"),
-     State("low-freq-cutoff-input", "value"),
-     State("entropy-threshold-input", "value"),
      State("plotly-theme-store", "data")],
     prevent_initial_call=True
 )
 def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time, end_time,
                            flat_threshold, min_flow, max_flow, accuracy_range,
-                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, rob2, acc1, acc2, acc3, acc4,
-                           stability_window, drift_threshold, stability_threshold,
-                           noise_threshold, low_freq_cutoff, entropy_threshold, theme_data):
+                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4,
+                           stability_window, drift_threshold, stability_threshold, theme_data):
     """Run the flowmeter analysis with all parameters."""
     if not all([rtu_file, csv_file, review_file]):
         missing_files_notification = dmc.Notification(
@@ -897,11 +840,6 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             validation_errors.append(
                 "Test 4.1 selected but missing parameters: Window Size, Drift Threshold, and Stability Threshold are required")
 
-        # Test 4.2 parameter validation
-        if rob2 and not all([noise_threshold, low_freq_cutoff, entropy_threshold]):
-            validation_errors.append(
-                "Test 4.2 selected but missing parameters: Noise Threshold, Low Freq Cutoff, and Entropy Threshold are required")
-
         if validation_errors:
             error_notification = dmc.Notification(
                 title="Parameter Validation Failed",
@@ -935,7 +873,6 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             'tc_check_1': tc1,
             'tc_check_2': tc2,
             'robustness_check_1': rob1,
-            'robustness_check_2': rob2,
             'accuracy_check_1': acc1,
             'accuracy_check_2': acc2,
             'accuracy_check_3': acc3,
@@ -943,10 +880,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             # Robustness Test Parameters - only include if tests are selected
             'stability_window_size': int(stability_window) if rob1 else None,
             'drift_threshold': float(drift_threshold) if rob1 else None,
-            'stability_threshold': float(stability_threshold) if rob1 else None,
-            'noise_threshold': float(noise_threshold) if rob2 else None,
-            'low_freq_cutoff': float(low_freq_cutoff) if rob2 else None,
-            'entropy_threshold': float(entropy_threshold) if rob2 else None
+            'stability_threshold': float(stability_threshold) if rob1 else None
         }
 
         # Run analysis
@@ -954,7 +888,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
 
         # Create results display
         checks_selected = [rel1, rel2, rel3, rel4,
-                           tc1, tc2, rob1, rob2, acc1, acc2, acc3, acc4]
+                           tc1, tc2, rob1, acc1, acc2, acc3, acc4]
         selected_count = sum(checks_selected)
 
         # Generate comprehensive time series visualizations
@@ -1396,7 +1330,7 @@ def update_distributions_plot(results_data, theme_data):
     prevent_initial_call=True
 )
 def update_spectral_plot(results_data, theme_data):
-    """Create spectral analysis plots for tests 4.1 and 4.2."""
+    """Create signal stability analysis plots for test 4.1."""
     template = theme_data.get(
         'template', 'mantine_light') if theme_data else 'mantine_light'
 
@@ -1404,7 +1338,7 @@ def update_spectral_plot(results_data, theme_data):
         fig = go.Figure()
         fig.update_layout(
             template=template,
-            title="Spectral Analysis (Tests 4.1 & 4.2) - Run analysis to view data",
+            title="Signal Stability Analysis (Test 4.1) - Run analysis to view data",
             xaxis_title="Frequency (Hz)",
             yaxis_title="Power Spectral Density",
             margin=dict(l=40, r=40, t=60, b=40),
@@ -1415,9 +1349,8 @@ def update_spectral_plot(results_data, theme_data):
     from plotly.subplots import make_subplots
 
     fig = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=("Signal Stability (Test 4.1)", "Frequency Spectrum (Test 4.2)",
-                        "Stability Windows", "Spectral Entropy"),
+        rows=1, cols=2,
+        subplot_titles=("Signal Stability (Test 4.1)", "Stability Windows"),
         vertical_spacing=0.12
     )
 
@@ -1437,28 +1370,20 @@ def update_spectral_plot(results_data, theme_data):
                 # Add actual stability data visualization here when available from test results
                 pass
 
-        # Extract real Test 4.2 (Spectral) data if available
-        if 'robustness_tests' in meter_results:
-            spectral_test = meter_results['robustness_tests'].get(
-                'Test 4.2 - Spectral Analysis')
-            if spectral_test and spectral_test.get('status') != 'fail':
-                # Add actual spectral analysis data visualization here when available from test results
-                pass
-
-    # Show message if no real spectral data available
+    # Show message if no stability data available
     if not any('robustness_tests' in meter_results for meter_results in test_results.values()):
         fig.add_annotation(
             x=0.5, y=0.5,
             xref="paper", yref="paper",
-            text="Run Test 4.1 and 4.2 to view spectral analysis data",
+            text="Run Test 4.1 to view signal stability analysis data",
             showarrow=False,
             font=dict(size=16)
         )
 
     fig.update_layout(
         template=template,
-        title="Spectral Analysis - Signal Stability & Frequency Content",
-        height=500,
+        title="Signal Stability Analysis - Test 4.1",
+        height=400,
         margin=dict(l=40, r=40, t=80, b=40),
         showlegend=True
     )

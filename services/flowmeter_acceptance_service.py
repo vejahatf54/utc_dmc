@@ -164,6 +164,9 @@ class FlowmeterAcceptanceService:
                 if os.path.exists(mbs_file):
                     try:
                         mbs_df = pd.read_csv(mbs_file)
+                        # Strip whitespace from column names to handle formatting inconsistencies
+                        mbs_df.columns = mbs_df.columns.str.strip()
+
                         # Get the correct column names - MBS files have TIME and meter-specific VAL columns
                         time_col = 'TIME' if 'TIME' in mbs_df.columns else None
                         val_col = None
@@ -236,6 +239,9 @@ class FlowmeterAcceptanceService:
                 if os.path.exists(ref_file):
                     try:
                         ref_df = pd.read_csv(ref_file)
+                        # Strip whitespace from column names to handle formatting inconsistencies
+                        ref_df.columns = ref_df.columns.str.strip()
+
                         # Use correct column names for Reference_Meter.csv
                         time_col = 'TIME' if 'TIME' in ref_df.columns else None
                         val_col = None
@@ -442,6 +448,8 @@ class FlowmeterAcceptanceService:
             }
 
             # Test 3.3 and 3.4 - Target vs Digital/Reference comparisons - Real implementation required
+            # Get accuracy_range from params
+            accuracy_range = params.get('accuracy_range')
             test_33_result = self._test_33_target_vs_digital(
                 meter_name, digital_tag, rtu_file, data_dir, accuracy_range)
             test_34_result = self._test_34_target_vs_reference(
@@ -460,22 +468,15 @@ class FlowmeterAcceptanceService:
                 'description': 'Target meter vs Reference meter comparison'
             }
 
-            # Robustness Tests (4.1 and 4.2) - extract parameters from params (UI must provide values)
+            # Robustness Tests (4.1 only) - extract parameters from params (UI must provide values)
             stability_window = params.get('stability_window_size')
             drift_threshold = params.get('drift_threshold')
             stability_threshold = params.get('stability_threshold')
-            noise_threshold = params.get('noise_threshold')
-            low_freq_cutoff = params.get('low_freq_cutoff')
-            entropy_threshold = params.get('entropy_threshold')
 
             # Validate required parameters for robustness tests
             if params.get('robustness_check_1') and any(x is None for x in [stability_window, drift_threshold, stability_threshold]):
                 raise ValueError(
                     "Test 4.1 parameters missing: stability_window_size, drift_threshold, stability_threshold are required")
-
-            if params.get('robustness_check_2') and any(x is None for x in [noise_threshold, low_freq_cutoff, entropy_threshold]):
-                raise ValueError(
-                    "Test 4.2 parameters missing: noise_threshold, low_freq_cutoff, entropy_threshold are required")
 
             digital_stability_result = self._test_41_signal_stability(
                 digital_tag, rtu_file, 'digital',
@@ -490,19 +491,6 @@ class FlowmeterAcceptanceService:
                 stability_threshold=stability_threshold,
                 data_dir=data_dir)
 
-            digital_spectral_result = self._test_42_spectral_analysis(
-                digital_tag, rtu_file, 'digital',
-                noise_threshold=noise_threshold,
-                low_freq_threshold=low_freq_cutoff,
-                entropy_threshold=entropy_threshold,
-                data_dir=data_dir)
-            analog_spectral_result = self._test_42_spectral_analysis(
-                analog_tag, rtu_file, 'analog',
-                noise_threshold=noise_threshold,
-                low_freq_threshold=low_freq_cutoff,
-                entropy_threshold=entropy_threshold,
-                data_dir=data_dir)
-
             results['robustness_tests'] = {
                 'Test 4.1 - Digital Signal Stability': {
                     'status': digital_stability_result['status'],
@@ -513,16 +501,6 @@ class FlowmeterAcceptanceService:
                     'status': analog_stability_result['status'],
                     'value': f"{analog_stability_result['stability_percentage']}% stable",
                     'description': f'Analog signal stability analysis (±3σ outliers: {analog_stability_result["outliers_count"]}, drift violations: {analog_stability_result["drift_violations"]})'
-                },
-                'Test 4.2 - Digital Spectral Analysis': {
-                    'status': digital_spectral_result['status'],
-                    'value': f"Noise: {digital_spectral_result['noise_level']}%, Dom.Freq: {digital_spectral_result['dominant_frequency']}Hz",
-                    'description': f'Digital signal spectral analysis (entropy: {digital_spectral_result["spectral_entropy"]})'
-                },
-                'Test 4.2 - Analog Spectral Analysis': {
-                    'status': analog_spectral_result['status'],
-                    'value': f"Noise: {analog_spectral_result['noise_level']}%, Dom.Freq: {analog_spectral_result['dominant_frequency']}Hz",
-                    'description': f'Analog signal spectral analysis (entropy: {analog_spectral_result["spectral_entropy"]})'
                 }
             }
 
@@ -912,18 +890,18 @@ class FlowmeterAcceptanceService:
             # Load the MBS CSV data
             df = pd.read_csv(mbs_csv_file)
 
+            # Strip whitespace from column names to handle formatting inconsistencies
+            df.columns = df.columns.str.strip()
+
             # The column format is: TIME, {meter_name}:VAL, {meter_name}:ST, {meter_name}:FLAT
-            # We need to check the ST (status) column (matches CSV format)
-            st_column = f' {meter_name}:ST'
+            # We need to check the ST (status) column (after stripping spaces)
+            st_column = f'{meter_name}:ST'
 
             if st_column not in df.columns:
-                # Try without space
-                st_column = f'{meter_name}:ST'
-                if st_column not in df.columns:
-                    result[
-                        'details'] = f'No status column found for meter {meter_name} in MBSTagID.csv. Available columns: {list(df.columns)}'
-                    result['status'] = 'fail'
-                    return result
+                result[
+                    'details'] = f'No status column found for meter {meter_name} in MBSTagID.csv. Available columns: {list(df.columns)}'
+                result['status'] = 'fail'
+                return result
 
             # Count readings (CSV is already date-filtered)
             total_readings = len(df)
@@ -1112,15 +1090,12 @@ class FlowmeterAcceptanceService:
             # Load the MBS CSV data
             df = pd.read_csv(mbs_csv_file)
 
-            # The column format is: TIME, {meter_name}:VAL, {meter_name}:ST, {meter_name}:FLAT
-            val_column = f' {meter_name}:VAL'
-            flat_column = f' {meter_name}:FLAT'
+            # Strip whitespace from column names to handle formatting inconsistencies
+            df.columns = df.columns.str.strip()
 
-            # Try without space if needed
-            if val_column not in df.columns:
-                val_column = f'{meter_name}:VAL'
-            if flat_column not in df.columns:
-                flat_column = f'{meter_name}:FLAT'
+            # The column format is: TIME, {meter_name}:VAL, {meter_name}:ST, {meter_name}:FLAT
+            val_column = f'{meter_name}:VAL'
+            flat_column = f'{meter_name}:FLAT'
 
             # Check required columns exist
             missing_columns = []
@@ -1516,6 +1491,8 @@ class FlowmeterAcceptanceService:
                 return result
 
             target_df = pd.read_csv(target_file)
+            # Strip whitespace from column names to handle formatting inconsistencies
+            target_df.columns = target_df.columns.str.strip()
 
             # Find the :VAL column in target data
             val_column = None
@@ -1643,6 +1620,8 @@ class FlowmeterAcceptanceService:
                 return result
 
             target_df = pd.read_csv(target_file)
+            # Strip whitespace from column names to handle formatting inconsistencies
+            target_df.columns = target_df.columns.str.strip()
 
             # Find the :VAL column in target data
             target_val_column = None
@@ -1663,6 +1642,8 @@ class FlowmeterAcceptanceService:
                 return result
 
             reference_df = pd.read_csv(reference_file)
+            # Strip whitespace from column names to handle formatting inconsistencies
+            reference_df.columns = reference_df.columns.str.strip()
 
             # Find the :VAL column in reference data
             reference_val_column = None
@@ -1907,204 +1888,6 @@ class FlowmeterAcceptanceService:
                 'details': f'Test execution error: {str(e)}'
             }
 
-    def _test_42_spectral_analysis(self, tag_name: str, rtu_file: str,
-                                   signal_type: str, noise_threshold: float = 15.0,
-                                   low_freq_threshold: float = 0.05,
-                                   entropy_threshold: float = 0.7,
-                                   data_dir: str = None) -> Dict[str, Any]:
-        """
-        Test 4.2: Spectral Analysis (Robustness Test)
-
-        Performs FFT analysis to detect noise, dominant frequencies, and spectral characteristics.
-        Based on original flowmeter_main.py spectral analysis for pipeline flow measurements.
-
-        Args:
-            tag_name: The SCADA tag ID to check
-            rtu_file: Path to RTU data file
-            signal_type: 'digital' or 'analog'
-            noise_threshold: Noise level threshold percentage (default: 15.0%)
-            low_freq_threshold: Low frequency cutoff in Hz (default: 0.05 Hz)
-            entropy_threshold: Minimum spectral entropy threshold (default: 0.7)
-            data_dir: Directory containing CSV data files
-
-        Returns:
-            Dictionary with spectral analysis results
-        """
-        try:
-            self.logger.info(
-                f"Running Test 4.2 Spectral Analysis for {signal_type} signal: {tag_name}")
-
-            # Default result structure
-            result = {
-                'dominant_frequency': 0.0,
-                'noise_level': 0.0,
-                'spectral_entropy': 0.0,
-                'low_frequency_power': 0.0,
-                'high_frequency_power': 0.0,
-                'total_readings': 0,
-                'sampling_rate': 0.0,
-                'status': 'fail',
-                'details': f'No data found for {tag_name}'
-            }
-
-            # Determine data directory
-            if data_dir is None:
-                data_dir = os.path.join(os.path.dirname(rtu_file), '_Data')
-
-            # Determine CSV file based on signal type
-            if signal_type.lower() == 'digital':
-                csv_file = os.path.join(data_dir, "SCADATagID_DIG.csv")
-            elif signal_type.lower() == 'analog':
-                csv_file = os.path.join(data_dir, "SCADATagID_ANL.csv")
-            else:
-                result['status'] = 'fail'
-                result['details'] = f'Unknown signal type: {signal_type}'
-                return result
-
-            if not os.path.exists(csv_file):
-                result['status'] = 'fail'
-                result['details'] = f'CSV file not found: {csv_file}'
-                return result
-
-            # Load CSV data
-            df = pd.read_csv(csv_file)
-
-            # Filter for the specific tag
-            if 'tag_name' not in df.columns:
-                result['status'] = 'fail'
-                result['details'] = f'No tag_name column found in {csv_file}'
-                return result
-
-            tag_data = df[df['tag_name'] == tag_name].copy()
-
-            if tag_data.empty:
-                result['details'] = f'No data found for tag {tag_name}'
-                result['status'] = 'fail'
-                return result
-
-            # Check for timestamp column to calculate sampling rate
-            if 'timestamp' not in tag_data.columns:
-                result['status'] = 'fail'
-                result['details'] = 'No timestamp column found for sampling rate calculation'
-                return result
-
-            # Sort by timestamp and get values
-            tag_data = tag_data.sort_values('timestamp')
-            values = tag_data['value'].dropna().values
-            timestamps = tag_data['timestamp'].dropna().values
-
-            result['total_readings'] = len(values)
-
-            if result['total_readings'] < 64:  # Minimum for meaningful FFT
-                result['status'] = 'fail'
-                result[
-                    'details'] = f'Insufficient data for FFT: need at least 64 readings, got {result["total_readings"]}'
-                return result
-
-            # Calculate sampling rate (average time difference)
-            time_diffs = np.diff(timestamps)
-            avg_time_diff = np.mean(time_diffs)
-            sampling_rate = 1.0 / avg_time_diff if avg_time_diff > 0 else 1.0
-            result['sampling_rate'] = round(sampling_rate, 4)
-
-            # Remove DC component (mean) before FFT
-            values_centered = values - np.mean(values)
-
-            # Perform FFT
-            fft_result = np.fft.fft(values_centered)
-            fft_magnitude = np.abs(fft_result)
-            fft_frequencies = np.fft.fftfreq(
-                len(values_centered), d=1/sampling_rate)
-
-            # Work with positive frequencies only
-            positive_freq_idx = fft_frequencies > 0
-            positive_frequencies = fft_frequencies[positive_freq_idx]
-            positive_magnitudes = fft_magnitude[positive_freq_idx]
-
-            if len(positive_frequencies) == 0:
-                result['status'] = 'fail'
-                result['details'] = 'No positive frequencies found in FFT analysis'
-                return result
-
-            # Find dominant frequency
-            dominant_freq_idx = np.argmax(positive_magnitudes)
-            dominant_frequency = positive_frequencies[dominant_freq_idx]
-            result['dominant_frequency'] = round(dominant_frequency, 4)
-
-            # Calculate power spectral density
-            power_spectrum = positive_magnitudes ** 2
-            total_power = np.sum(power_spectrum)
-
-            # Separate low and high frequency power
-            low_freq_mask = positive_frequencies <= low_freq_threshold
-            low_frequency_power = np.sum(
-                power_spectrum[low_freq_mask]) / total_power * 100
-            high_frequency_power = np.sum(
-                power_spectrum[~low_freq_mask]) / total_power * 100
-
-            result['low_frequency_power'] = round(low_frequency_power, 2)
-            result['high_frequency_power'] = round(high_frequency_power, 2)
-
-            # Calculate noise level as percentage of high-frequency content
-            result['noise_level'] = result['high_frequency_power']
-
-            # Calculate spectral entropy (measure of frequency distribution)
-            # Higher entropy indicates more distributed frequencies (less periodic/more noisy)
-            normalized_power = power_spectrum / total_power
-            # Remove zeros to avoid log(0)
-            normalized_power = normalized_power[normalized_power > 0]
-
-            if len(normalized_power) > 0:
-                spectral_entropy = - \
-                    np.sum(normalized_power * np.log2(normalized_power)
-                           ) / np.log2(len(normalized_power))
-                result['spectral_entropy'] = round(spectral_entropy, 3)
-            else:
-                result['spectral_entropy'] = 0.0
-
-            # Determine pass/fail based on criteria:
-            # 1. Noise level should be below threshold
-            # 2. Dominant frequency should be reasonable for pipeline flow (< low_freq_threshold suggests stability)
-            # 3. Spectral entropy should be above threshold (indicating good signal distribution)
-
-            noise_ok = result['noise_level'] <= noise_threshold
-            frequency_ok = result['dominant_frequency'] < low_freq_threshold
-            entropy_ok = result['spectral_entropy'] >= entropy_threshold
-
-            if noise_ok and frequency_ok and entropy_ok:
-                result['status'] = 'pass'
-                result['details'] = f'Spectral analysis passed: Noise={result["noise_level"]}% (≤{noise_threshold}%), Dom.Freq={result["dominant_frequency"]}Hz (<{low_freq_threshold}Hz), Entropy={result["spectral_entropy"]} (≥{entropy_threshold})'
-            else:
-                failures = []
-                if not noise_ok:
-                    failures.append(
-                        f'High noise: {result["noise_level"]}% (>{noise_threshold}%)')
-                if not frequency_ok:
-                    failures.append(
-                        f'High dominant frequency: {result["dominant_frequency"]}Hz (≥{low_freq_threshold}Hz)')
-                if not entropy_ok:
-                    failures.append(
-                        f'Low spectral entropy: {result["spectral_entropy"]} (<{entropy_threshold})')
-
-                result['status'] = 'fail'
-                result['details'] = f'Spectral analysis failed: {"; ".join(failures)}'
-
-            return result
-
-        except Exception as e:
-            self.logger.error(f"Error in Test 4.2 for {tag_name}: {e}")
-            return {
-                'dominant_frequency': 0.0,
-                'noise_level': 0.0,
-                'spectral_entropy': 0.0,
-                'low_frequency_power': 0.0,
-                'high_frequency_power': 0.0,
-                'total_readings': 0,
-                'sampling_rate': 0.0,
-                'status': 'fail',
-                'details': f'Test execution error: {str(e)}'
-            }
-
     def get_test_results_summary(self) -> Dict[str, Any]:
         """Get test results formatted for UI display with pass/fail icons."""
         if not self.test_results:
@@ -2339,6 +2122,7 @@ class FlowmeterAcceptanceService:
                 'success': True,
                 # Remove duplicates
                 'exported_files': list(set(exported_files)),
+                'data_dir': data_dir,
                 'message': f'CSV export completed. {len(set(exported_files))} files exported to {data_dir}'
             }
 

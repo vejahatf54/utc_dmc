@@ -445,31 +445,35 @@ def create_flowmeter_acceptance_page():
                 dmc.TabsPanel([
                     # Analysis Results Content - Two Column Layout with Results Summary and Plots
                     dmc.Stack([
+                        # Header with title and Export PDF button
                         dmc.Group([
-                            dmc.Title("Analysis Results", order=2),
-                            BootstrapIcon(icon="graph-up-arrow", width=24)
-                        ], gap="xs", justify="center"),
+                            dmc.Group([
+                                dmc.Title("Analysis Results", order=2),
+                                BootstrapIcon(icon="graph-up-arrow", width=24)
+                            ], gap="xs"),
+                            dmc.Button("Export PDF", variant="outline", size="sm",
+                                       leftSection=BootstrapIcon(
+                                           icon="file-pdf", width=16),
+                                       id="export-pdf-btn")
+                        ], justify="space-between", align="center"),
                         dmc.Divider(),
 
                         # Main Results Layout - Left column for test results, right column for plots
-                        dmc.SimpleGrid([
-                            # Left Column - Test Results Summary Card (minimum width needed)
-                            dmc.Stack([
-                                dmc.Card([
-                                    dmc.Group([
-                                        dmc.Title(
-                                            "Test Results Summary", order=4),
-                                        BootstrapIcon(
-                                            icon="clipboard-check", width=18)
-                                    ], gap="xs", mb="sm"),
-                                    html.Div(id="test-results-summary", children=[
-                                        dmc.Text("Run an analysis to see test results.",
-                                                 ta="center", c="dimmed", size="sm", py="md")
-                                    ])
-                                ], shadow="sm", p="md", style={"height": "700px", "overflow": "auto"})
-                            ], style={"minWidth": "300px", "maxWidth": "400px"}),
+                        dmc.Group([
+                            # Left Column - Test Results Summary Card
+                            dmc.Card([
+                                dmc.Group([
+                                    dmc.Title("Test Results Summary", order=4),
+                                    BootstrapIcon(
+                                        icon="clipboard-check", width=18)
+                                ], gap="xs", mb="sm"),
+                                html.Div(id="test-results-summary", children=[
+                                    dmc.Text("Run an analysis to see test results.",
+                                             ta="center", c="dimmed", size="sm", py="md")
+                                ])
+                            ], shadow="sm", p="md", style={"width": "280px", "height": "68vh", "overflow": "auto"}),
 
-                            # Right Column - Interactive Plots - Expand to fill available space
+                            # Right Column - Interactive Plots - Fill remaining space
                             dmc.Stack([
                                 dmc.Tabs([
                                     dmc.TabsList([
@@ -484,80 +488,24 @@ def create_flowmeter_acceptance_page():
                                     ]),
                                     dmc.TabsPanel([
                                         dcc.Graph(id="time-trends-plot",
-                                                  style={"height": "650px", "width": "100%"})
+                                                  style={"height": "63vh", "width": "100%"})
                                     ], value="time-trends"),
                                     dmc.TabsPanel([
                                         dcc.Graph(id="distributions-plot",
-                                                  style={"height": "650px", "width": "100%"})
+                                                  style={"height": "63vh", "width": "100%"})
                                     ], value="distributions"),
                                     dmc.TabsPanel([
                                         dcc.Graph(id="spectral-plot",
-                                                  style={"height": "650px", "width": "100%"})
+                                                  style={"height": "63vh", "width": "100%"})
                                     ], value="spectral"),
                                     dmc.TabsPanel([
-                                        dcc.Graph(
-                                            id="quality-metrics-plot", style={"height": "650px", "width": "100%"})
+                                        html.Div(id="quality-metrics-cards",
+                                                 style={"height": "63vh", "width": "100%", "overflow": "auto"})
                                     ], value="quality")
                                 ], value="time-trends", id="results-plot-tabs")
-                            ], style={"flex": "1", "minWidth": "600px"})
-                        ], cols=2, spacing="md", style={"width": "100%"}),
-
-                        # Second Row - Additional Reports and Statistics
-                        dmc.Card([
-                            dmc.Group([
-                                dmc.Title(
-                                    "Additional Reports & Statistics", order=4),
-                                BootstrapIcon(icon="bar-chart", width=18)
-                            ], gap="xs", mb="sm"),
-                            dmc.SimpleGrid([
-                                # Statistical Summary
-                                dmc.Card([
-                                    dmc.Text("Statistical Summary",
-                                             fw=500, size="sm", mb="xs"),
-                                    html.Div(id="statistical-summary", children=[
-                                        dmc.Text("Statistical data will appear here after analysis.",
-                                                 c="dimmed", size="xs")
-                                    ])
-                                ], shadow="xs", p="sm"),
-
-                                # Test Performance Metrics
-                                dmc.Card([
-                                    dmc.Text("Performance Metrics",
-                                             fw=500, size="sm", mb="xs"),
-                                    html.Div(id="performance-metrics", children=[
-                                        dmc.Text("Performance metrics will appear here after analysis.",
-                                                 c="dimmed", size="xs")
-                                    ])
-                                ], shadow="xs", p="sm"),
-
-                                # Data Quality Report
-                                dmc.Card([
-                                    dmc.Text("Data Quality Report",
-                                             fw=500, size="sm", mb="xs"),
-                                    html.Div(id="data-quality-report", children=[
-                                        dmc.Text("Data quality report will appear here after analysis.",
-                                                 c="dimmed", size="xs")
-                                    ])
-                                ], shadow="xs", p="sm"),
-
-                                # Export Options
-                                dmc.Card([
-                                    dmc.Text("Export Options", fw=500,
-                                             size="sm", mb="xs"),
-                                    dmc.Group([
-                                        dmc.Button("Export CSV", size="xs", variant="outline",
-                                                   leftSection=BootstrapIcon(
-                                                       icon="file-spreadsheet", width=14),
-                                                   id="export-csv-btn"),
-                                        dmc.Button("Export PDF", size="xs", variant="outline",
-                                                   leftSection=BootstrapIcon(
-                                                       icon="file-pdf", width=14),
-                                                   id="export-pdf-btn")
-                                    ], gap="xs")
-                                ], shadow="xs", p="sm")
-                            ], cols=4, spacing="sm")
-                        ], shadow="sm", p="md", mt="md")
-                    ], gap="md", id="analysis-results-content")
+                            ], style={"flex": "1"})
+                        ], gap="sm", align="stretch", style={"height": "75vh"})
+                    ], gap="sm", id="analysis-results-content")
                 ], value="results")
             ],
                 autoContrast=True,
@@ -957,10 +905,7 @@ def show_loading_on_click(n_clicks):
 # Results Tab Callbacks
 
 @callback(
-    [Output("test-results-summary", "children"),
-     Output("statistical-summary", "children"),
-     Output("performance-metrics", "children"),
-     Output("data-quality-report", "children")],
+    Output("test-results-summary", "children"),
     [Input("analysis-results-store", "data")],
     [State("plotly-theme-store", "data")],
     prevent_initial_call=True
@@ -970,7 +915,7 @@ def update_results_summary(results_data, theme_data):
     if not results_data or not results_data.get('test_results'):
         no_data_msg = dmc.Text(
             "No analysis results available.", ta="center", c="dimmed", size="sm", py="md")
-        return no_data_msg, no_data_msg, no_data_msg, no_data_msg
+        return no_data_msg
 
     # Get theme
     template = theme_data.get(
@@ -979,7 +924,22 @@ def update_results_summary(results_data, theme_data):
 
     test_results = results_data['test_results']
 
-    # Create test results summary
+    # Define the specific tests we want to show (1.1 to 4.1)
+    target_tests = [
+        ('Test 1.1 - Digital Signal Range', 'Test 1.1 - Range Check'),
+        ('Test 1.1 - Analog Signal Range', 'Test 1.1 - Range Check'),
+        ('Test 2.1 - Digital Signal Time Diff', 'Test 2.1 - Time Diff'),
+        ('Test 2.1 - Analog Signal Time Diff', 'Test 2.1 - Time Diff'),
+        ('Test 3.1 - Mean Squared Error', 'Test 3.1 - MSE Analysis'),
+        ('Test 3.2 - Digital Signal SNR', 'Test 3.2 - SNR Analysis'),
+        ('Test 3.2 - Analog Signal SNR', 'Test 3.2 - SNR Analysis'),
+        ('Test 3.3 - Target vs Digital', 'Test 3.3 - Target vs Digital'),
+        ('Test 3.4 - Target vs Reference', 'Test 3.4 - Target vs Reference'),
+        ('Test 4.1 - Digital Signal Stability', 'Test 4.1 - Signal Stability'),
+        ('Test 4.1 - Analog Signal Stability', 'Test 4.1 - Signal Stability')
+    ]
+
+    # Create compact test results summary
     test_cards = []
     total_tests = 0
     passed_tests = 0
@@ -1001,89 +961,37 @@ def update_results_summary(results_data, theme_data):
             ], p="xs", mb="xs", style={"backgroundColor": "var(--mantine-color-gray-1)" if not is_dark else "var(--mantine-color-dark-6)"})
         )
 
-        # Process each test category
+        # Collect all tests from all categories
+        all_tests = {}
         for category_name, category_tests in meter_results.items():
             if category_name in ['reliability_tests', 'timeliness_tests', 'accuracy_tests', 'robustness_tests']:
-                category_display = {
-                    'reliability_tests': 'Reliability Tests',
-                    'timeliness_tests': 'Timeliness Tests',
-                    'accuracy_tests': 'Accuracy Tests',
-                    'robustness_tests': 'Robustness Tests'
-                }[category_name]
+                all_tests.update(category_tests)
+
+        # Show only target tests in sorted order
+        for test_key, display_name in target_tests:
+            if test_key in all_tests:
+                total_tests += 1
+                test_result = all_tests[test_key]
+                test_status = test_result.get('status', 'unknown')
+                if test_status == 'pass':
+                    passed_tests += 1
+
+                # Compact format: just thumbs up/down and test title
+                test_icon = "hand-thumbs-up-fill" if test_status == 'pass' else "hand-thumbs-down-fill" if test_status == 'fail' else "question-circle"
+                test_color = "green" if test_status == 'pass' else "red" if test_status == 'fail' else "orange"
 
                 test_cards.append(
-                    dmc.Text(category_display, fw=500, size="xs",
-                             c="dimmed", ml="md", mb="xs")
+                    dmc.Group([
+                        BootstrapIcon(icon=test_icon, width=16,
+                                      color=test_color),
+                        dmc.Text(display_name, size="sm", fw=500)
+                    ], gap="sm", align="center", ml="sm", mb="xs")
                 )
-
-                for test_name, test_result in category_tests.items():
-                    total_tests += 1
-                    test_status = test_result.get('status', 'unknown')
-                    if test_status == 'pass':
-                        passed_tests += 1
-
-                    test_icon = "hand-thumbs-up-fill" if test_status == 'pass' else "hand-thumbs-down-fill" if test_status == 'fail' else "question-circle"
-                    test_color = "green" if test_status == 'pass' else "red" if test_status == 'fail' else "orange"
-
-                    test_cards.append(
-                        dmc.Group([
-                            BootstrapIcon(icon=test_icon,
-                                          width=14, color=test_color),
-                            dmc.Stack([
-                                dmc.Text(test_name, size="xs", fw=500),
-                                dmc.Text(test_result.get(
-                                    'description', ''), size="xs", c="dimmed"),
-                                dmc.Text(
-                                    f"Result: {test_result.get('value', 'N/A')}", size="xs", c="blue")
-                            ], gap=0)
-                        ], gap="xs", align="flex-start", ml="md", mb="xs")
-                    )
 
     test_summary = dmc.Stack(test_cards, gap="xs") if test_cards else dmc.Text(
         "No test results available.", c="dimmed", size="sm")
 
-    # Statistical Summary
-    stats_children = [
-        dmc.Group([
-            dmc.Text("Total Tests:", size="xs", fw=500),
-            dmc.Badge(str(total_tests), color="blue", size="xs")
-        ], justify="space-between"),
-        dmc.Group([
-            dmc.Text("Passed:", size="xs", fw=500),
-            dmc.Badge(str(passed_tests), color="green", size="xs")
-        ], justify="space-between"),
-        dmc.Group([
-            dmc.Text("Failed:", size="xs", fw=500),
-            dmc.Badge(str(total_tests - passed_tests), color="red", size="xs")
-        ], justify="space-between"),
-        dmc.Group([
-            dmc.Text("Success Rate:", size="xs", fw=500),
-            dmc.Badge(f"{(passed_tests/total_tests*100):.1f}%" if total_tests >
-                      0 else "0%", color="teal", size="xs")
-        ], justify="space-between")
-    ]
-
-    # Performance Metrics
-    perf_children = [
-        dmc.Text("Meters Analyzed:", size="xs", fw=500),
-        dmc.Badge(str(len(test_results)), color="blue", size="xs", mb="xs"),
-        dmc.Text("Analysis Duration:", size="xs", fw=500),
-        dmc.Badge("< 1 min", color="green", size="xs", mb="xs"),
-        dmc.Text("Data Points:", size="xs", fw=500),
-        dmc.Badge("Processing...", color="orange", size="xs")
-    ]
-
-    # Data Quality Report
-    quality_children = [
-        dmc.Text("File Integrity:", size="xs", fw=500),
-        dmc.Badge("✓ Good", color="green", size="xs", mb="xs"),
-        dmc.Text("Data Completeness:", size="xs", fw=500),
-        dmc.Badge("✓ Complete", color="green", size="xs", mb="xs"),
-        dmc.Text("Signal Quality:", size="xs", fw=500),
-        dmc.Badge("Under Review", color="orange", size="xs")
-    ]
-
-    return test_summary, dmc.Stack(stats_children, gap="xs"), dmc.Stack(perf_children, gap="xs"), dmc.Stack(quality_children, gap="xs")
+    return test_summary
 
 
 @callback(
@@ -1093,100 +1001,215 @@ def update_results_summary(results_data, theme_data):
     prevent_initial_call=True
 )
 def update_time_trends_plot(results_data, theme_data):
-    """Create time trends plot for digital/analog signals."""
-    # Get theme
+    """Create time trends plot showing 4 data sources: Target, Reference, RTU Analog, RTU Digital."""
     template = theme_data.get(
         'template', 'mantine_light') if theme_data else 'mantine_light'
 
-    if not results_data or not results_data.get('plots_data'):
-        # Create empty figure with proper theme
+    if not results_data:
         fig = go.Figure()
         fig.update_layout(
             template=template,
             title="Time Trends - Run analysis to view data",
             xaxis_title="Time",
             yaxis_title="Flow Rate",
-            margin=dict(l=40, r=40, t=60, b=40),
-            height=500
+            margin=dict(l=40, r=40, t=60, b=40)
         )
         return fig
 
-    # Create single plot for all time trends
-    fig = go.Figure()
+    # Load data from the 4 required CSV files
+    try:
+        csv_export_info = results_data.get('csv_export', {})
+        data_dir = csv_export_info.get('data_dir')
 
-    plots_data = results_data.get('plots_data', {})
+        if not data_dir:
+            raise ValueError("No data directory found")
 
-    # Add time series data for each meter
-    # Better color palette with distinct colors for each signal type
-    digital_colors = ['#1f77b4', '#ff7f0e',
-                      '#2ca02c', '#d62728', '#9467bd', '#8c564b']
-    analog_colors = ['#17becf', '#bcbd22',
-                     '#e377c2', '#7f7f7f', '#c5b0d5', '#c49c94']
-    reference_colors = ['#2ca02c', '#ff7f0e',
-                        '#1f77b4', '#d62728', '#9467bd', '#8c564b']
+        # Define the 4 required CSV files with their specific formats
+        data_sources = [
+            {
+                'file': os.path.join(data_dir, "MBSTagID.csv"),
+                'name': "Target Meter",
+                'color': '#1f77b4',  # Blue
+                'line_style': 'solid',
+                'time_column': 'TIME',
+                'value_column': ':VAL',  # Look for column ending with :VAL
+                'format_type': 'mbs'
+            },
+            {
+                'file': os.path.join(data_dir, "Reference_Meter.csv"),
+                'name': "Reference Meter",
+                'color': '#ff7f0e',  # Orange
+                'line_style': 'dash',
+                'time_column': 'TIME',
+                'value_column': ':VAL',  # Look for column ending with :VAL
+                'format_type': 'reference'
+            },
+            {
+                'file': os.path.join(data_dir, "SCADATagID_ANL.csv"),
+                'name': "RTU Analog Signal",
+                'color': '#2ca02c',  # Green
+                'line_style': 'dot',
+                'time_column': 'datetime',
+                'value_column': 'value',
+                'format_type': 'scada'
+            },
+            {
+                'file': os.path.join(data_dir, "SCADATagID_DIG.csv"),
+                'name': "RTU Digital Signal",
+                'color': '#d62728',  # Red
+                'line_style': 'dashdot',
+                'time_column': 'datetime',
+                'value_column': 'value',
+                'format_type': 'scada'
+            }
+        ]
 
-    meter_idx = 0
+        fig = go.Figure()
 
-    for meter_name, meter_data in plots_data.items():
-        if 'time_series' in meter_data:
-            ts_data = meter_data['time_series']
+        debug_info = []  # For debugging
 
-            # Digital signal - solid line
-            if 'digital_signal' in ts_data:
-                fig.add_trace(
-                    go.Scatter(
-                        x=ts_data['digital_signal'].get('timestamps', []),
-                        y=ts_data['digital_signal'].get('values', []),
-                        mode='lines',
-                        name=f'{meter_name} - Digital',
-                        line=dict(color=digital_colors[meter_idx % len(
-                            digital_colors)], width=2),
-                    )
-                )
+        for source in data_sources:
+            if os.path.exists(source['file']):
+                try:
+                    df = pd.read_csv(source['file'])
+                    df.columns = df.columns.str.strip()  # Clean column names
+                    debug_info.append(
+                        f"{source['name']}: Found {len(df)} rows, columns: {list(df.columns)}")
 
-            # Analog signal - dashed line with different color
-            if 'analog_signal' in ts_data:
-                fig.add_trace(
-                    go.Scatter(
-                        x=ts_data['analog_signal'].get('timestamps', []),
-                        y=ts_data['analog_signal'].get('values', []),
-                        mode='lines',
-                        name=f'{meter_name} - Analog',
-                        line=dict(color=analog_colors[meter_idx % len(analog_colors)],
-                                  dash='dash', width=2),
-                    )
-                )
+                    # Find time and value columns based on format type
+                    time_col = None
+                    value_col = None
 
-            # Reference signal - dot-dash line with third color palette
-            if 'reference_signal' in ts_data:
-                fig.add_trace(
-                    go.Scatter(
-                        x=ts_data['reference_signal'].get('timestamps', []),
-                        y=ts_data['reference_signal'].get('values', []),
-                        mode='lines',
-                        name=f'{meter_name} - Reference',
-                        line=dict(color=reference_colors[meter_idx % len(reference_colors)],
-                                  dash='dashdot', width=2),
-                    )
-                )
+                    if source['format_type'] in ['mbs', 'reference']:
+                        # MBS and Reference format: TIME, SN_QSO_SU_5M1:VAL, SN_QSO_SU_5M1:ST, SN_QSO_SU_5M1:FLAT
+                        time_col = source['time_column']  # 'TIME'
+                        # Find column ending with :VAL
+                        for col in df.columns:
+                            if col.endswith(':VAL'):
+                                value_col = col
+                                break
 
-            meter_idx += 1
+                    elif source['format_type'] == 'scada':
+                        # SCADA format: datetime,timestamp,tag_name,value,quality
+                        time_col = source['time_column']  # 'datetime'
+                        value_col = source['value_column']  # 'value'
 
+                    # Check if we found the required columns
+                    if time_col not in df.columns:
+                        debug_info.append(
+                            f"{source['name']}: Time column '{time_col}' not found in {list(df.columns)}")
+                        continue
+
+                    if not value_col or value_col not in df.columns:
+                        debug_info.append(
+                            f"{source['name']}: Value column '{value_col}' not found in {list(df.columns)}")
+                        continue
+
+                    # Convert timestamp and clean data
+                    if source['format_type'] in ['mbs', 'reference']:
+                        # MBS/Reference format: 2025/06/27 04:30:00.000
+                        df[time_col] = pd.to_datetime(
+                            df[time_col], format='%Y/%m/%d %H:%M:%S.%f', errors='coerce')
+                    else:
+                        # SCADA format: 2025-06-27 04:30:03
+                        df[time_col] = pd.to_datetime(
+                            df[time_col], errors='coerce')
+
+                    # Remove rows with NaN timestamps or values
+                    df = df.dropna(subset=[time_col, value_col])
+                    df = df.sort_values(time_col)
+
+                    # Ensure values are numeric
+                    df[value_col] = pd.to_numeric(
+                        df[value_col], errors='coerce')
+                    df = df.dropna(subset=[value_col])
+
+                    if len(df) > 0:
+                        # Add trace to plot
+                        fig.add_trace(go.Scatter(
+                            x=df[time_col],
+                            y=df[value_col],
+                            mode='lines',
+                            name=source['name'],
+                            line=dict(
+                                color=source['color'],
+                                width=2,
+                                dash=source['line_style']
+                            ),
+                            hovertemplate="<b>%{fullData.name}</b><br>" +
+                            "Time: %{x}<br>" +
+                            "Value: %{y:.4f}<br>" +
+                            "<extra></extra>"
+                        ))
+                        debug_info.append(
+                            f"{source['name']}: Successfully loaded {len(df)} data points using {time_col} and {value_col}")
+                    else:
+                        debug_info.append(
+                            f"{source['name']}: No valid data after cleaning")
+
+                except Exception as e:
+                    debug_info.append(f"{source['name']}: Error - {str(e)}")
+                    continue
+            else:
+                debug_info.append(
+                    f"{source['name']}: File not found - {source['file']}")
+
+        # If no data loaded, show debug information
+        if not fig.data:
+            # Show first 10 debug messages
+            debug_text = "<br>".join(debug_info[:10])
+            fig.add_annotation(
+                x=0.5, y=0.5,
+                xref="paper", yref="paper",
+                text=f"No time trend data loaded.<br><br>Debug Info:<br>{debug_text}",
+                showarrow=False,
+                font=dict(size=12),
+                align="left"
+            )
+
+        if not fig.data:
+            fig.add_annotation(
+                x=0.5, y=0.5,
+                xref="paper", yref="paper",
+                text="No time trend data available.<br>Ensure CSV files are generated from analysis.",
+                showarrow=False,
+                font=dict(size=16),
+                align="center"
+            )
+
+    except Exception as e:
+        fig = go.Figure()
+        fig.add_annotation(
+            x=0.5, y=0.5,
+            xref="paper", yref="paper",
+            text=f"Error loading time trend data: {str(e)}",
+            showarrow=False,
+            font=dict(size=14)
+        )
+
+    # Update layout with sparse datetime ticks
     fig.update_layout(
         template=template,
-        title="Signal Time Trends - All Signals Combined",
+        title="Time Trends - Target, Reference, RTU Analog & Digital Signals",
         xaxis_title="Time",
         yaxis_title="Flow Rate",
-        height=650,
         margin=dict(l=40, r=40, t=60, b=40),
         showlegend=True,
         legend=dict(
             orientation="h",
             yanchor="bottom",
             y=1.02,
-            xanchor="right",
-            x=1
-        )
+            xanchor="center",
+            x=0.5
+        ),
+        # Configure sparse datetime ticks
+        xaxis=dict(
+            tickmode='auto',
+            nticks=8,  # Limit number of ticks
+            tickformat='%m/%d %H:%M',  # Shorter date format
+            tickangle=45
+        ),
+        hovermode='x unified'
     )
 
     return fig
@@ -1199,7 +1222,7 @@ def update_time_trends_plot(results_data, theme_data):
     prevent_initial_call=True
 )
 def update_distributions_plot(results_data, theme_data):
-    """Create time delta distribution plot showing time differences between successive readings."""
+    """Create distribution plot showing Digital and Analog signals from RTU with bar chart and curve."""
     template = theme_data.get(
         'template', 'mantine_light') if theme_data else 'mantine_light'
 
@@ -1207,19 +1230,14 @@ def update_distributions_plot(results_data, theme_data):
         fig = go.Figure()
         fig.update_layout(
             template=template,
-            title="Time Delta Distribution - Run analysis to view data",
-            xaxis_title="Time Delta (seconds)",
+            title="Signal Distribution - Run analysis to view data",
+            xaxis_title="Signal Value",
             yaxis_title="Frequency",
-            margin=dict(l=40, r=40, t=60, b=40),
-            height=650
+            margin=dict(l=40, r=40, t=60, b=40)
         )
         return fig
 
-    # Calculate time deltas from actual CSV data
-
-    plots_data = results_data.get('plots_data', {})
-
-    # Load the actual CSV data to calculate time deltas from analysis results
+    # Load the actual RTU data for Digital and Analog signals
     try:
         csv_export_info = results_data.get('csv_export', {})
         data_dir = csv_export_info.get('data_dir')
@@ -1230,71 +1248,129 @@ def update_distributions_plot(results_data, theme_data):
         digital_csv = os.path.join(data_dir, "SCADATagID_DIG.csv")
         analog_csv = os.path.join(data_dir, "SCADATagID_ANL.csv")
 
-        time_deltas = []
+        fig = go.Figure()
+        colors = ['#1f77b4', '#ff7f0e']  # Blue for digital, orange for analog
 
+        # Process Digital signals (SCADA format) - Calculate reporting frequency
         if os.path.exists(digital_csv):
             df_dig = pd.read_csv(digital_csv)
-            if 'timestamp' in df_dig.columns:
-                df_dig['datetime'] = pd.to_datetime(df_dig['timestamp'])
-                df_dig = df_dig.sort_values('datetime')
-                dig_deltas = df_dig['datetime'].diff(
-                ).dt.total_seconds().dropna().values
-                time_deltas.extend(dig_deltas)
+            df_dig.columns = df_dig.columns.str.strip()
 
+            # SCADA format has 'datetime' column - calculate reporting frequency
+            if 'datetime' in df_dig.columns and len(df_dig) > 1:
+                # Convert datetime and calculate time differences (reporting frequency)
+                timestamps = pd.to_datetime(
+                    df_dig['datetime'], errors='coerce').dropna()
+                timestamps = timestamps.sort_values()
+
+                if len(timestamps) > 1:
+                    # Calculate time differences in seconds
+                    time_diffs = timestamps.diff().dt.total_seconds().dropna()
+
+                    if len(time_diffs) > 0:
+                        # Bar chart for reporting frequency distribution
+                        fig.add_trace(go.Histogram(
+                            x=time_diffs,
+                            name="Digital Reporting Frequency",
+                            marker_color=colors[0],
+                            opacity=0.6,
+                            nbinsx=30,
+                            histnorm='probability',
+                            yaxis='y'
+                        ))
+
+                        # Add smooth curve (KDE approximation)
+                        hist, bin_edges = np.histogram(
+                            time_diffs, bins=50, density=True)
+                        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+                        # Simple smoothing for curve
+                        try:
+                            from scipy import ndimage
+                            smoothed_hist = ndimage.gaussian_filter1d(
+                                hist, sigma=1.0)
+                            fig.add_trace(go.Scatter(
+                                x=bin_centers,
+                                y=smoothed_hist * np.diff(bin_edges)[0],
+                                mode='lines',
+                                name='Digital Frequency Curve',
+                                line=dict(color=colors[0], width=3),
+                                yaxis='y2'
+                            ))
+                        except ImportError:
+                            # Fallback without smoothing
+                            fig.add_trace(go.Scatter(
+                                x=bin_centers,
+                                y=hist * np.diff(bin_edges)[0],
+                                mode='lines',
+                                name='Digital Frequency Curve',
+                                line=dict(color=colors[0], width=3),
+                                yaxis='y2'
+                            ))
+
+        # Process Analog signals (SCADA format) - Calculate reporting frequency
         if os.path.exists(analog_csv):
             df_anl = pd.read_csv(analog_csv)
-            if 'timestamp' in df_anl.columns:
-                df_anl['datetime'] = pd.to_datetime(df_anl['timestamp'])
-                df_anl = df_anl.sort_values('datetime')
-                anl_deltas = df_anl['datetime'].diff(
-                ).dt.total_seconds().dropna().values
-                time_deltas.extend(anl_deltas)
+            df_anl.columns = df_anl.columns.str.strip()
 
-        if time_deltas:
-            # Create single histogram showing time delta distribution
-            fig = go.Figure()
+            # SCADA format has 'datetime' column - calculate reporting frequency
+            if 'datetime' in df_anl.columns and len(df_anl) > 1:
+                # Convert datetime and calculate time differences (reporting frequency)
+                timestamps = pd.to_datetime(
+                    df_anl['datetime'], errors='coerce').dropna()
+                timestamps = timestamps.sort_values()
 
-            fig.add_trace(
-                go.Histogram(
-                    x=time_deltas,
-                    name="Time Delta Distribution",
-                    marker_color='#1f77b4',
-                    opacity=0.8,
-                    nbinsx=50,
-                    hovertemplate="<b>Time Delta:</b> %{x:.1f} seconds<br>" +
-                                  "<b>Count:</b> %{y}<br><extra></extra>"
-                )
-            )
+                if len(timestamps) > 1:
+                    # Calculate time differences in seconds
+                    time_diffs = timestamps.diff().dt.total_seconds().dropna()
 
-            # Add statistics text
-            mean_delta = np.mean(time_deltas)
-            std_delta = np.std(time_deltas)
-            min_delta = np.min(time_deltas)
-            max_delta = np.max(time_deltas)
+                    if len(time_diffs) > 0:
+                        # Bar chart for reporting frequency distribution
+                        fig.add_trace(go.Histogram(
+                            x=time_diffs,
+                            name="Analog Reporting Frequency",
+                            marker_color=colors[1],
+                            opacity=0.6,
+                            nbinsx=30,
+                            histnorm='probability',
+                            yaxis='y'
+                        ))
 
-            fig.add_annotation(
-                x=0.98, y=0.98,
-                xref="paper", yref="paper",
-                text=f"<b>Statistics:</b><br>" +
-                     f"Mean: {mean_delta:.2f}s<br>" +
-                     f"Std: {std_delta:.2f}s<br>" +
-                     f"Min: {min_delta:.2f}s<br>" +
-                     f"Max: {max_delta:.2f}s<br>" +
-                     f"Total: {len(time_deltas)} intervals",
-                showarrow=False,
-                align="left",
-                bgcolor="rgba(255,255,255,0.8)",
-                bordercolor="gray",
-                borderwidth=1
-            )
+                        # Add smooth curve (KDE approximation)
+                        hist, bin_edges = np.histogram(
+                            time_diffs, bins=50, density=True)
+                        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-        else:
+                        # Simple smoothing for curve
+                        try:
+                            from scipy import ndimage
+                            smoothed_hist = ndimage.gaussian_filter1d(
+                                hist, sigma=1.0)
+                            fig.add_trace(go.Scatter(
+                                x=bin_centers,
+                                y=smoothed_hist * np.diff(bin_edges)[0],
+                                mode='lines',
+                                name='Analog Frequency Curve',
+                                line=dict(color=colors[1], width=3),
+                                yaxis='y2'
+                            ))
+                        except ImportError:
+                            # Fallback without smoothing
+                            fig.add_trace(go.Scatter(
+                                x=bin_centers,
+                                y=hist * np.diff(bin_edges)[0],
+                                mode='lines',
+                                name='Analog Frequency Curve',
+                                line=dict(color=colors[1], width=3),
+                                yaxis='y2'
+                            ))
+
+        if not fig.data:
             # No data available
-            fig = go.Figure()
             fig.add_annotation(
                 x=0.5, y=0.5,
                 xref="paper", yref="paper",
-                text="No time delta data available",
+                text="No RTU signal data available",
                 showarrow=False,
                 font=dict(size=16)
             )
@@ -1305,19 +1381,21 @@ def update_distributions_plot(results_data, theme_data):
         fig.add_annotation(
             x=0.5, y=0.5,
             xref="paper", yref="paper",
-            text=f"Error loading time delta data: {str(e)}",
+            text=f"Error loading RTU data: {str(e)}",
             showarrow=False,
             font=dict(size=14)
         )
 
+    # Update layout with dual y-axes for histogram and curve
     fig.update_layout(
         template=template,
-        title="Time Delta Distribution Between Successive Readings",
-        xaxis_title="Time Delta (seconds)",
-        yaxis_title="Frequency",
-        height=650,
+        title="Digital and Analog Signal Reporting Frequency Distribution",
+        xaxis_title="Time Interval (seconds)",
+        yaxis=dict(title="Probability (Histogram)", side="left"),
+        yaxis2=dict(title="Density (Curve)", side="right", overlaying="y"),
         margin=dict(l=40, r=40, t=60, b=40),
-        showlegend=False
+        showlegend=True,
+        hovermode='x unified'
     )
 
     return fig
@@ -1339,224 +1417,328 @@ def update_spectral_plot(results_data, theme_data):
         fig.update_layout(
             template=template,
             title="Signal Stability Analysis (Test 4.1) - Run analysis to view data",
-            xaxis_title="Frequency (Hz)",
-            yaxis_title="Power Spectral Density",
-            margin=dict(l=40, r=40, t=60, b=40),
-            height=500
+            xaxis_title="Time",
+            yaxis_title="Signal Value",
+            margin=dict(l=40, r=40, t=60, b=40)
         )
         return fig
 
     from plotly.subplots import make_subplots
 
+    # Create subplots for stability analysis
     fig = make_subplots(
-        rows=1, cols=2,
-        subplot_titles=("Signal Stability (Test 4.1)", "Stability Windows"),
-        vertical_spacing=0.12
+        rows=2, cols=2,
+        subplot_titles=("Digital Signal Stability", "Analog Signal Stability",
+                        "Stability Percentage Over Time", "Signal Drift Analysis"),
+        vertical_spacing=0.12,
+        horizontal_spacing=0.1
     )
 
-    # Use ONLY real spectral analysis data from test results
     test_results = results_data.get('test_results', {})
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
-              '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
 
-    for i, (meter_name, meter_results) in enumerate(test_results.items()):
-        color = colors[i % len(colors)]
+    # Try to load actual RTU data for stability analysis
+    try:
+        csv_export_info = results_data.get('csv_export', {})
+        data_dir = csv_export_info.get('data_dir')
 
-        # Extract real Test 4.1 (Stability) data if available
-        if 'robustness_tests' in meter_results:
-            stability_test = meter_results['robustness_tests'].get(
-                'Test 4.1 - Signal Stability')
-            if stability_test and stability_test.get('status') != 'fail':
-                # Add actual stability data visualization here when available from test results
-                pass
+        if data_dir:
+            digital_csv = os.path.join(data_dir, "SCADATagID_DIG.csv")
+            analog_csv = os.path.join(data_dir, "SCADATagID_ANL.csv")
 
-    # Show message if no stability data available
-    if not any('robustness_tests' in meter_results for meter_results in test_results.values()):
+            # Plot Digital signal stability (SCADA format)
+            if os.path.exists(digital_csv):
+                df_dig = pd.read_csv(digital_csv)
+                df_dig.columns = df_dig.columns.str.strip()
+
+                if 'datetime' in df_dig.columns and 'value' in df_dig.columns:
+                    timestamps = pd.to_datetime(df_dig['datetime'])
+                    values = pd.to_numeric(
+                        df_dig['value'], errors='coerce').dropna()
+
+                    if len(values) > 0:
+                        # Plot raw signal
+                        fig.add_trace(go.Scatter(
+                            x=timestamps[:len(values)],
+                            y=values,
+                            mode='lines',
+                            name='Digital Signal',
+                            line=dict(color=colors[0], width=1)
+                        ), row=1, col=1)
+
+                        # Calculate rolling stability (standard deviation)
+                        # Adaptive window size
+                        window_size = min(50, len(values) // 4)
+                        if window_size > 1:
+                            rolling_std = values.rolling(
+                                window=window_size, min_periods=1).std()
+                            stability_pct = 100 * \
+                                (1 - rolling_std / values.std())
+
+                            fig.add_trace(go.Scatter(
+                                x=timestamps[:len(stability_pct)],
+                                y=stability_pct,
+                                mode='lines',
+                                name='Digital Stability %',
+                                line=dict(color=colors[0], width=2)
+                            ), row=2, col=1)
+
+            # Plot Analog signal stability (SCADA format)
+            if os.path.exists(analog_csv):
+                df_anl = pd.read_csv(analog_csv)
+                df_anl.columns = df_anl.columns.str.strip()
+
+                if 'datetime' in df_anl.columns and 'value' in df_anl.columns:
+                    timestamps = pd.to_datetime(df_anl['datetime'])
+                    values = pd.to_numeric(
+                        df_anl['value'], errors='coerce').dropna()
+
+                    if len(values) > 0:
+                        # Plot raw signal
+                        fig.add_trace(go.Scatter(
+                            x=timestamps[:len(values)],
+                            y=values,
+                            mode='lines',
+                            name='Analog Signal',
+                            line=dict(color=colors[1], width=1)
+                        ), row=1, col=2)
+
+                        # Calculate rolling stability
+                        # Adaptive window size
+                        window_size = min(50, len(values) // 4)
+                        if window_size > 1:
+                            rolling_std = values.rolling(
+                                window=window_size, min_periods=1).std()
+                            stability_pct = 100 * \
+                                (1 - rolling_std / values.std())
+
+                            fig.add_trace(go.Scatter(
+                                x=timestamps[:len(stability_pct)],
+                                y=stability_pct,
+                                mode='lines',
+                                name='Analog Stability %',
+                                line=dict(color=colors[1], width=2)
+                            ), row=2, col=1)
+
+                            # Add drift analysis (difference from mean)
+                            mean_value = values.mean()
+                            drift = values - mean_value
+
+                            fig.add_trace(go.Scatter(
+                                x=timestamps[:len(drift)],
+                                y=drift,
+                                mode='lines',
+                                name='Signal Drift',
+                                line=dict(color=colors[2], width=1)
+                            ), row=2, col=2)
+
+        # Extract Test 4.1 results and add summary annotations
+        has_stability_data = False
+        for meter_name, meter_results in test_results.items():
+            if 'robustness_tests' in meter_results:
+                digital_test = meter_results['robustness_tests'].get(
+                    'Test 4.1 - Digital Signal Stability')
+                analog_test = meter_results['robustness_tests'].get(
+                    'Test 4.1 - Analog Signal Stability')
+
+                if digital_test:
+                    has_stability_data = True
+                    # Add annotation with test results
+                    fig.add_annotation(
+                        x=0.02, y=0.98,
+                        xref="paper", yref="paper",
+                        text=f"<b>Digital:</b> {digital_test.get('value', 'N/A')}<br>" +
+                             f"<b>Status:</b> {digital_test.get('status', 'unknown').upper()}",
+                        showarrow=False,
+                        align="left",
+                        font=dict(size=10)
+                    )
+
+                if analog_test:
+                    has_stability_data = True
+                    fig.add_annotation(
+                        x=0.52, y=0.98,
+                        xref="paper", yref="paper",
+                        text=f"<b>Analog:</b> {analog_test.get('value', 'N/A')}<br>" +
+                             f"<b>Status:</b> {analog_test.get('status', 'unknown').upper()}",
+                        showarrow=False,
+                        align="left",
+                        font=dict(size=10)
+                    )
+
+        if not has_stability_data:
+            fig.add_annotation(
+                x=0.5, y=0.5,
+                xref="paper", yref="paper",
+                text="Enable Test 4.1 (Signal Stability) to view stability analysis",
+                showarrow=False,
+                font=dict(size=16)
+            )
+
+    except Exception as e:
         fig.add_annotation(
             x=0.5, y=0.5,
             xref="paper", yref="paper",
-            text="Run Test 4.1 to view signal stability analysis data",
+            text=f"Error loading stability data: {str(e)}",
             showarrow=False,
-            font=dict(size=16)
+            font=dict(size=14)
         )
+
+    # Update subplot titles and axes
+    fig.update_xaxes(title_text="Time", row=1, col=1)
+    fig.update_xaxes(title_text="Time", row=1, col=2)
+    fig.update_xaxes(title_text="Time", row=2, col=1)
+    fig.update_xaxes(title_text="Time", row=2, col=2)
+
+    fig.update_yaxes(title_text="Signal Value", row=1, col=1)
+    fig.update_yaxes(title_text="Signal Value", row=1, col=2)
+    fig.update_yaxes(title_text="Stability (%)", row=2, col=1)
+    fig.update_yaxes(title_text="Drift from Mean", row=2, col=2)
 
     fig.update_layout(
         template=template,
         title="Signal Stability Analysis - Test 4.1",
-        height=400,
         margin=dict(l=40, r=40, t=80, b=40),
-        showlegend=True
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.15,
+            xanchor="center",
+            x=0.5
+        )
     )
-
-    fig.update_xaxes(title_text="Time Window", row=1, col=1)
-    fig.update_xaxes(title_text="Frequency (Hz)", type="log", row=1, col=2)
-    fig.update_xaxes(title_text="Time Window", row=2, col=1)
-    fig.update_xaxes(title_text="Time", row=2, col=2)
-
-    fig.update_yaxes(title_text="Stability (%)", row=1, col=1)
-    fig.update_yaxes(title_text="Power", row=1, col=2)
-    fig.update_yaxes(title_text="Stability (%)", row=2, col=1)
-    fig.update_yaxes(title_text="Entropy", row=2, col=2)
 
     return fig
 
 
 @callback(
-    Output("quality-metrics-plot", "figure"),
+    Output("quality-metrics-cards", "children"),
     [Input("analysis-results-store", "data")],
     [State("plotly-theme-store", "data")],
     prevent_initial_call=True
 )
-def update_quality_metrics_plot(results_data, theme_data):
-    """Create quality metrics visualization showing test summary and performance metrics."""
-    template = theme_data.get(
-        'template', 'mantine_light') if theme_data else 'mantine_light'
-
+def update_quality_metrics_cards(results_data, theme_data):
+    """Create quality metrics cards showing MSE and SNR values only."""
     if not results_data or not results_data.get('test_results'):
-        fig = go.Figure()
-        fig.add_annotation(
-            x=0.5, y=0.5,
-            xref="paper", yref="paper",
-            text="<b>Quality Metrics Dashboard</b><br><br>" +
-                 "Run an analysis to view:<br>" +
-                 "• Test Results Summary<br>" +
-                 "• Signal Quality Metrics<br>" +
-                 "• Performance Indicators<br>" +
-                 "• Overall Quality Score",
-            showarrow=False,
-            font=dict(size=16),
-            align="center"
-        )
-        fig.update_layout(
-            template=template,
-            title="Quality Metrics Dashboard",
-            margin=dict(l=40, r=40, t=60, b=40),
-            height=650
-        )
-        return fig
-
-    from plotly.subplots import make_subplots
-
-    fig = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=("Test Results Overview", "SNR Analysis",
-                        "MSE Analysis", "Quality Scores"),
-        specs=[[{"type": "domain"}, {"type": "scatter"}],
-               [{"type": "bar"}, {"type": "indicator"}]]
-    )
+        return dmc.Center([
+            dmc.Stack([
+                BootstrapIcon(icon="graph-up", width=48,
+                              color="var(--mantine-color-gray-5)"),
+                dmc.Text("Quality Metrics Dashboard",
+                         size="lg", fw=500, ta="center"),
+                dmc.Text("Run an analysis to view MSE and SNR metrics",
+                         ta="center", c="dimmed", size="sm")
+            ], gap="md", align="center")
+        ], style={"height": "100%"})
 
     test_results = results_data.get('test_results', {})
+    cards = []
 
-    # Aggregate test results for pie chart
-    total_pass = 0
-    total_fail = 0
-
-    snr_data = []
-    mse_data = []
-    meter_names = []
-
+    # Create cards for each meter
     for meter_name, meter_results in test_results.items():
-        meter_names.append(meter_name)
+        mse_value = "N/A"
+        snr_digital = "N/A"
+        snr_analog = "N/A"
 
-        # Count pass/fail for this meter
-        meter_pass = 0
-        meter_fail = 0
-
-        for category in ['reliability_tests', 'timeliness_tests', 'accuracy_tests', 'robustness_tests']:
-            if category in meter_results:
-                for test_name, test_result in meter_results[category].items():
-                    if test_result.get('status') == 'pass':
-                        total_pass += 1
-                        meter_pass += 1
-                    else:
-                        total_fail += 1
-                        meter_fail += 1
-
-        # Extract real SNR and MSE values from test results if available
-        snr_value = 0
-        mse_value = 0
-
-        # Get real SNR from Test 3.2 results
+        # Extract MSE and SNR values from test results
         if 'accuracy_tests' in meter_results:
-            snr_test = meter_results['accuracy_tests'].get(
-                'Test 3.2 - Digital Signal SNR')
-            if snr_test and 'SNR:' in snr_test.get('value', ''):
-                try:
-                    snr_str = snr_test['value'].split('SNR:')[1].strip()
-                    snr_value = float(
-                        snr_str.split()[0]) if snr_str != 'N/A' else 0
-                except:
-                    snr_value = 0
-
-            # Get real MSE from Test 3.1 results
+            # Get MSE from Test 3.1
             mse_test = meter_results['accuracy_tests'].get(
                 'Test 3.1 - Mean Squared Error')
             if mse_test and 'MSE:' in mse_test.get('value', ''):
                 try:
                     mse_str = mse_test['value'].split(
                         'MSE:')[1].split(',')[0].strip()
-                    mse_value = float(mse_str)
+                    mse_value = f"{float(mse_str):.4f}"
                 except:
-                    mse_value = 0
+                    mse_value = "N/A"
 
-        snr_data.append(snr_value)
-        mse_data.append(mse_value)
+            # Get Digital SNR from Test 3.2
+            snr_dig_test = meter_results['accuracy_tests'].get(
+                'Test 3.2 - Digital Signal SNR')
+            if snr_dig_test and 'SNR:' in snr_dig_test.get('value', ''):
+                try:
+                    snr_str = snr_dig_test['value'].split('SNR:')[1].strip()
+                    if snr_str != 'N/A':
+                        snr_digital = f"{float(snr_str.split()[0]):.2f} dB"
+                except:
+                    snr_digital = "N/A"
 
-    # Pie chart for overall results
-    fig.add_trace(
-        go.Pie(labels=['Passed', 'Failed'], values=[total_pass, total_fail],
-               marker_colors=['green', 'red']),
-        row=1, col=1
-    )
+            # Get Analog SNR from Test 3.2
+            snr_anl_test = meter_results['accuracy_tests'].get(
+                'Test 3.2 - Analog Signal SNR')
+            if snr_anl_test and 'SNR:' in snr_anl_test.get('value', ''):
+                try:
+                    snr_str = snr_anl_test['value'].split('SNR:')[1].strip()
+                    if snr_str != 'N/A':
+                        snr_analog = f"{float(snr_str.split()[0]):.2f} dB"
+                except:
+                    snr_analog = "N/A"
 
-    # SNR analysis
-    fig.add_trace(
-        go.Scatter(x=meter_names, y=snr_data, mode='markers+lines',
-                   name='SNR (dB)', marker=dict(size=10, color='blue')),
-        row=1, col=2
-    )
+        # Create meter card with theme-aware styling
+        meter_card = dmc.Card([
+            # Meter header
+            dmc.Group([
+                BootstrapIcon(icon="speedometer2", width=20),
+                dmc.Text(f"Meter: {meter_name}", fw=600, size="md")
+            ], gap="xs", mb="md"),
 
-    # MSE bar chart
-    fig.add_trace(
-        go.Bar(x=meter_names, y=mse_data, name='MSE', marker_color='orange'),
-        row=2, col=1
-    )
+            # Quality metrics grid
+            dmc.SimpleGrid([
+                # MSE Card - Default DMC styling
+                dmc.Card([
+                    dmc.Stack([
+                        dmc.Group([
+                            BootstrapIcon(icon="calculator", width=18,
+                                          color="var(--mantine-color-orange-6)"),
+                            dmc.Text("Mean Squared Error", size="sm", fw=500)
+                        ], gap="xs", justify="center"),
+                        dmc.Text(mse_value, size="xl", fw=700,
+                                 ta="center", c="orange"),
+                        dmc.Text("Test 3.1 Result", size="xs",
+                                 c="dimmed", ta="center")
+                    ], gap="xs")
+                ], shadow="sm", p="md"),
 
-    # Quality indicator
-    overall_quality = (total_pass / (total_pass + total_fail)) * \
-        100 if (total_pass + total_fail) > 0 else 0
+                # Digital SNR Card - Default DMC styling
+                dmc.Card([
+                    dmc.Stack([
+                        dmc.Group([
+                            BootstrapIcon(icon="activity", width=18,
+                                          color="var(--mantine-color-blue-6)"),
+                            dmc.Text("Digital SNR", size="sm", fw=500)
+                        ], gap="xs", justify="center"),
+                        dmc.Text(snr_digital, size="xl",
+                                 fw=700, ta="center", c="blue"),
+                        dmc.Text("Test 3.2 Result", size="xs",
+                                 c="dimmed", ta="center")
+                    ], gap="xs")
+                ], shadow="sm", p="md"),
 
-    fig.add_trace(
-        go.Indicator(
-            mode="gauge+number+delta",
-            value=overall_quality,
-            title={'text': "Overall Quality Score"},
-            gauge={'axis': {'range': [None, 100]},
-                   'bar': {'color': "darkgreen" if overall_quality > 80 else "orange" if overall_quality > 60 else "red"},
-                   'steps': [{'range': [0, 60], 'color': "lightgray"},
-                             {'range': [60, 80], 'color': "yellow"},
-                             {'range': [80, 100], 'color': "lightgreen"}],
-                   'threshold': {'line': {'color': "red", 'width': 4},
-                                 'thickness': 0.75, 'value': 90}}
-        ),
-        row=2, col=2
-    )
+                # Analog SNR Card - Default DMC styling
+                dmc.Card([
+                    dmc.Stack([
+                        dmc.Group([
+                            BootstrapIcon(icon="graph-up", width=18,
+                                          color="var(--mantine-color-green-6)"),
+                            dmc.Text("Analog SNR", size="sm", fw=500)
+                        ], gap="xs", justify="center"),
+                        dmc.Text(snr_analog, size="xl", fw=700,
+                                 ta="center", c="green"),
+                        dmc.Text("Test 3.2 Result", size="xs",
+                                 c="dimmed", ta="center")
+                    ], gap="xs")
+                ], shadow="sm", p="md")
+            ], cols=3, spacing="md")
+        ], shadow="sm", p="md", mb="md")
 
-    # Add SNR threshold line only if we have data and the subplot exists
-    if meter_names and snr_data:
-        try:
-            fig.add_hline(y=20, line_dash="dot",
-                          line_color="red", row=1, col=2)
-        except Exception:
-            # Skip adding threshold line if there's an issue
-            pass
+        cards.append(meter_card)
 
-    fig.update_layout(
-        template=template,
-        title="Quality Metrics Analysis - Performance Dashboard",
-        height=650,
-        margin=dict(l=40, r=40, t=80, b=40),
-        showlegend=True
-    )
+    if not cards:
+        return dmc.Center([
+            dmc.Text("No quality metrics data available",
+                     ta="center", c="dimmed", size="md")
+        ], style={"height": "100%"})
 
-    return fig
+    return dmc.Stack(cards, gap="md")

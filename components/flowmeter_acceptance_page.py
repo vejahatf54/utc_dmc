@@ -550,7 +550,8 @@ def create_flowmeter_acceptance_page():
                                             "Generate PDF Report",
                                             leftSection=BootstrapIcon(
                                                 icon="file-pdf", width=16),
-                                            id="pdf-generate-btn"
+                                            id="pdf-generate-btn",
+                                            loading=False
                                         )
                                     ], justify="flex-end", gap="md", mt="xl")
                                 ], gap="lg")
@@ -589,23 +590,23 @@ def create_flowmeter_acceptance_page():
                                     ]),
                                     dmc.TabsPanel([
                                         dcc.Graph(id="time-trends-plot",
-                                                  style={"height": "63vh", "width": "100%"})
+                                                  style={"height": "55vh", "width": "95%", "margin": "0 auto"})
                                     ], value="time-trends"),
                                     dmc.TabsPanel([
                                         dcc.Graph(id="distributions-plot",
-                                                  style={"height": "63vh", "width": "100%"})
+                                                  style={"height": "55vh", "width": "95%", "margin": "0 auto"})
                                     ], value="distributions"),
                                     dmc.TabsPanel([
                                         dcc.Graph(id="spectral-plot",
-                                                  style={"height": "63vh", "width": "100%"})
+                                                  style={"height": "55vh", "width": "95%", "margin": "0 auto"})
                                     ], value="spectral"),
                                     dmc.TabsPanel([
                                         html.Div(id="quality-metrics-cards",
-                                                 style={"height": "63vh", "width": "100%", "overflow": "auto"})
+                                                 style={"height": "55vh", "width": "95%", "overflow": "auto", "margin": "0 auto"})
                                     ], value="quality")
                                 ], value="time-trends", id="results-plot-tabs")
-                            ], style={"flex": "1"})
-                        ], gap="sm", align="stretch", style={"height": "75vh"})
+                            ], style={"flex": "1", "maxWidth": "calc(100vw - 320px)"})
+                        ], gap="sm", align="stretch", style={"height": "70vh"})
                     ], gap="sm", id="analysis-results-content")
                 ], value="results")
             ],
@@ -1925,10 +1926,24 @@ def toggle_pdf_modal(export_clicks, cancel_clicks, modal_opened, results_data):
     return modal_opened
 
 
+# PDF Loading Indicator Callback
+@callback(
+    Output("pdf-generate-btn", "loading"),
+    [Input("pdf-generate-btn", "n_clicks")],
+    prevent_initial_call=True
+)
+def show_pdf_loading(n_clicks):
+    """Show loading state on button when PDF generation starts."""
+    if n_clicks:
+        return True
+    return False
+
+
 # PDF Export Callback
 @callback(
     [Output("pdf-export-modal", "opened", allow_duplicate=True),
-     Output("export-pdf-btn", "children")],
+     Output("export-pdf-btn", "children"),
+     Output("pdf-generate-btn", "loading", allow_duplicate=True)],
     [Input("pdf-generate-btn", "n_clicks")],
     [State("analysis-results-store", "data"),
      State("plotly-theme-store", "data"),
@@ -1949,7 +1964,7 @@ def generate_pdf_report(n_clicks, results_data, theme_data, tags_file_data,
                         flowmeter_name, line_number, location, reason, lds_number, type_val):
     """Generate comprehensive PDF report with flowmeter details."""
     if not n_clicks or not results_data:
-        return False, "Export PDF"
+        return False, "Export PDF", False
 
     # Validate required fields
     if not flowmeter_name or not flowmeter_name.strip():
@@ -1957,7 +1972,7 @@ def generate_pdf_report(n_clicks, results_data, theme_data, tags_file_data,
             BootstrapIcon(icon="exclamation-triangle-fill",
                           width=16, color="red"),
             " Flowmeter name required"
-        ]
+        ], False
 
     try:
         # Get the tags file path to determine where to save the PDF
@@ -1990,14 +2005,14 @@ def generate_pdf_report(n_clicks, results_data, theme_data, tags_file_data,
         result = generate_comprehensive_pdf_report(
             pdf_path, results_data, trends_fig, dist_fig, stability_fig, flowmeter_details)
 
-        return False, result  # Close modal and return result
+        return False, result, False  # Close modal, return result, stop loading
 
     except Exception as e:
         return True, [
             BootstrapIcon(icon="exclamation-triangle-fill",
                           width=16, color="red"),
             f" Error: {str(e)}"
-        ]
+        ], False  # Keep modal open, show error, stop loading
 
 
 def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_fig, stability_fig, flowmeter_details=None):
@@ -2017,22 +2032,24 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
             fig, ax = plt.subplots(figsize=(8.5, 11))
             ax.axis('off')
 
-            # Title
+            # Title - reduced font size and added more spacing above
             fig.suptitle('Flowmeter Acceptance Test Report',
-                         fontsize=24, fontweight='bold', y=0.95)
-            ax.text(0.5, 0.9, f'Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
+                         fontsize=18, fontweight='bold', y=0.97)
+            # Reduced spacing between title and generated date
+            ax.text(0.5, 0.92, f'Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
                     ha='center', va='top', transform=ax.transAxes, fontsize=12)
 
             # Flowmeter Details Table (if provided)
-            y_start = 0.85
+            y_start = 0.87
             if flowmeter_details:
+                # Reduced font size for section header
                 ax.text(0.05, y_start, 'Flowmeter Details', transform=ax.transAxes,
-                        fontsize=16, fontweight='bold')
+                        fontsize=14, fontweight='bold')
                 y_start -= 0.05
 
-                # Create table-like layout
+                # Create table-like layout with better spacing
                 details_y = y_start
-                row_height = 0.03
+                row_height = 0.04  # Increased row height for better spacing
 
                 details_mapping = [
                     ('Flowmeter Name:', flowmeter_details.get(
@@ -2055,26 +2072,33 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                 for label, value in details_mapping:
                     ax.text(0.07, details_y, label, transform=ax.transAxes,
                             fontsize=10, fontweight='bold')
-                    ax.text(0.25, details_y, str(value), transform=ax.transAxes,
+                    # Increased spacing between label and value to prevent overlapping
+                    ax.text(0.35, details_y, str(value), transform=ax.transAxes,
                             fontsize=10)
                     details_y -= row_height
 
                 y_start = details_y - 0.05
 
-            # Test Results Summary with better spacing
+            # Test Results Summary Card (Visual Snapshot Style)
             if results_data and results_data.get('test_results'):
-                # Add a border around the test results section
-                results_rect = patches.Rectangle((0.03, y_start - 0.4), 0.94, 0.35,
-                                                 linewidth=1, edgecolor='black',
-                                                 facecolor='lightgray', alpha=0.1,
-                                                 transform=ax.transAxes)
-                ax.add_patch(results_rect)
+                # Create a card-like visual summary similar to the UI
+                card_height = 0.45
+                card_rect = patches.Rectangle((0.05, y_start - card_height - 0.02), 0.4, card_height,
+                                              linewidth=2, edgecolor='gray',
+                                              facecolor='white', alpha=0.9,
+                                              transform=ax.transAxes)
+                ax.add_patch(card_rect)
 
-                ax.text(0.05, y_start - 0.02, 'Test Results Summary', transform=ax.transAxes,
-                        fontsize=18, fontweight='bold')
+                # Card header
+                ax.text(0.07, y_start - 0.04, 'Test Results Summary', transform=ax.transAxes,
+                        fontsize=14, fontweight='bold')
+
+                # Add a line under the header
+                ax.plot([0.07, 0.43], [y_start - 0.06, y_start - 0.06],
+                        color='gray', linewidth=1, transform=ax.transAxes)
 
                 test_results = results_data['test_results']
-                y_pos = y_start - 0.07
+                y_pos = y_start - 0.09
 
                 target_tests = [
                     ('Test 1.1 - Digital Signal Range', 'Test 1.1 - Range Check'),
@@ -2098,10 +2122,26 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                 passed_tests = 0
 
                 for meter_name, meter_results in test_results.items():
-                    # Meter header with better formatting
-                    ax.text(0.05, y_pos, f'Meter: {meter_name}', transform=ax.transAxes,
-                            fontsize=14, fontweight='bold', color='darkblue')
-                    y_pos -= 0.04
+                    # Meter header in card format (similar to UI)
+                    meter_rect = patches.Rectangle((0.07, y_pos - 0.015), 0.36, 0.025,
+                                                   linewidth=1, edgecolor='lightgray',
+                                                   facecolor='lightgray', alpha=0.3,
+                                                   transform=ax.transAxes)
+                    ax.add_patch(meter_rect)
+
+                    # Meter status icon (green checkmark for pass)
+                    overall_status = meter_results.get(
+                        'overall_status', 'unknown')
+                    if overall_status == 'pass':
+                        ax.text(0.08, y_pos, '●', transform=ax.transAxes,
+                                fontsize=12, color='green', fontweight='bold')
+                    else:
+                        ax.text(0.08, y_pos, '●', transform=ax.transAxes,
+                                fontsize=12, color='red', fontweight='bold')
+
+                    ax.text(0.10, y_pos, f'Meter: {meter_name}', transform=ax.transAxes,
+                            fontsize=10, fontweight='bold', color='black')
+                    y_pos -= 0.035
 
                     # Collect all tests
                     all_tests = {}
@@ -2109,65 +2149,47 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                         if category_name in ['reliability_tests', 'timeliness_tests', 'accuracy_tests', 'robustness_tests']:
                             all_tests.update(category_tests)
 
-                    # Add test results
+                    # Add test results in compact format (like UI thumbs up/down)
                     for test_key, display_name in target_tests:
                         if test_key in all_tests:
                             total_tests += 1
                             test_result = all_tests[test_key]
                             test_status = test_result.get('status', 'unknown')
-                            test_value = str(test_result.get('value', 'N/A'))
 
                             if test_status == 'pass':
                                 passed_tests += 1
-                                status_color = 'green'
                                 status_symbol = '✓'
-                            elif test_status == 'fail':
-                                status_color = 'red'
-                                status_symbol = '✗'
+                                status_color = 'green'
                             else:
-                                status_color = 'orange'
-                                status_symbol = '?'
+                                status_symbol = '✗'
+                                status_color = 'red'
 
-                            # Test name with better alignment
-                            ax.text(0.07, y_pos, display_name,
-                                    transform=ax.transAxes, fontsize=10)
-                            # Status with better symbols
-                            status_text = 'PASS' if test_status == 'pass' else 'FAIL' if test_status == 'fail' else 'WARN'
-                            ax.text(0.55, y_pos, f'{status_symbol} {status_text}',
-                                    transform=ax.transAxes, fontsize=10, color=status_color, fontweight='bold')
-                            # Value (truncated if too long)
-                            value_display = test_value[:25] + \
-                                '...' if len(test_value) > 25 else test_value
-                            ax.text(0.72, y_pos, value_display,
-                                    transform=ax.transAxes, fontsize=9)
+                            # Compact format: icon + test name (like UI)
+                            ax.text(0.12, y_pos, status_symbol, transform=ax.transAxes,
+                                    fontsize=10, color=status_color, fontweight='bold')
+                            ax.text(0.14, y_pos, display_name, transform=ax.transAxes,
+                                    fontsize=9)
 
-                            y_pos -= 0.03  # Better spacing between rows
+                            y_pos -= 0.025
 
-                            if y_pos < 0.1:  # Start new page if needed
+                            if y_pos < y_start - card_height + 0.02:  # Stay within card bounds
                                 break
 
-                    if y_pos < 0.1:
+                    if y_pos < y_start - card_height + 0.02:
                         break
 
-                # Overall results with proper spacing
-                y_pos -= 0.05
+                # Add pass status at bottom of card if all tests passed
                 all_passed = total_tests > 0 and passed_tests == total_tests
-                overall_text = f'Overall Result: {passed_tests}/{total_tests} tests passed'
                 if all_passed:
-                    overall_text += ' - ALL TESTS PASSED!'
-                    color = 'green'
-                else:
-                    color = 'red'
-
-                # Add border around overall result
-                overall_rect = patches.Rectangle((0.03, y_pos - 0.03), 0.94, 0.06,
-                                                 linewidth=2, edgecolor=color,
-                                                 facecolor=color, alpha=0.1,
-                                                 transform=ax.transAxes)
-                ax.add_patch(overall_rect)
-
-                ax.text(0.05, y_pos, overall_text, transform=ax.transAxes,
-                        fontsize=14, fontweight='bold', color=color)
+                    # Add "ALL TESTS PASSED!" at the bottom of the card
+                    pass_rect = patches.Rectangle((0.07, y_start - card_height + 0.02), 0.36, 0.04,
+                                                  linewidth=1, edgecolor='green',
+                                                  facecolor='lightgreen', alpha=0.3,
+                                                  transform=ax.transAxes)
+                    ax.add_patch(pass_rect)
+                    ax.text(0.25, y_start - card_height + 0.04, 'ALL TESTS PASSED!',
+                            transform=ax.transAxes, fontsize=10, fontweight='bold',
+                            color='green', ha='center')
 
             pdf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
@@ -2244,6 +2266,105 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                     plt.close(fig)
                 except Exception as e:
                     print(f"Error adding stability plot: {e}")
+
+            # Page 5: Quality Metrics Summary
+            if results_data and results_data.get('test_results'):
+                try:
+                    fig, ax = plt.subplots(figsize=(11, 8.5))
+                    ax.axis('off')
+                    fig.subplots_adjust(top=0.9, bottom=0.1,
+                                        left=0.1, right=0.9)
+
+                    # Title
+                    ax.set_title('Quality Metrics Dashboard',
+                                 fontsize=18, fontweight='bold', pad=20)
+
+                    # Create quality metrics summary
+                    test_results = results_data['test_results']
+                    y_pos = 0.85
+
+                    for meter_name, meter_results in test_results.items():
+                        # Meter header
+                        ax.text(0.05, y_pos, f'Meter: {meter_name}', transform=ax.transAxes,
+                                fontsize=16, fontweight='bold', color='darkblue')
+                        y_pos -= 0.05
+
+                        # Look for accuracy tests (MSE and SNR values)
+                        accuracy_tests = meter_results.get(
+                            'accuracy_tests', {})
+
+                        # MSE Analysis
+                        if 'Test 3.1 - Mean Squared Error' in accuracy_tests:
+                            mse_result = accuracy_tests['Test 3.1 - Mean Squared Error']
+                            mse_value = mse_result.get('value', 'N/A')
+                            mse_status = mse_result.get('status', 'unknown')
+                            status_color = 'green' if mse_status == 'pass' else 'red'
+
+                            ax.text(0.1, y_pos, 'Mean Squared Error (MSE):', transform=ax.transAxes,
+                                    fontsize=12, fontweight='bold')
+                            ax.text(0.4, y_pos, str(mse_value), transform=ax.transAxes,
+                                    fontsize=12, color=status_color)
+                            y_pos -= 0.04
+
+                        # SNR Analysis - Digital
+                        if 'Test 3.2 - Digital Signal SNR' in accuracy_tests:
+                            snr_result = accuracy_tests['Test 3.2 - Digital Signal SNR']
+                            snr_value = snr_result.get('value', 'N/A')
+                            snr_status = snr_result.get('status', 'unknown')
+                            status_color = 'green' if snr_status == 'pass' else 'red'
+
+                            ax.text(0.1, y_pos, 'Digital Signal SNR:', transform=ax.transAxes,
+                                    fontsize=12, fontweight='bold')
+                            ax.text(0.4, y_pos, str(snr_value), transform=ax.transAxes,
+                                    fontsize=12, color=status_color)
+                            y_pos -= 0.04
+
+                        # SNR Analysis - Analog
+                        if 'Test 3.2 - Analog Signal SNR' in accuracy_tests:
+                            snr_result = accuracy_tests['Test 3.2 - Analog Signal SNR']
+                            snr_value = snr_result.get('value', 'N/A')
+                            snr_status = snr_result.get('status', 'unknown')
+                            status_color = 'green' if snr_status == 'pass' else 'red'
+
+                            ax.text(0.1, y_pos, 'Analog Signal SNR:', transform=ax.transAxes,
+                                    fontsize=12, fontweight='bold')
+                            ax.text(0.4, y_pos, str(snr_value), transform=ax.transAxes,
+                                    fontsize=12, color=status_color)
+                            y_pos -= 0.04
+
+                        # Target vs Digital/Reference comparisons
+                        if 'Test 3.3 - Target vs Digital' in accuracy_tests:
+                            target_dig_result = accuracy_tests['Test 3.3 - Target vs Digital']
+                            target_dig_value = target_dig_result.get(
+                                'value', 'N/A')
+                            target_dig_status = target_dig_result.get(
+                                'status', 'unknown')
+                            status_color = 'green' if target_dig_status == 'pass' else 'red'
+
+                            ax.text(0.1, y_pos, 'Target vs Digital:', transform=ax.transAxes,
+                                    fontsize=12, fontweight='bold')
+                            ax.text(0.4, y_pos, str(target_dig_value), transform=ax.transAxes,
+                                    fontsize=12, color=status_color)
+                            y_pos -= 0.04
+
+                        if 'Test 3.4 - Target vs Reference' in accuracy_tests:
+                            target_ref_result = accuracy_tests['Test 3.4 - Target vs Reference']
+                            target_ref_value = target_ref_result.get(
+                                'value', 'N/A')
+                            target_ref_status = target_ref_result.get(
+                                'status', 'unknown')
+                            status_color = 'green' if target_ref_status == 'pass' else 'red'
+
+                            ax.text(0.1, y_pos, 'Target vs Reference:', transform=ax.transAxes,
+                                    fontsize=12, fontweight='bold')
+                            ax.text(0.4, y_pos, str(target_ref_value), transform=ax.transAxes,
+                                    fontsize=12, color=status_color)
+                            y_pos -= 0.06
+
+                    pdf.savefig(fig, bbox_inches='tight')
+                    plt.close(fig)
+                except Exception as e:
+                    print(f"Error adding quality metrics page: {e}")
 
         return [
             BootstrapIcon(icon="check-circle-fill", width=16, color="green"),

@@ -1591,7 +1591,7 @@ def update_spectral_plot(results_data, theme_data):
         rows=2, cols=2,
         subplot_titles=("Digital Signal Stability", "Analog Signal Stability",
                         "Stability Percentage Over Time", "Signal Drift Analysis"),
-        vertical_spacing=0.12,
+        vertical_spacing=0.18,
         horizontal_spacing=0.1
     )
 

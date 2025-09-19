@@ -424,15 +424,8 @@ def create_flowmeter_acceptance_page():
                                         variant="filled",
                                         className="px-4",
                                         leftSection=BootstrapIcon(
-                                            icon="play-circle", width=20)
-                                    ),
-                                    dmc.Button(
-                                        "Clear Form",
-                                        id="clear-form-btn",
-                                        variant="outline",
-                                        size="lg",
-                                        leftSection=BootstrapIcon(
-                                            icon="arrow-clockwise", width=20)
+                                            icon="play-circle", width=20),
+                                        disabled=True
                                     )
                                 ], justify="center", gap="md"),
                                 dmc.Space(h="sm"),
@@ -705,15 +698,14 @@ def toggle_robustness_params(rob1_checked):
      Output("results-tab", "disabled", allow_duplicate=True),
      Output("main-tabs", "value", allow_duplicate=True)],
     [Input("partial-commissioning-btn", "n_clicks"),
-     Input("full-acceptance-btn", "n_clicks"),
-     Input("clear-form-btn", "n_clicks")],
+     Input("full-acceptance-btn", "n_clicks")],
     [State("flat-threshold-input", "value"),
      State("min-flowrate-input", "value"),
      State("max-flowrate-input", "value"),
      State("accuracy-range-input", "value")],
     prevent_initial_call=True
 )
-def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
+def handle_form_actions(partial_clicks, full_clicks,
                         flat_threshold, min_flow, max_flow, accuracy_range):
     """Handle preset check selection and form clearing."""
     ctx = callback_context
@@ -738,13 +730,6 @@ def handle_form_actions(partial_clicks, full_clicks, clear_clicks,
         form_values = [flat_threshold or 5, min_flow,
                        max_flow, accuracy_range or 1.0]
         # Keep results tab disabled, stay on setup
-        return checks + form_values + [True, "setup"]
-
-    elif button_id == "clear-form-btn":
-        # Clear form - reset everything
-        checks = [False] * 11
-        form_values = [5, None, None, 1.0]
-        # Disable results tab, go back to setup
         return checks + form_values + [True, "setup"]
 
     # Default return
@@ -991,6 +976,52 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
 create_file_selector_callback(rtu_file_ids, "Select RTU Data File")
 create_file_selector_callback(csv_tags_ids, "Select CSV Tags File")
 create_file_selector_callback(review_file_ids, "Select Review File")
+
+# Validation callback to enable/disable Run Analysis button
+
+
+@callback(
+    Output("run-analysis-btn", "disabled"),
+    [Input(rtu_file_ids['input'], "value"),
+     Input(csv_tags_ids['input'], "value"),
+     Input(review_file_ids['input'], "value"),
+     Input("min-flowrate-input", "value"),
+     Input("max-flowrate-input", "value"),
+     Input("reliability-check-1", "checked"),
+     Input("reliability-check-2", "checked"),
+     Input("reliability-check-3", "checked"),
+     Input("reliability-check-4", "checked"),
+     Input("tc-check-1", "checked"),
+     Input("tc-check-2", "checked"),
+     Input("robustness-check-1", "checked"),
+     Input("accuracy-check-1", "checked"),
+     Input("accuracy-check-2", "checked"),
+     Input("accuracy-check-3", "checked"),
+     Input("accuracy-check-4", "checked")]
+)
+def validate_required_fields(rtu_file, csv_file, review_file, min_flow, max_flow,
+                             rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4):
+    """Validate required fields and enable/disable Run Analysis button."""
+
+    # Check if all required file fields are filled
+    files_valid = all([rtu_file, csv_file, review_file])
+
+    # Check if min and max flowrate are provided and valid
+    flowrate_valid = all([
+        min_flow is not None and min_flow != "",
+        max_flow is not None and max_flow != "",
+        isinstance(min_flow, (int, float)) or (
+            isinstance(min_flow, str) and min_flow.strip()),
+        isinstance(max_flow, (int, float)) or (
+            isinstance(max_flow, str) and max_flow.strip())
+    ])
+
+    # Check if at least one analysis check is selected
+    checks = [rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4]
+    at_least_one_check = any(checks)
+
+    # Enable button only if all validations pass
+    return not (files_valid and flowrate_valid and at_least_one_check)
 
 # Callback to show loading overlay when analysis button is clicked
 

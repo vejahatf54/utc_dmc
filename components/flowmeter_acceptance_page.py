@@ -988,6 +988,45 @@ def update_results_summary(results_data, theme_data):
                     ], gap="sm", align="center", ml="sm", mb="xs")
                 )
 
+    # Check if all tests passed and add pass image
+    all_tests_passed = total_tests > 0 and passed_tests == total_tests
+
+    if all_tests_passed:
+        # Add pass.png image at the bottom when all tests pass
+        test_cards.append(
+            dmc.Center([
+                dmc.Stack([
+                    dmc.Divider(mb="md"),
+                    html.Img(
+                        src="/assets/passed.png",  # Use the passed.png from assets folder
+                        style={
+                            "width": "120px",
+                            "height": "auto",
+                            # Green glow
+                            "filter": "drop-shadow(0 4px 12px rgba(34, 197, 94, 0.4))",
+                            "transform": "scale(1.05)",
+                            "transition": "all 0.3s ease"
+                        }
+                    ),
+                    dmc.Text(
+                        f"🎉 ALL TESTS PASSED! 🎉",
+                        size="md",
+                        fw=700,
+                        c="green",
+                        ta="center",
+                        style={
+                            "textShadow": "0 2px 4px rgba(34, 197, 94, 0.3)"}
+                    ),
+                    dmc.Text(
+                        f"{passed_tests}/{total_tests} Tests Successful",
+                        size="sm",
+                        c="dimmed",
+                        ta="center"
+                    )
+                ], gap="xs", align="center")
+            ], mt="md")
+        )
+
     test_summary = dmc.Stack(test_cards, gap="xs") if test_cards else dmc.Text(
         "No test results available.", c="dimmed", size="sm")
 
@@ -1187,7 +1226,18 @@ def update_time_trends_plot(results_data, theme_data):
             font=dict(size=14)
         )
 
-    # Update layout with sparse datetime ticks
+    # Calculate Y-axis range: 0 to Q_max (maximum value from all traces)
+    y_max = 0
+    if fig.data:
+        for trace in fig.data:
+            if hasattr(trace, 'y') and trace.y is not None:
+                trace_max = max(trace.y) if len(trace.y) > 0 else 0
+                y_max = max(y_max, trace_max)
+
+    # Add 10% padding to the maximum value
+    q_max = y_max * 1.1 if y_max > 0 else 100
+
+    # Update layout with sparse datetime ticks and fixed Y-axis range
     fig.update_layout(
         template=template,
         title="Time Trends - Target, Reference, RTU Analog & Digital Signals",
@@ -1208,6 +1258,12 @@ def update_time_trends_plot(results_data, theme_data):
             nticks=8,  # Limit number of ticks
             tickformat='%m/%d %H:%M',  # Shorter date format
             tickangle=45
+        ),
+        # Fix Y-axis range from 0 to Q_max
+        yaxis=dict(
+            title="Flow Rate",
+            range=[0, q_max],
+            fixedrange=False  # Allow zooming but default to 0-Q_max
         ),
         hovermode='x unified'
     )

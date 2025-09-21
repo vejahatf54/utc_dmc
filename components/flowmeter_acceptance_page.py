@@ -150,7 +150,7 @@ def create_flowmeter_acceptance_page():
                                         dmc.ListItem(
                                             "3.1: Digital/Analog Agreement - Time series comparison using classical MSE (Σ(yi-xi)²/n) between RTU and review signals with correlation analysis"),
                                         dmc.ListItem(
-                                            "3.2: Signal-to-Noise Ratio - Evaluates signal quality by analyzing noise content and calculating SNR in dB"),
+                                            "3.2: Signal-to-Noise Ratio - Evaluates signal quality by analyzing noise content and calculating SNR in dB (pass criteria: > 30 dB)"),
                                         dmc.ListItem(
                                             "3.3: Target vs Digital Signal Comparison - Compares target meter readings from review file against digital RTU signals"),
                                         dmc.ListItem(
@@ -361,7 +361,7 @@ def create_flowmeter_acceptance_page():
                                             dmc.Checkbox(
                                                 label="3.1: Digital/Analog Signals are in Close Agreement in the rtu File", id="accuracy-check-1"),
                                             dmc.Checkbox(
-                                                label="3.2: Acceptable Signal-to-Noise ratio for D/A signals in the rtu File", id="accuracy-check-2"),
+                                                label="3.2: Acceptable Signal-to-Noise ratio for D/A signals in the rtu File (> 30 dB)", id="accuracy-check-2"),
                                             dmc.Checkbox(
                                                 label="3.3: MBS Target vs rtu Digital Signal Comparison", id="accuracy-check-3"),
                                             dmc.Checkbox(

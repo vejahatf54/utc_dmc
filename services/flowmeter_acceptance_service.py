@@ -1472,7 +1472,15 @@ class FlowmeterAcceptanceService:
             if result['snr_mad_based']:
                 details_parts.append(f"MAD-based: {result['snr_mad_based']}")
 
-            result['status'] = 'pass'
+            # Apply > 30 dB acceptance criteria
+            snr_threshold_db = 30.0  # > 30 dB acceptance criteria
+            if result['snr_value'] is not None and result['snr_value'] > snr_threshold_db:
+                result['status'] = 'pass'
+                details_parts.append(f"(PASS: > {snr_threshold_db} dB)")
+            else:
+                result['status'] = 'fail'
+                details_parts.append(f"(FAIL: ≤ {snr_threshold_db} dB)")
+
             result['details'] = ", ".join(details_parts)
 
             return result

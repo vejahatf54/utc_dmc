@@ -568,7 +568,7 @@ def create_flowmeter_acceptance_page():
                                     dmc.Text("Run an analysis to see test results.",
                                              ta="center", c="dimmed", size="sm", py="md")
                                 ])
-                            ], shadow="sm", p="md", style={"width": "280px", "height": "68vh", "overflow": "auto"}),
+                            ], shadow="sm", p="md", style={"width": "280px", "height": "75vh", "overflow": "auto"}),
 
                             # Right Column - Interactive Plots - Fill remaining space
                             dmc.Stack([
@@ -1078,6 +1078,7 @@ def update_results_summary(results_data, theme_data):
         ('Test 3.2 - Analog Signal SNR', 'Test 3.2 - SNR Analysis'),
         ('Test 3.3 - Target vs Digital', 'Test 3.3 - Target vs Digital'),
         ('Test 3.4 - Target vs Reference', 'Test 3.4 - Target vs Reference'),
+        ('Test 3.5 - SNR Comparison', 'Test 3.5 - SNR Comparison'),
         ('Test 4.1 - Digital Signal Stability', 'Test 4.1 - Signal Stability'),
         ('Test 4.1 - Analog Signal Stability', 'Test 4.1 - Signal Stability')
     ]
@@ -2188,6 +2189,8 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                      'Test 3.3 - Target vs Digital'),
                     ('Test 3.4 - Target vs Reference',
                      'Test 3.4 - Target vs Reference'),
+                    ('Test 3.5 - SNR Comparison',
+                     'Test 3.5 - SNR Comparison'),
                     ('Test 4.1 - Digital Signal Stability',
                      'Test 4.1 - Signal Stability'),
                     ('Test 4.1 - Analog Signal Stability',

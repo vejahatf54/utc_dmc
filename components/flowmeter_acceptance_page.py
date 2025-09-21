@@ -2131,24 +2131,24 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
             fig, ax = plt.subplots(figsize=(8.5, 11))
             ax.axis('off')
 
-            # Title - reduced font size and added more spacing above
+            # Title - moved higher for more top margin
             fig.suptitle('Flowmeter Acceptance Test Report',
-                         fontsize=18, fontweight='bold', y=0.97)
-            # Reduced spacing between title and generated date
+                         fontsize=16, fontweight='bold', y=0.97)
+            # Closer spacing between title and generated date
             ax.text(0.5, 0.92, f'Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}',
-                    ha='center', va='top', transform=ax.transAxes, fontsize=12)
+                    ha='center', va='top', transform=ax.transAxes, fontsize=10)
 
-            # Flowmeter Details Table (if provided)
-            y_start = 0.87
+            # Flowmeter Details Table (if provided) - Start higher
+            y_start = 0.88
             if flowmeter_details:
-                # Reduced font size for section header
+                # More compact section header
                 ax.text(0.05, y_start, 'Flowmeter Details', transform=ax.transAxes,
-                        fontsize=14, fontweight='bold')
-                y_start -= 0.05
+                        fontsize=12, fontweight='bold')
+                y_start -= 0.03
 
-                # Create table-like layout with better spacing
+                # More compact table layout
                 details_y = y_start
-                row_height = 0.04  # Increased row height for better spacing
+                row_height = 0.025  # Reduced row height for compactness
 
                 details_mapping = [
                     ('Flowmeter Name:', flowmeter_details.get(
@@ -2160,45 +2160,29 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                     ('Type:', flowmeter_details.get('type', 'N/A'))
                 ]
 
-                # Draw table border with increased padding
-                rect = patches.Rectangle((0.05, details_y - len(details_mapping) * row_height - 0.02),
-                                         0.9, len(details_mapping) *
-                                         row_height + 0.04,
-                                         linewidth=1, edgecolor='black', facecolor='lightgray', alpha=0.3,
-                                         transform=ax.transAxes)
-                ax.add_patch(rect)
-
+                # Display details without background box
                 for label, value in details_mapping:
-                    # Increased padding from border edges
-                    ax.text(0.08, details_y, label, transform=ax.transAxes,
-                            fontsize=10, fontweight='bold')
-                    # Increased spacing between label and value to prevent overlapping
-                    ax.text(0.36, details_y, str(value), transform=ax.transAxes,
-                            fontsize=10)
+                    # Compact spacing from border edges
+                    ax.text(0.07, details_y, label, transform=ax.transAxes,
+                            fontsize=9, fontweight='bold')
+                    # Compact spacing between label and value
+                    ax.text(0.35, details_y, str(value), transform=ax.transAxes,
+                            fontsize=9)
                     details_y -= row_height
 
-                y_start = details_y - 0.05
+                y_start = details_y - 0.02
 
             # Test Results Summary - Two Column Layout
             if results_data and results_data.get('test_results'):
-                # Left Column: Test Results Summary Card
-                card_height = 0.45
-                card_rect = patches.Rectangle((0.05, y_start - card_height - 0.02), 0.4, card_height,
-                                              linewidth=2, edgecolor='gray',
-                                              facecolor='white', alpha=0.9,
-                                              transform=ax.transAxes)
-                ax.add_patch(card_rect)
+                # Left Column: Test Results Summary - No box
+                card_height = 0.55  # Keep height for positioning
 
-                # Card header
-                ax.text(0.07, y_start - 0.04, 'Test Results Summary', transform=ax.transAxes,
-                        fontsize=14, fontweight='bold')
-
-                # Add a line under the header
-                ax.plot([0.07, 0.43], [y_start - 0.06, y_start - 0.06],
-                        color='gray', linewidth=1, transform=ax.transAxes)
+                # Header without box
+                ax.text(0.05, y_start - 0.02, 'Test Results Summary', transform=ax.transAxes,
+                        fontsize=12, fontweight='bold')
 
                 test_results = results_data['test_results']
-                y_pos = y_start - 0.09
+                y_pos = y_start - 0.06
 
                 # Use the same complete target_tests list as the UI
                 target_tests = [
@@ -2253,26 +2237,19 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                 passed_tests = 0
 
                 for meter_name, meter_results in test_results.items():
-                    # Meter header in card format (similar to UI)
-                    meter_rect = patches.Rectangle((0.07, y_pos - 0.015), 0.36, 0.025,
-                                                   linewidth=1, edgecolor='lightgray',
-                                                   facecolor='lightgray', alpha=0.3,
-                                                   transform=ax.transAxes)
-                    ax.add_patch(meter_rect)
-
-                    # Meter status icon (green checkmark for pass)
+                    # Meter header without background box
                     overall_status = meter_results.get(
                         'overall_status', 'unknown')
                     if overall_status == 'pass':
-                        ax.text(0.08, y_pos, '●', transform=ax.transAxes,
-                                fontsize=12, color='green', fontweight='bold')
+                        ax.text(0.05, y_pos, '●', transform=ax.transAxes,
+                                fontsize=10, color='green', fontweight='bold')
                     else:
-                        ax.text(0.08, y_pos, '●', transform=ax.transAxes,
-                                fontsize=12, color='red', fontweight='bold')
+                        ax.text(0.05, y_pos, '●', transform=ax.transAxes,
+                                fontsize=10, color='red', fontweight='bold')
 
-                    ax.text(0.10, y_pos, f'Meter: {meter_name}', transform=ax.transAxes,
-                            fontsize=10, fontweight='bold', color='black')
-                    y_pos -= 0.035
+                    ax.text(0.07, y_pos, f'Meter: {meter_name}', transform=ax.transAxes,
+                            fontsize=9, fontweight='bold', color='black')
+                    y_pos -= 0.025
 
                     # Collect all tests
                     all_tests = {}
@@ -2295,13 +2272,13 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                                 status_symbol = '✗'
                                 status_color = 'red'
 
-                            # Compact format: icon + test name (like UI)
-                            ax.text(0.12, y_pos, status_symbol, transform=ax.transAxes,
-                                    fontsize=10, color=status_color, fontweight='bold')
-                            ax.text(0.14, y_pos, display_name, transform=ax.transAxes,
-                                    fontsize=9)
+                            # Compact format: icon + test name (adjusted positioning)
+                            ax.text(0.09, y_pos, status_symbol, transform=ax.transAxes,
+                                    fontsize=8, color=status_color, fontweight='bold')
+                            ax.text(0.11, y_pos, display_name, transform=ax.transAxes,
+                                    fontsize=8)
 
-                            y_pos -= 0.025
+                            y_pos -= 0.018  # Reduced spacing between tests
 
                             if y_pos < y_start - card_height + 0.02:  # Stay within card bounds
                                 break

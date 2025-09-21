@@ -22,6 +22,8 @@ component_modules = [
     'components.elevation_page',
     'components.fetch_archive_page',
     'components.fetch_rtu_data_page',
+    'components.file_selector',
+    'components.flowmeter_acceptance_page',
     'components.fluid_id_page',
     'components.fluid_properties_page',
     'components.home_page',
@@ -48,6 +50,7 @@ service_modules = [
     'services.exceptions',
     'services.fetch_archive_service',
     'services.fetch_rtu_data_service',
+    'services.flowmeter_acceptance_service',
     'services.fluid_id_service',
     'services.fluid_properties_service',
     'services.linefill_service',
@@ -93,6 +96,16 @@ plotly_modules = [
 ]
 hiddenimports.extend(plotly_modules)
 
+# Add scipy modules for flowmeter acceptance service
+scipy_modules = [
+    'scipy',
+    'scipy.signal',
+    'scipy.stats',
+    'scipy.special',
+    'scipy.integrate',
+]
+hiddenimports.extend(scipy_modules)
+
 # Add DMC-specific modules (only components that exist in the current version)
 dmc_modules = [
     'dash_mantine_components.DatePickerInput',
@@ -101,12 +114,15 @@ dmc_modules = [
     'dash_mantine_components.MultiSelect',
     'dash_mantine_components.Button',
     'dash_mantine_components.Card',
+    'dash_mantine_components.CardSection',
     'dash_mantine_components.Container',
     'dash_mantine_components.Title',
     'dash_mantine_components.Text',
     'dash_mantine_components.Group',
     'dash_mantine_components.Stack',
     'dash_mantine_components.Grid',
+    'dash_mantine_components.GridCol',
+    'dash_mantine_components.SimpleGrid',
     'dash_mantine_components.Space',
     'dash_mantine_components.Divider',
     'dash_mantine_components.Paper',
@@ -117,9 +133,30 @@ dmc_modules = [
     'dash_mantine_components.Anchor',
     'dash_mantine_components.NavLink',
     'dash_mantine_components.ThemeIcon',
+    'dash_mantine_components.Checkbox',
     'dash_mantine_components.CheckboxGroup',
     'dash_mantine_components.Switch',
     'dash_mantine_components.ColorPicker',
     'dash_mantine_components.Slider',
+    'dash_mantine_components.NumberInput',
+    'dash_mantine_components.TextInput',
+    'dash_mantine_components.DateTimePicker',
+    'dash_mantine_components.ActionIcon',
+    'dash_mantine_components.List',
+    'dash_mantine_components.ListItem',
+    'dash_mantine_components.Accordion',
+    'dash_mantine_components.AccordionItem',
+    'dash_mantine_components.AccordionControl',
+    'dash_mantine_components.AccordionPanel',
+    'dash_mantine_components.Tabs',
+    'dash_mantine_components.TabsList',
+    'dash_mantine_components.TabsTab',
+    'dash_mantine_components.TabsPanel',
+    'dash_mantine_components.LoadingOverlay',
+    'dash_mantine_components.Center',
+    'dash_mantine_components.TagsInput',
+    'dash_mantine_components.Autocomplete',
+    'dash_mantine_components.RadioGroup',
+    'dash_mantine_components.Radio',
 ]
 hiddenimports.extend(dmc_modules)

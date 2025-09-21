@@ -137,6 +137,9 @@ hiddenimports = [
     # Data processing
     'pandas',
     'numpy',
+    'scipy',
+    'scipy.signal',
+    'scipy.stats',
     'json',
     'csv',
     'narwhals',
@@ -235,11 +238,19 @@ hiddenimports = [
     'components.elevation_page',
     'components.fetch_archive_page',
     'components.fetch_rtu_data_page',
+    'components.file_selector',
+    'components.flowmeter_acceptance_page',
     'components.fluid_id_page',
     'components.fluid_properties_page',
     'components.home_page',
     'components.icon_mapping',
     'components.linefill_page',
+    'components.pymbsd_page',
+    'components.replace_text_page',
+    'components.replay_file_poke_page',
+    'components.review_to_csv_page',
+    'components.rtu_resizer_page',
+    'components.rtu_to_csv_page',
     'components.sidebar',
     'components.sps_time_converter_page',
     'components.theme_switch',
@@ -252,11 +263,17 @@ hiddenimports = [
     'services.exceptions',
     'services.fetch_archive_service',
     'services.fetch_rtu_data_service',
+    'services.flowmeter_acceptance_service',
     'services.fluid_id_service',
     'services.fluid_properties_service',
     'services.linefill_service',
     'services.onesource_service',
     'services.pipe_analysis_service',
+    'services.pymbsd_service',
+    'services.replace_text_service',
+    'services.replay_file_poke_service',
+    'services.review_to_csv_service',
+    'services.rtu_service',
     'services.sps_time_converter_service',
 ]
 
@@ -275,7 +292,7 @@ for directory in ['components', 'services']:
 # Exclude unnecessary modules to reduce size
 excludes = [
     # 'tkinter',  # Needed for file dialogs - don't exclude
-    'unittest',
+    # 'unittest',  # Needed by numpy.testing which scipy depends on - don't exclude
     'test',
     'tests',
     'pytest',

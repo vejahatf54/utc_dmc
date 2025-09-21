@@ -132,6 +132,7 @@ function Test-Environment {
         @{name = "dash-ag-grid"; import = "dash_ag_grid" },
         @{name = "pandas"; import = "pandas" },
         @{name = "numpy"; import = "numpy" },
+        @{name = "scipy"; import = "scipy" },
         @{name = "plotly"; import = "plotly" },
         @{name = "flask"; import = "flask" },
         @{name = "sqlalchemy"; import = "sqlalchemy" },
@@ -312,6 +313,8 @@ import components.replay_file_poke_page
 import components.review_to_csv_page
 import components.rtu_resizer_page
 import components.rtu_to_csv_page
+import components.flowmeter_acceptance_page
+import components.file_selector
 import components.custom_theme
 import components.directory_selector
 import components.bootstrap_icon
@@ -338,6 +341,7 @@ import services.elevation_data_service
 import services.exceptions
 import services.fetch_archive_service
 import services.fetch_rtu_data_service
+import services.flowmeter_acceptance_service
 import services.fluid_id_service
 import services.fluid_properties_service
 import services.linefill_service

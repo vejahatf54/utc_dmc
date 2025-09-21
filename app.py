@@ -35,7 +35,13 @@ config_manager = initialize_config_manager()
 # When packaged with PyInstaller, disable debug mode for production
 debug_mode = not hasattr(sys, '_MEIPASS')
 
-app = Dash(__name__, suppress_callback_exceptions=True)
+# Initialize Dash app - keep it simple for packaged version
+if debug_mode:
+    # Development mode - include dev tools if supported
+    app = Dash(__name__, suppress_callback_exceptions=True)
+else:
+    # Production/packaged mode - minimal configuration
+    app = Dash(__name__, suppress_callback_exceptions=True)
 
 # Configure Flask server with secret key from config
 app.server.secret_key = config_manager.get_app_secret_key()
@@ -155,5 +161,4 @@ if __name__ == "__main__":
     debug_from_config = config_manager.get_app_debug() and debug_mode
     port_from_config = config_manager.get_app_port()
 
-    # app.run(debug=debug_from_config, host="127.0.0.1", port=port_from_config)
-    app.run(debug=True, host="127.0.0.1", port=port_from_config)
+    app.run(debug=debug_from_config, host="127.0.0.1", port=port_from_config)

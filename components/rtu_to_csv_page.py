@@ -648,7 +648,7 @@ def create_rtu_to_csv_page():
                                                 dmc.Loader(
                                                     color="blue", size="sm"),
                                                 dmc.Text(
-                                                    "Scanning .dt files for date ranges...", size="sm", c="dimmed", ta="center")
+                                                    "Setting up date range selection...", size="sm", c="dimmed", ta="center")
                                             ], gap="sm", align="center")
                                         ], style={"padding": "20px"})
                                     ], id="date-loading-container", style={'display': 'none'}),
@@ -661,7 +661,7 @@ def create_rtu_to_csv_page():
                                                     "Start Date & Time", size="sm", fw=500),
                                                 dmc.DateTimePicker(
                                                     id="rtu-csv-start-datetime",
-                                                    value=datetime.now() - timedelta(days=7),
+                                                    value=datetime.now(),
                                                     style={"width": "100%"},
                                                     size="md",
                                                     clearable=False,
@@ -931,7 +931,7 @@ def toggle_sampling_config(enabled):
         return {'display': 'none'}
 
 
-# Auto-scan all .dt files for date ranges when folder is selected
+# Set current datetime for date pickers when folder is selected
 @callback(
     [Output('rtu-csv-start-datetime', 'value'),
      Output('rtu-csv-end-datetime', 'value'),
@@ -942,15 +942,14 @@ def toggle_sampling_config(enabled):
     [Input(rtu_directory_ids['store'], 'data')],
     prevent_initial_call=True
 )
-def auto_scan_dt_files_for_dates(rtu_folder):
-    """Automatically scan all .dt files in the selected folder to find min/max date ranges."""
+def set_default_datetime_values(rtu_folder):
+    """Set current datetime for both start and end date pickers when folder is selected."""
     if not rtu_folder.get('path'):
         # Reset to default state when no folder selected
-        return (datetime.now() - timedelta(days=7), datetime.now(),
+        return (datetime.now(), datetime.now(),
                 {'display': 'none'}, {'display': 'block'}, "", "")
 
     try:
-        from services.rtu_service import RTUService
         import glob
 
         rtu_folder_path = rtu_folder['path']
@@ -970,98 +969,40 @@ def auto_scan_dt_files_for_dates(rtu_folder):
                               color="orange", variant="light"),
                     error_notification)
 
-        # Show loading state immediately
-        # Note: This will be overridden by the final return, but helps show the loading state briefly
+        # Set both start and end datetime to current datetime
+        current_datetime = datetime.now()
 
-        # Create RTU service instance
-        rtu_service = RTUService()
+        # Success - folder selected with .dt files
+        status_message = dmc.Alert(
+            f"Found {len(dt_files)} .dt files. Please select your desired date range.",
+            color="blue",
+            variant="light",
+            icon=BootstrapIcon(icon="info-circle", width=16)
+        )
 
-        min_start_time = None
-        max_end_time = None
-        successful_files = 0
+        success_notification = dmc.Notification(
+            title="Folder Selected",
+            message=f"Found {len(dt_files)} .dt files. Please set your date range.",
+            color="blue",
+            autoClose=3000,
+            action="show"
+        )
 
-        # Scan all .dt files to find min/max date ranges
-        for dt_file in dt_files:
-            try:
-                file_info = rtu_service.get_file_info(dt_file)
-
-                if file_info['first_timestamp'] and file_info['last_timestamp']:
-                    file_start = file_info['first_timestamp']
-                    file_end = file_info['last_timestamp']
-
-                    # Convert to datetime objects if they're strings
-                    if isinstance(file_start, str):
-                        file_start = datetime.fromisoformat(file_start.replace(
-                            'Z', '+00:00')) if 'T' in file_start else datetime.strptime(file_start, '%Y-%m-%d %H:%M:%S')
-                    if isinstance(file_end, str):
-                        file_end = datetime.fromisoformat(file_end.replace(
-                            'Z', '+00:00')) if 'T' in file_end else datetime.strptime(file_end, '%Y-%m-%d %H:%M:%S')
-
-                    # Update min/max dates
-                    if min_start_time is None or file_start < min_start_time:
-                        min_start_time = file_start
-                    if max_end_time is None or file_end > max_end_time:
-                        max_end_time = file_end
-
-                    successful_files += 1
-
-            except Exception as e:
-                logger.warning(
-                    f"Failed to get date info from {dt_file}: {str(e)}")
-                continue
-
-        if successful_files > 0 and min_start_time and max_end_time:
-            # Success - found date ranges
-            status_message = dmc.Alert(
-                f"Scanned {successful_files} .dt files. Date range: {min_start_time.strftime('%Y-%m-%d %H:%M')} to {max_end_time.strftime('%Y-%m-%d %H:%M')}",
-                color="green",
-                variant="light",
-                icon=BootstrapIcon(icon="check-circle", width=16)
-            )
-
-            success_notification = dmc.Notification(
-                title="Date Ranges Loaded",
-                message=f"Scanned {successful_files} .dt files successfully",
-                color="green",
-                autoClose=3000,
-                action="show"
-            )
-
-            return (min_start_time, max_end_time,
-                    {'display': 'none'}, {'display': 'block'},
-                    status_message, success_notification)
-        else:
-            # No valid date ranges found
-            warning_message = dmc.Alert(
-                f"No valid timestamps found in {len(dt_files)} .dt files",
-                color="orange",
-                variant="light",
-                icon=BootstrapIcon(icon="exclamation-triangle", width=16)
-            )
-
-            warning_notification = dmc.Notification(
-                title="No Valid Data",
-                message="No valid timestamps found in the .dt files",
-                color="orange",
-                autoClose=5000,
-                action="show"
-            )
-
-            return (no_update, no_update,
-                    {'display': 'none'}, {'display': 'block'},
-                    warning_message, warning_notification)
+        return (current_datetime, current_datetime,
+                {'display': 'none'}, {'display': 'block'},
+                status_message, success_notification)
 
     except Exception as e:
         error_notification = dmc.Notification(
-            title="Error Scanning Files",
-            message=f"Error scanning .dt files: {str(e)}",
+            title="Error Processing Folder",
+            message=f"Error processing folder: {str(e)}",
             color="red",
             autoClose=5000,
             action="show"
         )
 
         error_message = dmc.Alert(
-            f"Error scanning .dt files: {str(e)}",
+            f"Error processing folder: {str(e)}",
             color="red",
             variant="light",
             icon=BootstrapIcon(icon="exclamation-triangle", width=16)
@@ -1072,18 +1013,18 @@ def auto_scan_dt_files_for_dates(rtu_folder):
                 error_message, error_notification)
 
 
-# Clientside callback to immediately show loading when folder selection changes
+# Clientside callback to show date inputs when folder selection changes
 @callback(
     [Output('date-loading-container', 'style', allow_duplicate=True),
      Output('date-inputs-container', 'style', allow_duplicate=True)],
     [Input(rtu_directory_ids['store'], 'data')],
     prevent_initial_call=True
 )
-def show_date_loading_immediately(rtu_folder):
-    """Immediately show loading state when folder selection changes."""
+def show_date_inputs_immediately(rtu_folder):
+    """Show date inputs immediately when folder selection changes (no loading needed)."""
     if rtu_folder.get('path'):
-        # Show loading, hide inputs
-        return {'display': 'block'}, {'display': 'none'}
+        # Hide loading, show inputs immediately
+        return {'display': 'none'}, {'display': 'block'}
     else:
         # Show inputs, hide loading
         return {'display': 'none'}, {'display': 'block'}

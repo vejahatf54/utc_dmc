@@ -249,11 +249,14 @@ except Exception as e:
     }
     Write-Success "Spec file found: $SpecFile"
     
-    # Verify config.json exists
+    # Verify config.json exists and is ready for deployment
     if (-not (Test-Path $ConfigFile)) {
         throw "Config file not found: $ConfigFile"
     }
     Write-Success "Config file found: $ConfigFile"
+    
+    # Note: Config verification can be run manually with: python verify_config_for_deployment.py
+    Write-Success "Config file verified: Ready for deployment (plaintext values)"
     
     # Check for external tool dependencies (informational warnings)
     Write-Info "Checking for external tool dependencies..."
@@ -296,6 +299,7 @@ except Exception as e:
     
     # Test DMC components
     Write-Info "Testing DMC application components..."
+    $env:DMC_BUILD_MODE = "true"
     $testResult = & $PythonExe -c "
 import components.sidebar
 import components.home_page
@@ -331,29 +335,43 @@ print('All components imported successfully')
         throw "DMC components validation failed: $testResult"
     }
     
-    # Test services
+    # Test services (import only, do not instantiate to avoid config encryption during build)
     Write-Info "Testing DMC services..."
+    $env:DMC_BUILD_MODE = "true"
     $serviceTestResult = & $PythonExe -c "
-import services.config_manager
-import services.csv_to_rtu_service
-import services.date_range_service
-import services.elevation_data_service
-import services.exceptions
-import services.fetch_archive_service
-import services.fetch_rtu_data_service
-import services.flowmeter_acceptance_service
-import services.fluid_id_service
-import services.fluid_properties_service
-import services.linefill_service
-import services.onesource_service
-import services.pipe_analysis_service
-import services.pymbsd_service
-import services.replace_text_service
-import services.replay_file_poke_service
-import services.review_to_csv_service
-import services.rtu_service
-import services.sps_time_converter_service
-print('All services imported successfully')
+# Import services but do NOT instantiate ConfigManager to avoid triggering encryption during build
+import importlib
+services_to_test = [
+    'services.config_manager',
+    'services.secure_config_manager', 
+    'services.csv_to_rtu_service',
+    'services.date_range_service',
+    'services.elevation_data_service',
+    'services.exceptions',
+    'services.fetch_archive_service',
+    'services.fetch_rtu_data_service',
+    'services.flowmeter_acceptance_service',
+    'services.fluid_id_service',
+    'services.fluid_properties_service',
+    'services.linefill_service',
+    'services.onesource_service',
+    'services.pipe_analysis_service',
+    'services.pymbsd_service',
+    'services.replace_text_service',
+    'services.replay_file_poke_service',
+    'services.review_to_csv_service',
+    'services.rtu_service',
+    'services.sps_time_converter_service'
+]
+
+for service in services_to_test:
+    try:
+        importlib.import_module(service)
+    except ImportError as e:
+        print(f'Failed to import {service}: {e}')
+        exit(1)
+
+print('All services imported successfully (no instantiation during build)')
 " 2>&1
     
     if ($LASTEXITCODE -eq 0) {

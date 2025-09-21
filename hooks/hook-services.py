@@ -15,6 +15,7 @@ hiddenimports.extend(additional_imports)
 # Add specific service modules to ensure they're included
 service_modules = [
     'services.config_manager',
+    'services.secure_config_manager',
     'services.csv_to_rtu_service',
     'services.date_range_service',
     'services.elevation_data_service',

@@ -186,6 +186,7 @@ hiddenimports = [
     'importlib_metadata',
     'typing_extensions',
     'psutil',
+    'secrets',
     
     # Cryptography and security - comprehensive imports for oracledb
     'cryptography',
@@ -257,6 +258,7 @@ hiddenimports = [
     
     # Services
     'services.config_manager',
+    'services.secure_config_manager',
     'services.csv_to_rtu_service',
     'services.date_range_service',
     'services.elevation_data_service',

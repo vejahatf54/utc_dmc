@@ -1,6 +1,6 @@
 """
 Configuration Manager for DMC application.
-Provides centralized configuration loading capabilities.
+Provides centralized configuration loading capabilities with automatic decryption of sensitive values.
 """
 
 import json
@@ -48,8 +48,69 @@ class ConfigManager:
         self._lock = threading.RLock()
         self._last_modified = None
 
+        # Initialize secure config manager for decryption
+        self._secure_manager = None
+        self._init_secure_manager()
+
+        # Check if running as Windows service
+        self._is_service = self._check_if_running_as_service()
+        if self._is_service:
+            logger.info("Detected running as Windows service")
+
         # Load initial configuration
         self._load_config()
+
+    def _init_secure_manager(self):
+        """Initialize the secure configuration manager for decryption."""
+        try:
+            from .secure_config_manager import SecureConfigManager
+            self._secure_manager = SecureConfigManager()
+            logger.debug("Secure configuration manager initialized")
+        except ImportError as e:
+            logger.warning(f"Secure configuration manager not available: {e}")
+            self._secure_manager = None
+        except Exception as e:
+            logger.error(
+                f"Error initializing secure configuration manager: {e}")
+            self._secure_manager = None
+
+    def _check_if_running_as_service(self) -> bool:
+        """
+        Check if the application is running as a Windows service.
+        This is useful when deployed with winsw.
+
+        Returns:
+            True if running as a Windows service
+        """
+        try:
+            # Check if we're running as a service by looking at environment variables
+            # or other service-specific indicators
+            import psutil
+            current_process = psutil.Process()
+            parent_process = current_process.parent()
+
+            if parent_process:
+                parent_name = parent_process.name().lower()
+                # Common service parent processes
+                service_parents = ['services.exe', 'winsw.exe', 'sc.exe']
+                if any(parent in parent_name for parent in service_parents):
+                    return True
+
+            # Alternative check: see if we have a console window
+            # Services typically don't have console windows
+            try:
+                import sys
+                if not hasattr(sys.stdin, 'isatty') or not sys.stdin.isatty():
+                    # Might be running as a service
+                    return True
+            except:
+                pass
+
+            return False
+
+        except Exception as e:
+            logger.debug(f"Could not determine if running as service: {e}")
+            return False
 
     def _load_config(self) -> bool:
         """
@@ -76,7 +137,29 @@ class ConfigManager:
 
                 # Merge with defaults to ensure all required keys exist
                 default_config = self._get_default_config()
-                self._config = self._merge_configs(default_config, new_config)
+                merged_config = self._merge_configs(default_config, new_config)
+
+                # Check if first-run encryption is needed (but not during development)
+                if self._should_encrypt_on_first_run(merged_config) and self._allow_encryption():
+                    logger.info(
+                        "First run detected - encrypting sensitive configuration values...")
+                    if self._encrypt_config_file_first_run(merged_config):
+                        logger.info(
+                            "Configuration encrypted successfully on first run")
+                        # Reload the config after encryption
+                        with open(self.config_file_path, 'r', encoding='utf-8') as f:
+                            new_config = json.load(f)
+                        merged_config = self._merge_configs(
+                            default_config, new_config)
+                    else:
+                        logger.warning(
+                            "Failed to encrypt configuration on first run - continuing with plaintext")
+                elif self._should_encrypt_on_first_run(merged_config) and not self._allow_encryption():
+                    logger.debug(
+                        "First-run encryption skipped - development mode or encryption disabled")
+
+                # Decrypt sensitive values if secure manager is available
+                self._config = self._decrypt_sensitive_values(merged_config)
                 self._last_modified = current_modified
 
                 logger.debug(
@@ -124,6 +207,192 @@ class ConfigManager:
                 merged[key] = value
 
         return merged
+
+    def _decrypt_sensitive_values(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Decrypt sensitive values in the configuration.
+
+        Args:
+            config: Configuration dictionary to decrypt
+
+        Returns:
+            Configuration with sensitive values decrypted
+        """
+        if not self._secure_manager:
+            # No secure manager available, return config as-is
+            return config
+
+        try:
+            decrypted_config = config.copy()
+
+            # Decrypt Oracle connection strings
+            if 'oracle' in decrypted_config and 'connection_strings' in decrypted_config['oracle']:
+                connection_strings = decrypted_config['oracle']['connection_strings']
+                for key, value in connection_strings.items():
+                    if isinstance(value, str):
+                        decrypted_value = self._secure_manager.decrypt_value(
+                            value)
+                        connection_strings[key] = decrypted_value
+                        if decrypted_value != value:  # Only log if actually decrypted
+                            logger.debug(
+                                f"Decrypted oracle.connection_strings.{key}")
+
+            # Decrypt app secret key
+            if 'app' in decrypted_config and 'secret_key' in decrypted_config['app']:
+                original_key = decrypted_config['app']['secret_key']
+                decrypted_key = self._secure_manager.decrypt_value(
+                    original_key)
+                decrypted_config['app']['secret_key'] = decrypted_key
+                if decrypted_key != original_key:  # Only log if actually decrypted
+                    logger.debug("Decrypted app.secret_key")
+
+            return decrypted_config
+
+        except Exception as e:
+            logger.error(f"Error decrypting sensitive values: {e}")
+            logger.warning(
+                "Using configuration without decryption - some features may not work!")
+            return config
+
+    def _should_encrypt_on_first_run(self, config: Dict[str, Any]) -> bool:
+        """
+        Check if configuration should be encrypted on first run.
+        Returns True if sensitive values are found in plaintext (not encrypted).
+
+        Args:
+            config: Configuration dictionary to check
+
+        Returns:
+            True if encryption is needed on first run
+        """
+        if not self._secure_manager:
+            return False
+
+        try:
+            # Check Oracle connection strings
+            if 'oracle' in config and 'connection_strings' in config['oracle']:
+                connection_strings = config['oracle']['connection_strings']
+                for key, value in connection_strings.items():
+                    if isinstance(value, str) and not self._secure_manager.is_encrypted(value):
+                        # Found plaintext connection string - encryption needed
+                        logger.debug(
+                            f"Found plaintext connection string: oracle.connection_strings.{key}")
+                        return True
+
+            # Check app secret key
+            if 'app' in config and 'secret_key' in config['app']:
+                secret_key = config['app']['secret_key']
+                if isinstance(secret_key, str) and not self._secure_manager.is_encrypted(secret_key):
+                    # Found plaintext secret key - encryption needed
+                    logger.debug("Found plaintext secret key: app.secret_key")
+                    return True
+
+            # All sensitive values are already encrypted or not found
+            return False
+
+        except Exception as e:
+            logger.error(f"Error checking if encryption is needed: {e}")
+            return False
+
+    def _allow_encryption(self) -> bool:
+        """
+        Check if configuration encryption should be allowed.
+        This prevents accidental encryption during development, testing, or build processes.
+
+        Returns:
+            True if encryption is allowed
+        """
+        try:
+            # Check for development/testing environment variables that disable encryption
+            if os.environ.get('DMC_DISABLE_ENCRYPTION', '').lower() in ('true', '1', 'yes'):
+                logger.debug(
+                    "Encryption disabled by DMC_DISABLE_ENCRYPTION environment variable")
+                return False
+
+            # Check if we're running in development mode (has sys._MEIPASS means packaged)
+            if not hasattr(sys, '_MEIPASS'):
+                # Running in development mode - check if we should allow encryption
+                if os.environ.get('DMC_ALLOW_DEV_ENCRYPTION', '').lower() not in ('true', '1', 'yes'):
+                    logger.debug(
+                        "Encryption disabled in development mode (set DMC_ALLOW_DEV_ENCRYPTION=true to enable)")
+                    return False
+
+            # Check if we're running during build process
+            if os.environ.get('DMC_BUILD_MODE', '').lower() in ('true', '1', 'yes'):
+                logger.debug("Encryption disabled during build process")
+                return False
+
+            # Default: allow encryption (for production/packaged deployment)
+            return True
+
+        except Exception as e:
+            logger.error(f"Error checking encryption allowance: {e}")
+            # On error, be conservative and allow encryption (for production safety)
+            return True
+
+    def _encrypt_config_file_first_run(self, config: Dict[str, Any]) -> bool:
+        """
+        Encrypt the configuration file on first run.
+        Creates a backup and encrypts sensitive values in place.
+
+        Args:
+            config: Current configuration dictionary
+
+        Returns:
+            True if encryption was successful
+        """
+        if not self._secure_manager:
+            logger.error("Secure manager not available for encryption")
+            return False
+
+        try:
+            # Create a backup of the original config file
+            backup_path = self.config_file_path.with_suffix('.original.json')
+            if not backup_path.exists():  # Only create backup if it doesn't exist
+                import shutil
+                shutil.copy2(self.config_file_path, backup_path)
+                logger.info(
+                    f"Created backup of original config: {backup_path}")
+
+            # Load current config from file (to get the exact format)
+            with open(self.config_file_path, 'r', encoding='utf-8') as f:
+                file_config = json.load(f)
+
+            # Encrypt sensitive values
+            encrypted_config = file_config.copy()
+
+            # Encrypt Oracle connection strings
+            if 'oracle' in encrypted_config and 'connection_strings' in encrypted_config['oracle']:
+                connection_strings = encrypted_config['oracle']['connection_strings']
+                for key, value in connection_strings.items():
+                    if isinstance(value, str) and not self._secure_manager.is_encrypted(value):
+                        encrypted_value = self._secure_manager.encrypt_value(
+                            value)
+                        connection_strings[key] = encrypted_value
+                        logger.info(
+                            f"Encrypted oracle.connection_strings.{key}")
+
+            # Encrypt app secret key
+            if 'app' in encrypted_config and 'secret_key' in encrypted_config['app']:
+                secret_key = encrypted_config['app']['secret_key']
+                if isinstance(secret_key, str) and not self._secure_manager.is_encrypted(secret_key):
+                    encrypted_key = self._secure_manager.encrypt_value(
+                        secret_key)
+                    encrypted_config['app']['secret_key'] = encrypted_key
+                    logger.info("Encrypted app.secret_key")
+
+            # Write the encrypted config back to file
+            with open(self.config_file_path, 'w', encoding='utf-8') as f:
+                json.dump(encrypted_config, f, indent=4)
+
+            logger.info("Configuration file encrypted successfully")
+            logger.info(
+                "IMPORTANT: This config file is now tied to this machine and cannot be transferred!")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error encrypting configuration file: {e}")
+            return False
 
     def get(self, key_path: str, default: Any = None) -> Any:
         """

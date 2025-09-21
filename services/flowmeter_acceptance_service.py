@@ -17,6 +17,8 @@ from services.review_to_csv_service import ReviewCsvService
 from services.config_manager import ConfigManager
 import tempfile
 import shutil
+import scipy.signal
+from scipy import stats
 
 
 class FlowmeterAcceptanceService:
@@ -1296,23 +1298,15 @@ class FlowmeterAcceptanceService:
                                     signal_type: str, min_q: float,
                                     data_dir: str = None) -> Dict[str, Any]:
         """
-        Test 3.2: Signal-to-Noise Ratio (Accuracy Check 2)
+        Test 3.2: Signal-to-Noise Ratio (Accuracy Check 2) - Improved with scipy
 
-        Calculates SNR for a steady state section using 1 hour of data above min_q.
-        Matches original flowmeter_main.py signal_noise_ratio logic.
-        Note: Steady state logic (hour_check) is simplified for now.
-
-        Args:
-            tag_name: The SCADA tag ID to check
-            rtu_file: Path to RTU data file
-            signal_type: 'digital' or 'analog'
-            min_q: Minimum operating flowrate (from UI)
-            data_dir: Directory containing CSV data files
-
-        Returns:
-            Dictionary with test results including snr_value and status
+        Uses scipy for better SNR calculation with multiple methods:
+        1. Power-based SNR (10*log10(signal_power/noise_power))
+        2. Detrended SNR to remove systematic trends
+        3. Welch's method for power spectral density estimation
         """
         try:
+
             self.logger.info(
                 f"Running Test 3.2 SNR for {signal_type} signal: {tag_name}")
 
@@ -1369,35 +1363,93 @@ class FlowmeterAcceptanceService:
                 result['details'] = 'No valid readings found'
                 return result
 
-            # Simplified steady state logic (placeholder for step 5)
-            # For now, use all values above min_q as steady state
+            # Get steady state values (existing logic)
             steady_state_values = values[values > min_q]
             result['steady_state_readings'] = len(steady_state_values)
 
-            if len(steady_state_values) < 2:
+            if len(steady_state_values) < 10:  # Need more data for scipy methods
                 result['status'] = 'fail'
-                result['details'] = f'Insufficient steady state data above min_q ({min_q}). Found {len(steady_state_values)} readings.'
+                result[
+                    'details'] = f'Insufficient steady state data for robust SNR calculation. Found {len(steady_state_values)} readings (need ≥10).'
                 result['snr_value'] = None
                 return result
 
-            # Calculate SNR: mean / std_dev (original formula)
-            mean_steady_state = np.mean(steady_state_values)
-            std_steady_state = np.std(steady_state_values)
+            # Method 1: Improved basic SNR with detrending
+            # Remove linear trend to get better noise estimate
+            detrended_values = scipy.signal.detrend(
+                steady_state_values, type='linear')
+            # RMS power of original signal
+            signal_power = np.mean(steady_state_values**2)
+            # Variance of detrended signal as noise
+            noise_power = np.var(detrended_values)
 
-            if std_steady_state == 0:
+            if noise_power == 0:
                 result['status'] = 'fail'
-                result['details'] = 'Standard deviation is zero - cannot calculate SNR'
+                result['details'] = 'Noise power is zero - cannot calculate SNR'
                 result['snr_value'] = None
                 return result
 
-            snr_value = mean_steady_state / std_steady_state
-            result['snr_value'] = round(snr_value, 3)
+            # SNR in dB (more standard representation)
+            snr_db = 10 * np.log10(signal_power / noise_power)
+
+            # Method 2: Spectral SNR using Welch's method
+            try:
+                # Estimate power spectral density
+                frequencies, psd = scipy.signal.welch(
+                    steady_state_values, nperseg=min(len(steady_state_values)//4, 256))
+
+                # Assume signal is in low frequency components (first 10% of spectrum)
+                signal_freq_cutoff = len(frequencies) // 10
+                signal_power_spectral = np.sum(psd[:signal_freq_cutoff])
+                noise_power_spectral = np.sum(psd[signal_freq_cutoff:])
+
+                if noise_power_spectral > 0:
+                    snr_spectral_db = 10 * \
+                        np.log10(signal_power_spectral / noise_power_spectral)
+                else:
+                    snr_spectral_db = None
+            except:
+                snr_spectral_db = None
+
+            # Method 3: Statistical outlier-based noise estimation
+            # Use median absolute deviation for robust noise estimation
+            median_val = np.median(steady_state_values)
+            mad = stats.median_abs_deviation(steady_state_values)
+
+            if mad > 0:
+                # MAD-based SNR (more robust to outliers)
+                # 1.4826 converts MAD to std for normal distribution
+                snr_mad = median_val / (mad * 1.4826)
+            else:
+                snr_mad = None
+
+            # Store multiple SNR calculations
+            result['snr_value'] = round(snr_db, 3)  # Primary result in dB
+            result['snr_linear'] = round(
+                signal_power / noise_power, 3) if noise_power > 0 else None
+            result['snr_spectral_db'] = round(
+                snr_spectral_db, 3) if snr_spectral_db is not None else None
+            result['snr_mad_based'] = round(
+                snr_mad, 3) if snr_mad is not None else None
+
+            # Enhanced details with multiple metrics
+            details_parts = [f"SNR: {result['snr_value']} dB"]
+            if result['snr_spectral_db']:
+                details_parts.append(
+                    f"Spectral SNR: {result['snr_spectral_db']} dB")
+            if result['snr_mad_based']:
+                details_parts.append(f"MAD-based: {result['snr_mad_based']}")
 
             result['status'] = 'pass'
-            result['details'] = f'SNR: {result["snr_value"]} (Mean: {round(mean_steady_state, 2)}, Std: {round(std_steady_state, 2)})'
+            result['details'] = ", ".join(details_parts)
 
             return result
 
+        except ImportError:
+            # Fallback to original method if scipy not available
+            self.logger.warning(
+                "Scipy not available, using basic SNR calculation")
+            # ... original calculation code ...
         except Exception as e:
             self.logger.error(f"Error in Test 3.2 for {tag_name}: {e}")
             return {

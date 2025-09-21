@@ -68,9 +68,9 @@ def create_flowmeter_acceptance_page():
                 ], gap="xs")
             ]),
             dmc.Modal(
-                title="Flowmeter Acceptance Testing",
+                title="Flowmeter Acceptance Testing - Complete Guide",
                 id="flowmeter-help-modal",
-                size="lg",
+                size="xl",
                 children=[
                     dmc.Stack([
                         dmc.Group([
@@ -91,9 +91,9 @@ def create_flowmeter_acceptance_page():
                                 "CSV Tags File (.csv) - Tag configuration with bounds and references"),
                             dmc.ListItem(
                                 "Review File (.review) - Additional validation data")
-                        ], size="sm"),
+                        ]),
                         dmc.Divider(),
-                        dmc.Text("Comprehensive Analysis Tests:",
+                        dmc.Text("Test Categories & Pass Criteria:",
                                  fw=500, size="sm"),
                         dmc.Accordion([
                             dmc.AccordionItem([
@@ -102,20 +102,27 @@ def create_flowmeter_acceptance_page():
                                         BootstrapIcon(
                                             icon="shield-check", width=16),
                                         dmc.Text(
-                                            "Reliability Checks (1.1-1.4)", fw=500, c="blue")
+                                            "Reliability Tests (1.1-1.4)", fw=500, c="blue")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
-                                    dmc.List([
-                                        dmc.ListItem(
-                                            "1.1: Readings within Expected Range - Validates flowmeter readings fall within operational bounds defined in CSV tags file"),
-                                        dmc.ListItem(
-                                            "1.2: Measurement Units Verified - Ensures consistent units across RTU and review data"),
-                                        dmc.ListItem(
-                                            "1.3: RTU Signal Quality - Checks for GOOD quality flags in SCADA RTU data"),
-                                        dmc.ListItem(
-                                            "1.4: Review Signal Quality - Validates GOOD quality flags in review reference data")
-                                    ], size="xs")
+                                    dmc.Stack([
+                                        dmc.Text("Test 1.1: Readings within Expected Range", fw=500, size="sm"),
+                                        dmc.Text("Pass Criteria: 0 readings outside min/max range", c="red", size="xs"),
+                                        dmc.Text("Validates all flowmeter readings fall within operational bounds (min_range to max_range)", size="xs"),
+                                        
+                                        dmc.Text("Test 1.2: Measurement Units Verified", fw=500, size="sm", mt="xs"),
+                                        dmc.Text("Pass Criteria: Unit conversion successful (always passes)", c="green", size="xs"),
+                                        dmc.Text("Checks if values are in m³/h using 80%-120% tolerance of min_Q/max_Q. Converts from barrels/h if needed (÷6.2898)", size="xs"),
+                                        
+                                        dmc.Text("Test 1.3: Signal Quality (RTU)", fw=500, size="sm", mt="xs"),
+                                        dmc.Text("Pass Criteria: 0 bad quality readings", c="red", size="xs"),
+                                        dmc.Text("All quality flags must be 'GOOD' in RTU data", size="xs"),
+                                        
+                                        dmc.Text("Test 1.4: Signal Quality (Review)", fw=500, size="sm", mt="xs"),
+                                        dmc.Text("Pass Criteria: All status values = 1 (GOOD)", c="red", size="xs"),
+                                        dmc.Text("All ST column values must equal 1 in Review file", size="xs")
+                                    ], gap="xs")
                                 ])
                             ], value="reliability"),
                             dmc.AccordionItem([
@@ -124,16 +131,24 @@ def create_flowmeter_acceptance_page():
                                         BootstrapIcon(
                                             icon="clock-history", width=16),
                                         dmc.Text(
-                                            "Timeliness & Completeness (2.1-2.2)", fw=500, c="teal")
+                                            "Timeliness Tests (2.1-2.2)", fw=500, c="teal")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
-                                    dmc.List([
-                                        dmc.ListItem(
-                                            "2.1: RTU Update Frequency - Ensures RTU data points are updated frequently enough for reliable flowmeter monitoring"),
-                                        dmc.ListItem(
-                                            "2.2: Review Update Frequency - Validates reference data has adequate temporal resolution for comparison")
-                                    ], size="xs")
+                                    dmc.Stack([
+                                        dmc.Text("Test 2.1: Time Differences", fw=500, size="sm"),
+                                        dmc.Group([
+                                            dmc.Text("Pass Criteria:", fw=500, size="xs"),
+                                            dmc.Badge("≥95% within 6s", color="red", size="xs"),
+                                            dmc.Badge("Mean ≤5s", color="red", size="xs"),
+                                            dmc.Badge("95th percentile ≤6s", color="red", size="xs")
+                                        ], gap="xs"),
+                                        dmc.Text("Ensures RTU reporting frequency around 5 seconds with ±20% tolerance", size="xs"),
+                                        
+                                        dmc.Text("Test 2.2: FLAT Attribute Check", fw=500, size="sm", mt="xs"),
+                                        dmc.Text("Pass Criteria: FLAT ≤ threshold (excluding shutdown periods where VAL ≤ 1)", c="red", size="xs"),
+                                        dmc.Text("Validates temporal consistency in review data", size="xs")
+                                    ], gap="xs")
                                 ])
                             ], value="timeliness"),
                             dmc.AccordionItem([
@@ -142,20 +157,31 @@ def create_flowmeter_acceptance_page():
                                         BootstrapIcon(
                                             icon="activity", width=16),
                                         dmc.Text(
-                                            "Accuracy Tests (3.1-3.4)", fw=500, c="red")
+                                            "Accuracy Tests (3.1-3.5)", fw=500, c="red")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
-                                    dmc.List([
-                                        dmc.ListItem(
-                                            "3.1: Digital/Analog Agreement - Time series comparison using classical MSE (Σ(yi-xi)²/n) between RTU and review signals with correlation analysis"),
-                                        dmc.ListItem(
-                                            "3.2: Signal-to-Noise Ratio - Evaluates signal quality by analyzing noise content and calculating SNR in dB (pass criteria: > 30 dB)"),
-                                        dmc.ListItem(
-                                            "3.3: Target vs Digital Signal Comparison - Compares target meter readings from review file against digital RTU signals"),
-                                        dmc.ListItem(
-                                            "3.4: Target vs Reference Comparison - Cross-validation of target flow readings against reference meter measurements")
-                                    ], size="xs")
+                                    dmc.Stack([
+                                        dmc.Text("Test 3.1: Mean Squared Error", fw=500, size="sm"),
+                                        dmc.Text("Pass Criteria: RMSE within accuracy_range% of nominal flow", c="red", size="xs"),
+                                        dmc.Text("Classical MSE (Σ(yi-xi)²/n) between digital and analog signals", size="xs"),
+                                        
+                                        dmc.Text("Test 3.2: Signal-to-Noise Ratio", fw=500, size="sm", mt="xs"),
+                                        dmc.Text("Pass Criteria: SNR > 30 dB", c="red", size="xs"),
+                                        dmc.Text("Power-based SNR: 10×log₁₀(signal_power/noise_power) with detrending", size="xs"),
+                                        
+                                        dmc.Text("Test 3.3: Target vs Digital", fw=500, size="sm", mt="xs"),
+                                        dmc.Text("Pass Criteria: No explicit threshold (informational)", c="blue", size="xs"),
+                                        dmc.Text("Time-aligned comparison of target meter vs digital RTU signal", size="xs"),
+                                        
+                                        dmc.Text("Test 3.4: Target vs Reference", fw=500, size="sm", mt="xs"),
+                                        dmc.Text("Pass Criteria: No explicit threshold (informational)", c="blue", size="xs"),
+                                        dmc.Text("Time-aligned comparison of target meter vs reference meter", size="xs"),
+                                        
+                                        dmc.Text("Test 3.5: SNR Comparison", fw=500, size="sm", mt="xs"),
+                                        dmc.Text("Pass Criteria: Both digital AND analog SNR ≥ 95% of reference SNR", c="red", size="xs"),
+                                        dmc.Text("Requires Ref_SCADATagID column in tags file", size="xs", c="orange")
+                                    ], gap="xs")
                                 ])
                             ], value="accuracy"),
                             dmc.AccordionItem([
@@ -164,26 +190,71 @@ def create_flowmeter_acceptance_page():
                                         BootstrapIcon(
                                             icon="graph-up", width=16),
                                         dmc.Text(
-                                            "Robustness Checks (4.1)", fw=500, c="orange")
+                                            "Robustness Test (4.1)", fw=500, c="orange")
                                     ], gap="xs")
                                 ]),
                                 dmc.AccordionPanel([
-                                    dmc.List([
-                                        dmc.ListItem(
-                                            "4.1: Signal Stability - Long-term stability analysis ensuring flowmeter signals remain consistent over extended periods"),
-                                        dmc.ListItem(
-                                        )  # Removed Test 4.2
-                                    ], size="xs")
+                                    dmc.Stack([
+                                        dmc.Text("Test 4.1: Signal Stability", fw=500, size="sm"),
+                                        dmc.Text("Pass Criteria: Stability ≥ stability_threshold% (default: 90%)", c="red", size="xs"),
+                                        dmc.Text("Algorithm: Combines ±3σ outlier detection with rolling drift analysis", fw=500, size="xs"),
+                                        dmc.List([
+                                            dmc.ListItem("±3σ bounds: mean ± 3×std_deviation"),
+                                            dmc.ListItem("Drift check: rolling mean within drift_threshold% of overall mean"),
+                                            dmc.ListItem("Reading is stable if within ±3σ AND no local drift")
+                                        ]),
+                                        dmc.Group([
+                                            dmc.Text("Parameters:", fw=500, size="xs"),
+                                            dmc.Badge("Window: 50", color="gray", size="xs"),
+                                            dmc.Badge("Drift: 5%", color="gray", size="xs"),
+                                            dmc.Badge("Threshold: 90%", color="gray", size="xs")
+                                        ], gap="xs")
+                                    ], gap="xs")
                                 ])
-                            ], value="robustness")
+                            ], value="robustness"),
+                            dmc.AccordionItem([
+                                dmc.AccordionControl([
+                                    dmc.Group([
+                                        BootstrapIcon(
+                                            icon="graph-down", width=16),
+                                        dmc.Text(
+                                            "Graph Interpretation Guide", fw=500, c="violet")
+                                    ], gap="xs")
+                                ]),
+                                dmc.AccordionPanel([
+                                    dmc.Stack([
+                                        dmc.Text("Test Results Overview (Bar Chart)", fw=500, size="sm"),
+                                        dmc.Text("Green bars = Pass, Red bars = Fail. Quick visual of overall meter status.", size="xs"),
+                                        
+                                        dmc.Text("Category Breakdown (Stacked Bar)", fw=500, size="sm", mt="xs"),
+                                        dmc.Text("Shows pass/fail counts per test category. Identifies problematic test areas.", size="xs"),
+                                        
+                                        dmc.Text("Time Series Plots", fw=500, size="sm", mt="xs"),
+                                        dmc.List([
+                                            dmc.ListItem("Stable signals: Consistent values, minimal drift"),
+                                            dmc.ListItem("Outlier spikes: Sharp deviations indicate measurement issues"),
+                                            dmc.ListItem("Drift patterns: Gradual changes suggest sensor degradation"),
+                                            dmc.ListItem("High noise: Frequent variations indicate poor signal quality")
+                                        ]),
+                                        
+                                        dmc.Text("Troubleshooting Failed Tests:", fw=500, size="sm", mt="xs"),
+                                        dmc.List([
+                                            dmc.ListItem("High outliers (Test 4.1): Check sensor calibration"),
+                                            dmc.ListItem("High drift (Test 4.1): Look for systematic bias or degradation"),
+                                            dmc.ListItem("Poor SNR (Test 3.2): Investigate electrical interference"),
+                                            dmc.ListItem("Range failures (Test 1.1): Verify operational bounds")
+                                        ])
+                                    ], gap="xs")
+                                ])
+                            ], value="interpretation")
                         ], variant="separated"),
                         dmc.Divider(),
                         dmc.Alert([
                             dmc.Group([
                                 BootstrapIcon(icon="lightbulb", width=16),
-                                dmc.Text("Key Enhancement", fw=500)
+                                dmc.Text("Key Features", fw=500)
                             ], gap="xs", mb="xs"),
-                            dmc.Text("This implementation uses classical MSE calculation (Mean Square Error = Σ(yi-xi)²/n) with proper time series alignment for accurate flowmeter validation against reference signals.", size="xs")
+                            dmc.Text("✓ Real CSV data analysis (no synthetic data) ✓ Time-aligned comparisons ✓ Statistical robustness ✓ Comprehensive pass/fail criteria ✓ Visual result interpretation", size="xs")
                         ], color="blue", variant="light")
                     ], gap="sm")
                 ]

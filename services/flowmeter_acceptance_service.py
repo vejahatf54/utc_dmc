@@ -1021,9 +1021,8 @@ class FlowmeterAcceptanceService:
         """
         Test 2.1: Timeliness and Completeness Check 1 - Time Differences
 
-        Matches original flowmeter_main.py timeliness_and_completeness logic.
-        Calculates time differences between consecutive readings and reports 
-        max and mean time differences.
+        Modified to check that reporting frequency is around 5 seconds or less.
+        Uses strict criteria to ensure tight distribution with most values ≤ 5 seconds.
 
         Args:
             tag_name: The SCADA tag ID to check
@@ -1032,7 +1031,7 @@ class FlowmeterAcceptanceService:
             data_dir: Directory containing CSV data files
 
         Returns:
-            Dictionary with test results including max_time_diff and mean_time_diff
+            Dictionary with test results including max_time_diff, mean_time_diff, and pass/fail
         """
         try:
             self.logger.info(
@@ -1042,10 +1041,22 @@ class FlowmeterAcceptanceService:
             result = {
                 'max_time_diff': 0,
                 'mean_time_diff': 0.0,
+                'median_time_diff': 0.0,
+                'std_time_diff': 0.0,
                 'total_readings': 0,
+                'readings_within_threshold': 0,
+                'percentage_within_threshold': 0.0,
+                'readings_under_5s': 0,
+                'percentage_under_5s': 0.0,
+                'percentile_95': 0.0,
                 'status': 'pass',
                 'details': f'No data found for {tag_name}'
             }
+
+            # Expected update frequency parameters
+            TARGET_FREQUENCY = 5.0  # Target: 5 seconds or less
+            STRICT_TOLERANCE = 0.20  # ±20% tolerance for values near 5 seconds
+            REQUIRED_PERCENTAGE = 95.0  # 95% of readings must meet criteria
 
             # Determine data directory
             if data_dir is None:
@@ -1107,13 +1118,90 @@ class FlowmeterAcceptanceService:
                 time_diff = y - x
                 time_differences.append(time_diff)
 
-            # Calculate max and mean time differences
-            result['max_time_diff'] = max(time_differences)
-            result['mean_time_diff'] = round(np.mean(time_differences), 2)
+            # Convert to numpy array for easier statistics
+            time_diffs_array = np.array(time_differences)
+            
+            # Calculate statistics
+            result['max_time_diff'] = float(np.max(time_diffs_array))
+            result['mean_time_diff'] = float(np.mean(time_diffs_array))
+            result['median_time_diff'] = float(np.median(time_diffs_array))
+            result['std_time_diff'] = float(np.std(time_diffs_array))
+            result['percentile_95'] = float(np.percentile(time_diffs_array, 95))
 
-            # Determine status (original doesn't have pass/fail for Test 2.1, just reports values)
-            result['status'] = 'pass'
-            result['details'] = f'Max: {result["max_time_diff"]}s, Mean: {result["mean_time_diff"]}s'
+            # Count readings under 5 seconds (primary criterion)
+            readings_under_5s = np.sum(time_diffs_array <= TARGET_FREQUENCY)
+            result['readings_under_5s'] = int(readings_under_5s)
+            result['percentage_under_5s'] = round(
+                (readings_under_5s / len(time_differences)) * 100, 2)
+
+            # For values that are near 5 seconds (between 4-6), apply ±20% tolerance
+            # This ensures values slightly above 5s but within tolerance are acceptable
+            lower_bound = TARGET_FREQUENCY * (1 - STRICT_TOLERANCE)  # 4 seconds
+            upper_bound = TARGET_FREQUENCY * (1 + STRICT_TOLERANCE)  # 6 seconds
+            
+            # Count readings that are either:
+            # 1. ≤ 5 seconds (preferred)
+            # 2. Between 5-6 seconds (within +20% tolerance)
+            within_acceptable_range = np.sum(time_diffs_array <= upper_bound)
+            result['readings_within_threshold'] = int(within_acceptable_range)
+            result['percentage_within_threshold'] = round(
+                (within_acceptable_range / len(time_diffs_array)) * 100, 2)
+
+            # Determine pass/fail based on strict criteria:
+            # 1. At least 95% of readings must be ≤ 6 seconds (5s + 20%)
+            # 2. Mean should be ≤ 5 seconds (prefer fast reporting)
+            # 3. 95th percentile should be ≤ 6 seconds
+            # 4. Standard deviation should be low (< 1 second) for tight distribution
+            
+            criteria_met = []
+            criteria_failed = []
+            
+            # Criterion 1: 95% of readings within acceptable range
+            if result['percentage_within_threshold'] >= REQUIRED_PERCENTAGE:
+                criteria_met.append(f"{result['percentage_within_threshold']}% ≤ {upper_bound}s")
+            else:
+                criteria_failed.append(f"Only {result['percentage_within_threshold']}% ≤ {upper_bound}s (need ≥{REQUIRED_PERCENTAGE}%)")
+            
+            # Criterion 2: Mean should be at or below target
+            if result['mean_time_diff'] <= TARGET_FREQUENCY:
+                criteria_met.append(f"Mean={result['mean_time_diff']:.2f}s ≤ {TARGET_FREQUENCY}s")
+            else:
+                criteria_failed.append(f"Mean={result['mean_time_diff']:.2f}s > {TARGET_FREQUENCY}s")
+            
+            # Criterion 3: 95th percentile check
+            if result['percentile_95'] <= upper_bound:
+                criteria_met.append(f"95th percentile={result['percentile_95']:.2f}s ≤ {upper_bound}s")
+            else:
+                criteria_failed.append(f"95th percentile={result['percentile_95']:.2f}s > {upper_bound}s")
+            
+            # Criterion 4: Tight distribution (low std dev)
+            MAX_STD_DEV = 1.0  # Maximum 1 second standard deviation for tight distribution
+            if result['std_time_diff'] <= MAX_STD_DEV:
+                criteria_met.append(f"StdDev={result['std_time_diff']:.2f}s (tight distribution)")
+            else:
+                criteria_failed.append(f"StdDev={result['std_time_diff']:.2f}s > {MAX_STD_DEV}s (too variable)")
+            
+            # Overall pass/fail
+            if len(criteria_failed) == 0:
+                result['status'] = 'pass'
+                result['details'] = (
+                    f'Update frequency GOOD: {result["percentage_under_5s"]}% ≤ 5s, '
+                    f'Mean={result["mean_time_diff"]:.2f}s, '
+                    f'Median={result["median_time_diff"]:.2f}s, '
+                    f'StdDev={result["std_time_diff"]:.2f}s'
+                )
+            else:
+                result['status'] = 'fail'
+                result['details'] = (
+                    f'Update frequency BAD: {"; ".join(criteria_failed)}. '
+                    f'Distribution: {result["percentage_under_5s"]}% ≤ 5s, '
+                    f'Mean={result["mean_time_diff"]:.2f}s'
+                )
+
+            # Add additional statistics to the result for debugging
+            result['target_frequency'] = TARGET_FREQUENCY
+            result['acceptable_range'] = f'≤ {upper_bound}s'
+            result['distribution_quality'] = 'Tight' if result['std_time_diff'] <= MAX_STD_DEV else 'Variable'
 
             return result
 
@@ -1122,7 +1210,14 @@ class FlowmeterAcceptanceService:
             return {
                 'max_time_diff': 0,
                 'mean_time_diff': 0.0,
+                'median_time_diff': 0.0,
+                'std_time_diff': 0.0,
                 'total_readings': 0,
+                'readings_within_threshold': 0,
+                'percentage_within_threshold': 0.0,
+                'readings_under_5s': 0,
+                'percentage_under_5s': 0.0,
+                'percentile_95': 0.0,
                 'status': 'fail',
                 'details': f'Test execution error: {str(e)}'
             }

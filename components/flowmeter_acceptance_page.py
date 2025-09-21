@@ -367,7 +367,7 @@ def create_flowmeter_acceptance_page():
                                             dmc.Checkbox(
                                                 label="3.4: MBS target vs MBS reference signals Comparison", id="accuracy-check-4"),
                                             dmc.Checkbox(
-                                                label="3.5: Target DIG/ANL SNR within 80% of Reference meter SNR", id="accuracy-check-5")
+                                                label="3.5: Target DIG/ANL SNR within 95% of Reference meter SNR", id="accuracy-check-5")
                                         ], gap="xs")
                                     ], withBorder=True, p="sm")
                                 ], cols=2, spacing="md"),

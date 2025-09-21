@@ -450,7 +450,7 @@ class FlowmeterAcceptanceService:
 
             # Test 3.1 - Mean Squared Error between digital and analog signals
             mse_result = self._test_31_mean_squared_error(
-                digital_tag, analog_tag, rtu_file, data_dir)
+                digital_tag, analog_tag, rtu_file, data_dir, params.get('accuracy_range'))
 
             # Test 3.2 - Signal-to-Noise Ratio for both digital and analog signals
             digital_snr_result = self._test_32_signal_noise_ratio(
@@ -487,8 +487,8 @@ class FlowmeterAcceptanceService:
                 },
                 'Test 3.1 - Mean Squared Error': {
                     'status': mse_result['status'],
-                    'value': f"MSE: {mse_result['mse_value']}, Avg: {mse_result['nominal_flowrate']}",
-                    'description': 'Mean squared error between digital and analog signals'
+                    'value': f"RMSE: {mse_result['rmse_value']}, Nominal: {mse_result['nominal_flowrate']}" + (f", Threshold: {mse_result['rmse_threshold']}" if mse_result.get('rmse_threshold', 0) > 0 else ""),
+                    'description': f'RMSE within {params.get("accuracy_range", "N/A")}% of nominal flow' if params.get('accuracy_range') else 'Root mean squared error between digital and analog signals'
                 },
                 'Test 3.2 - Digital Signal SNR': {
                     'status': digital_snr_result['status'],
@@ -1347,21 +1347,23 @@ class FlowmeterAcceptanceService:
             }
 
     def _test_31_mean_squared_error(self, digital_tag: str, analog_tag: str,
-                                    rtu_file: str, data_dir: str = None) -> Dict[str, Any]:
+                                    rtu_file: str, data_dir: str = None,
+                                    accuracy_range: float = None) -> Dict[str, Any]:
         """
         Test 3.1: Mean Squared Error between Digital and Analog Signals
 
-        Calculates MSE using the correct formula: MSE = mean((digital - analog)²)
-        Does not normalize by digital mean or convert to percentage.
+        Calculates RMSE and checks if it's within the accuracy range percentage of nominal flow.
+        Pass criteria: RMSE ≤ (accuracy_range/100) * nominal_flowrate
 
         Args:
             digital_tag: The digital SCADA tag ID
             analog_tag: The analog SCADA tag ID
             rtu_file: Path to RTU data file
             data_dir: Directory containing CSV data files
+            accuracy_range: Percentage tolerance for RMSE vs nominal flow (e.g., 1.0 for ±1%)
 
         Returns:
-            Dictionary with test results including mse_value and nominal_flowrate
+            Dictionary with test results including mse_value, rmse_value, nominal_flowrate, and pass/fail status
         """
         try:
             self.logger.info(
@@ -1370,7 +1372,9 @@ class FlowmeterAcceptanceService:
             # Default result structure
             result = {
                 'mse_value': 0.0,
+                'rmse_value': 0.0,
                 'nominal_flowrate': 0.0,
+                'rmse_threshold': 0.0,
                 'total_readings': 0,
                 'status': 'pass',
                 'details': 'No data found'
@@ -1434,16 +1438,37 @@ class FlowmeterAcceptanceService:
 
             result['total_readings'] = min_length
 
-            # Calculate MSE using correct formula: mean((digital - analog)²)
-            # Not normalized by digital mean or converted to percentage
+            # Calculate MSE and RMSE using correct formula: MSE = mean((digital - analog)²)
             mse_value = np.square(np.subtract(
                 digital_values, analog_values)).mean()
+            rmse_value = np.sqrt(mse_value)
             nominal_flowrate = np.mean(digital_values)
 
             result['mse_value'] = round(mse_value, 3)
+            result['rmse_value'] = round(rmse_value, 3)
             result['nominal_flowrate'] = round(nominal_flowrate, 2)
-            result['status'] = 'pass'
-            result['details'] = f'MSE: {result["mse_value"]}, Avg Flow: {result["nominal_flowrate"]}'
+
+            # Apply pass criteria: RMSE should be within accuracy_range percentage of nominal flow
+            if accuracy_range is not None and nominal_flowrate > 0:
+                rmse_threshold = (accuracy_range / 100.0) * \
+                    abs(nominal_flowrate)
+                result['rmse_threshold'] = round(rmse_threshold, 3)
+
+                if rmse_value <= rmse_threshold:
+                    result['status'] = 'pass'
+                    result['details'] = f'RMSE: {result["rmse_value"]} ≤ {result["rmse_threshold"]} ({accuracy_range}% of nominal flow {result["nominal_flowrate"]})'
+                else:
+                    result['status'] = 'fail'
+                    result['details'] = f'RMSE: {result["rmse_value"]} > {result["rmse_threshold"]} ({accuracy_range}% of nominal flow {result["nominal_flowrate"]})'
+            else:
+                # Fallback behavior when accuracy_range is not provided
+                result['status'] = 'pass'
+                if accuracy_range is None:
+                    result[
+                        'details'] = f'MSE: {result["mse_value"]}, RMSE: {result["rmse_value"]}, Avg Flow: {result["nominal_flowrate"]} (no accuracy range specified)'
+                else:
+                    result[
+                        'details'] = f'MSE: {result["mse_value"]}, RMSE: {result["rmse_value"]}, Avg Flow: {result["nominal_flowrate"]} (nominal flow is zero)'
 
             return result
 
@@ -1452,7 +1477,9 @@ class FlowmeterAcceptanceService:
                 f"Error in Test 3.1 for {digital_tag}/{analog_tag}: {e}")
             return {
                 'mse_value': 0.0,
+                'rmse_value': 0.0,
                 'nominal_flowrate': 0.0,
+                'rmse_threshold': 0.0,
                 'total_readings': 0,
                 'status': 'fail',
                 'details': f'Test execution error: {str(e)}'

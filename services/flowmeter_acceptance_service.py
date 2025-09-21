@@ -523,6 +523,32 @@ class FlowmeterAcceptanceService:
                 'description': 'Target meter vs Reference meter comparison'
             }
 
+            # Test 3.5 - SNR Comparison between Digital/Analog and Reference meter
+            # Find the ref_scada_tag from tags_df for this meter
+            ref_scada_tag = ''
+            if hasattr(self, 'tags_df') and self.tags_df is not None:
+                # Find the row for this meter
+                meter_row = self.tags_df[self.tags_df['MBSTagID'].str.strip(
+                ) == meter_name]
+                if not meter_row.empty and 'Ref_SCADATagID' in self.tags_df.columns:
+                    ref_scada_tag = meter_row.iloc[0]['Ref_SCADATagID'].strip(
+                    ) if pd.notna(meter_row.iloc[0]['Ref_SCADATagID']) else ''
+
+            if params.get('accuracy_check_5') and ref_scada_tag:
+                test_35_result = self._test_35_snr_comparison(
+                    digital_tag, analog_tag, ref_scada_tag, rtu_file, min_q, data_dir)
+                results['accuracy_tests']['Test 3.5 - SNR Comparison'] = {
+                    'status': test_35_result['status'],
+                    'value': f"Digital: {test_35_result['digital_snr']:.1f}dB, Analog: {test_35_result['analog_snr']:.1f}dB, Ref: {test_35_result['reference_snr']:.1f}dB" if all(x is not None for x in [test_35_result['digital_snr'], test_35_result['analog_snr'], test_35_result['reference_snr']]) else "SNR data unavailable",
+                    'description': 'Target DIG/ANL SNR within 80% of Reference meter SNR'
+                }
+            elif params.get('accuracy_check_5') and not ref_scada_tag:
+                results['accuracy_tests']['Test 3.5 - SNR Comparison'] = {
+                    'status': 'fail',
+                    'value': 'No Ref_SCADATagID defined',
+                    'description': 'Test 3.5 requires Ref_SCADATagID column in tags file'
+                }
+
             # Robustness Tests (4.1 only) - extract parameters from params (UI must provide values)
             stability_window = params.get('stability_window_size')
             drift_threshold = params.get('drift_threshold')
@@ -1360,6 +1386,8 @@ class FlowmeterAcceptanceService:
                 csv_file = os.path.join(data_dir, "SCADATagID_DIG.csv")
             elif signal_type.lower() == 'analog':
                 csv_file = os.path.join(data_dir, "SCADATagID_ANL.csv")
+            elif signal_type.lower() == 'ref_scada':
+                csv_file = os.path.join(data_dir, "Ref_SCADATagID.csv")
             else:
                 result['status'] = 'fail'
                 result['details'] = f'Unknown signal type: {signal_type}'
@@ -2168,6 +2196,101 @@ class FlowmeterAcceptanceService:
             'mantine_dark': 'plotly_dark'
         }
         return template_map.get(dmc_template, 'plotly_white')
+
+    def _test_35_snr_comparison(self, digital_tag: str, analog_tag: str, ref_scada_tag: str,
+                                rtu_file: str, min_q: float, data_dir: str = None) -> Dict[str, Any]:
+        """
+        Test 3.5: Target DIG/ANL SNR within 80% of Reference meter SNR
+
+        Compares the SNR of digital and analog signals with reference meter SNR.
+        Pass criteria: Both digital and analog SNR should be within 80% of reference meter SNR.
+
+        Args:
+            digital_tag: Digital signal tag name
+            analog_tag: Analog signal tag name  
+            ref_scada_tag: Reference SCADA tag name
+            rtu_file: RTU file path
+            min_q: Minimum flow threshold
+            data_dir: Data directory containing CSV files
+
+        Returns:
+            Dict with comparison results
+        """
+        result = {
+            'digital_snr': None,
+            'analog_snr': None,
+            'reference_snr': None,
+            'digital_within_80_percent': False,
+            'analog_within_80_percent': False,
+            'status': 'fail',
+            'details': 'Test 3.5 - SNR comparison not performed'
+        }
+
+        try:
+            self.logger.info(
+                f"Running Test 3.5 SNR comparison for digital: {digital_tag}, analog: {analog_tag}, reference: {ref_scada_tag}")
+
+            # If no reference SCADA tag, skip this test
+            if not ref_scada_tag:
+                result['details'] = 'No reference SCADA tag (Ref_SCADATagID) defined - Test 3.5 skipped'
+                return result
+
+            # Get SNR for digital signal
+            digital_snr_result = self._test_32_signal_noise_ratio(
+                digital_tag, rtu_file, 'digital', min_q, data_dir)
+            result['digital_snr'] = digital_snr_result.get('snr_value')
+
+            # Get SNR for analog signal
+            analog_snr_result = self._test_32_signal_noise_ratio(
+                analog_tag, rtu_file, 'analog', min_q, data_dir)
+            result['analog_snr'] = analog_snr_result.get('snr_value')
+
+            # Get SNR for reference SCADA signal (treat as analog signal type)
+            ref_snr_result = self._test_32_signal_noise_ratio(
+                ref_scada_tag, rtu_file, 'ref_scada', min_q, data_dir)
+            result['reference_snr'] = ref_snr_result.get('snr_value')
+
+            # Check if all SNR values are available
+            if None in [result['digital_snr'], result['analog_snr'], result['reference_snr']]:
+                missing = []
+                if result['digital_snr'] is None:
+                    missing.append('digital')
+                if result['analog_snr'] is None:
+                    missing.append('analog')
+                if result['reference_snr'] is None:
+                    missing.append('reference')
+                result['details'] = f'SNR calculation failed for: {", ".join(missing)}'
+                return result
+
+            # Calculate 80% threshold of reference SNR
+            ref_snr_80_percent = result['reference_snr'] * 0.8
+
+            # Check if digital SNR is within 80% of reference
+            result['digital_within_80_percent'] = result['digital_snr'] >= ref_snr_80_percent
+
+            # Check if analog SNR is within 80% of reference
+            result['analog_within_80_percent'] = result['analog_snr'] >= ref_snr_80_percent
+
+            # Test passes if both digital and analog are within 80% of reference
+            both_within_threshold = result['digital_within_80_percent'] and result['analog_within_80_percent']
+
+            if both_within_threshold:
+                result['status'] = 'pass'
+                result[
+                    'details'] = f'PASS: Digital SNR {result["digital_snr"]:.1f} dB, Analog SNR {result["analog_snr"]:.1f} dB both ≥ 80% of Reference SNR {result["reference_snr"]:.1f} dB (≥{ref_snr_80_percent:.1f} dB)'
+            else:
+                result['status'] = 'fail'
+                digital_status = "✓" if result['digital_within_80_percent'] else "✗"
+                analog_status = "✓" if result['analog_within_80_percent'] else "✗"
+                result[
+                    'details'] = f'FAIL: Digital {digital_status} {result["digital_snr"]:.1f} dB, Analog {analog_status} {result["analog_snr"]:.1f} dB vs Reference {result["reference_snr"]:.1f} dB (need ≥{ref_snr_80_percent:.1f} dB)'
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error in Test 3.5 SNR comparison: {e}")
+            result['details'] = f'Test 3.5 execution error: {str(e)}'
+            return result
 
     def export_csv_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Export RTU and Review data to CSV files in _Data directory."""

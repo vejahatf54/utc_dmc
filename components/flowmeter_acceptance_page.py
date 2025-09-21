@@ -365,7 +365,9 @@ def create_flowmeter_acceptance_page():
                                             dmc.Checkbox(
                                                 label="3.3: MBS Target vs rtu Digital Signal Comparison", id="accuracy-check-3"),
                                             dmc.Checkbox(
-                                                label="3.4: MBS target vs MBS reference signals Comparison", id="accuracy-check-4")
+                                                label="3.4: MBS target vs MBS reference signals Comparison", id="accuracy-check-4"),
+                                            dmc.Checkbox(
+                                                label="3.5: Target DIG/ANL SNR within 80% of Reference meter SNR", id="accuracy-check-5")
                                         ], gap="xs")
                                     ], withBorder=True, p="sm")
                                 ], cols=2, spacing="md"),
@@ -691,6 +693,7 @@ def toggle_robustness_params(rob1_checked):
      Output("accuracy-check-2", "checked"),
      Output("accuracy-check-3", "checked"),
      Output("accuracy-check-4", "checked"),
+     Output("accuracy-check-5", "checked"),
      Output("flat-threshold-input", "value"),
      Output("min-flowrate-input", "value"),
      Output("max-flowrate-input", "value"),
@@ -715,9 +718,9 @@ def handle_form_actions(partial_clicks, full_clicks,
     button_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if button_id == "partial-commissioning-btn":
-        # Partial commissioning preset: rel 1-4, tc 1-2, rob 1, acc 1&3&4 (core tests, skip SNR)
+        # Partial commissioning preset: rel 1-4, tc 1-2, rob 1, acc 1&3&4 (core tests, skip SNR comparison)
         checks = [True, True, True, True, True, True,
-                  True, True, False, True, True]
+                  True, True, False, True, True, False]
         form_values = [flat_threshold or 5, min_flow,
                        max_flow, accuracy_range or 1.0]
         # Keep results tab disabled, stay on setup
@@ -726,14 +729,14 @@ def handle_form_actions(partial_clicks, full_clicks,
     elif button_id == "full-acceptance-btn":
         # Full acceptance preset: ALL checks enabled for comprehensive validation
         checks = [True, True, True, True, True,
-                  True, True, True, True, True, True]
+                  True, True, True, True, True, True, True]
         form_values = [flat_threshold or 5, min_flow,
                        max_flow, accuracy_range or 1.0]
         # Keep results tab disabled, stay on setup
         return checks + form_values + [True, "setup"]
 
     # Default return
-    return [False] * 11 + [5, None, None, 1.0] + [True, "setup"]
+    return [False] * 12 + [5, None, None, 1.0] + [True, "setup"]
 
 
 # Main analysis handler
@@ -765,6 +768,7 @@ def handle_form_actions(partial_clicks, full_clicks,
      State("accuracy-check-2", "checked"),
      State("accuracy-check-3", "checked"),
      State("accuracy-check-4", "checked"),
+     State("accuracy-check-5", "checked"),
      State("stability-window-input", "value"),
      State("drift-threshold-input", "value"),
      State("stability-threshold-input", "value"),
@@ -774,7 +778,7 @@ def handle_form_actions(partial_clicks, full_clicks,
 )
 def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time, end_time,
                            flat_threshold, min_flow, max_flow, accuracy_range,
-                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4,
+                           rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4, acc5,
                            stability_window, drift_threshold, stability_threshold, use_existing_data, theme_data):
     """Run the flowmeter analysis with all parameters."""
     if not all([rtu_file, csv_file, review_file]):
@@ -913,6 +917,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
             'accuracy_check_2': acc2,
             'accuracy_check_3': acc3,
             'accuracy_check_4': acc4,
+            'accuracy_check_5': acc5,
             # Robustness Test Parameters - only include if tests are selected
             'stability_window_size': int(stability_window) if rob1 else None,
             'drift_threshold': float(drift_threshold) if rob1 else None,
@@ -997,10 +1002,11 @@ create_file_selector_callback(review_file_ids, "Select Review File")
      Input("accuracy-check-1", "checked"),
      Input("accuracy-check-2", "checked"),
      Input("accuracy-check-3", "checked"),
-     Input("accuracy-check-4", "checked")]
+     Input("accuracy-check-4", "checked"),
+     Input("accuracy-check-5", "checked")]
 )
 def validate_required_fields(rtu_file, csv_file, review_file, min_flow, max_flow,
-                             rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4):
+                             rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4, acc5):
     """Validate required fields and enable/disable Run Analysis button."""
 
     # Check if all required file fields are filled
@@ -1017,7 +1023,8 @@ def validate_required_fields(rtu_file, csv_file, review_file, min_flow, max_flow
     ])
 
     # Check if at least one analysis check is selected
-    checks = [rel1, rel2, rel3, rel4, tc1, tc2, rob1, acc1, acc2, acc3, acc4]
+    checks = [rel1, rel2, rel3, rel4, tc1, tc2,
+              rob1, acc1, acc2, acc3, acc4, acc5]
     at_least_one_check = any(checks)
 
     # Enable button only if all validations pass
@@ -1843,6 +1850,7 @@ def update_quality_metrics_cards(results_data, theme_data):
         snr_analog = "N/A"
 
         # Extract MSE and SNR values from test results
+        snr_reference = "N/A"
         if 'accuracy_tests' in meter_results:
             # Get MSE from Test 3.1
             mse_test = meter_results['accuracy_tests'].get(
@@ -1876,6 +1884,19 @@ def update_quality_metrics_cards(results_data, theme_data):
                         snr_analog = f"{float(snr_str.split()[0]):.2f} dB"
                 except:
                     snr_analog = "N/A"
+
+            # Get Reference SNR from Test 3.5
+            snr_comp_test = meter_results['accuracy_tests'].get(
+                'Test 3.5 - SNR Comparison')
+            if snr_comp_test and 'Ref:' in snr_comp_test.get('value', ''):
+                try:
+                    # Extract reference SNR from "Digital: X.XdB, Analog: X.XdB, Ref: X.XdB" format
+                    snr_str = snr_comp_test['value'].split('Ref:')[1].strip()
+                    if snr_str != 'N/A' and 'dB' in snr_str:
+                        ref_value = snr_str.replace('dB', '').strip()
+                        snr_reference = f"{float(ref_value):.2f} dB"
+                except:
+                    snr_reference = "N/A"
 
         # Create meter card with theme-aware styling
         meter_card = dmc.Card([
@@ -1930,8 +1951,23 @@ def update_quality_metrics_cards(results_data, theme_data):
                         dmc.Text("Test 3.2 Result", size="xs",
                                  c="dimmed", ta="center")
                     ], gap="xs")
+                ], shadow="sm", p="md"),
+
+                # Reference SNR Card - Default DMC styling
+                dmc.Card([
+                    dmc.Stack([
+                        dmc.Group([
+                            BootstrapIcon(icon="shield-check", width=18,
+                                          color="var(--mantine-color-purple-6)"),
+                            dmc.Text("Reference SNR", size="sm", fw=500)
+                        ], gap="xs", justify="center"),
+                        dmc.Text(snr_reference, size="xl", fw=700,
+                                 ta="center", c="purple"),
+                        dmc.Text("Test 3.5 Result", size="xs",
+                                 c="dimmed", ta="center")
+                    ], gap="xs")
                 ], shadow="sm", p="md")
-            ], cols=3, spacing="md")
+            ], cols=4, spacing="md")
         ], shadow="sm", p="md", mb="md")
 
         cards.append(meter_card)

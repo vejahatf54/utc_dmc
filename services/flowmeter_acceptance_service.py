@@ -1120,13 +1120,14 @@ class FlowmeterAcceptanceService:
 
             # Convert to numpy array for easier statistics
             time_diffs_array = np.array(time_differences)
-            
+
             # Calculate statistics
             result['max_time_diff'] = float(np.max(time_diffs_array))
             result['mean_time_diff'] = float(np.mean(time_diffs_array))
             result['median_time_diff'] = float(np.median(time_diffs_array))
             result['std_time_diff'] = float(np.std(time_diffs_array))
-            result['percentile_95'] = float(np.percentile(time_diffs_array, 95))
+            result['percentile_95'] = float(
+                np.percentile(time_diffs_array, 95))
 
             # Count readings under 5 seconds (primary criterion)
             readings_under_5s = np.sum(time_diffs_array <= TARGET_FREQUENCY)
@@ -1136,9 +1137,11 @@ class FlowmeterAcceptanceService:
 
             # For values that are near 5 seconds (between 4-6), apply ±20% tolerance
             # This ensures values slightly above 5s but within tolerance are acceptable
-            lower_bound = TARGET_FREQUENCY * (1 - STRICT_TOLERANCE)  # 4 seconds
-            upper_bound = TARGET_FREQUENCY * (1 + STRICT_TOLERANCE)  # 6 seconds
-            
+            lower_bound = TARGET_FREQUENCY * \
+                (1 - STRICT_TOLERANCE)  # 4 seconds
+            upper_bound = TARGET_FREQUENCY * \
+                (1 + STRICT_TOLERANCE)  # 6 seconds
+
             # Count readings that are either:
             # 1. ≤ 5 seconds (preferred)
             # 2. Between 5-6 seconds (within +20% tolerance)
@@ -1152,35 +1155,43 @@ class FlowmeterAcceptanceService:
             # 2. Mean should be ≤ 5 seconds (prefer fast reporting)
             # 3. 95th percentile should be ≤ 6 seconds
             # 4. Standard deviation should be low (< 1 second) for tight distribution
-            
+
             criteria_met = []
             criteria_failed = []
-            
+
             # Criterion 1: 95% of readings within acceptable range
             if result['percentage_within_threshold'] >= REQUIRED_PERCENTAGE:
-                criteria_met.append(f"{result['percentage_within_threshold']}% ≤ {upper_bound}s")
+                criteria_met.append(
+                    f"{result['percentage_within_threshold']}% ≤ {upper_bound}s")
             else:
-                criteria_failed.append(f"Only {result['percentage_within_threshold']}% ≤ {upper_bound}s (need ≥{REQUIRED_PERCENTAGE}%)")
-            
+                criteria_failed.append(
+                    f"Only {result['percentage_within_threshold']}% ≤ {upper_bound}s (need ≥{REQUIRED_PERCENTAGE}%)")
+
             # Criterion 2: Mean should be at or below target
             if result['mean_time_diff'] <= TARGET_FREQUENCY:
-                criteria_met.append(f"Mean={result['mean_time_diff']:.2f}s ≤ {TARGET_FREQUENCY}s")
+                criteria_met.append(
+                    f"Mean={result['mean_time_diff']:.2f}s ≤ {TARGET_FREQUENCY}s")
             else:
-                criteria_failed.append(f"Mean={result['mean_time_diff']:.2f}s > {TARGET_FREQUENCY}s")
-            
+                criteria_failed.append(
+                    f"Mean={result['mean_time_diff']:.2f}s > {TARGET_FREQUENCY}s")
+
             # Criterion 3: 95th percentile check
             if result['percentile_95'] <= upper_bound:
-                criteria_met.append(f"95th percentile={result['percentile_95']:.2f}s ≤ {upper_bound}s")
+                criteria_met.append(
+                    f"95th percentile={result['percentile_95']:.2f}s ≤ {upper_bound}s")
             else:
-                criteria_failed.append(f"95th percentile={result['percentile_95']:.2f}s > {upper_bound}s")
-            
+                criteria_failed.append(
+                    f"95th percentile={result['percentile_95']:.2f}s > {upper_bound}s")
+
             # Criterion 4: Tight distribution (low std dev)
             MAX_STD_DEV = 1.0  # Maximum 1 second standard deviation for tight distribution
             if result['std_time_diff'] <= MAX_STD_DEV:
-                criteria_met.append(f"StdDev={result['std_time_diff']:.2f}s (tight distribution)")
+                criteria_met.append(
+                    f"StdDev={result['std_time_diff']:.2f}s (tight distribution)")
             else:
-                criteria_failed.append(f"StdDev={result['std_time_diff']:.2f}s > {MAX_STD_DEV}s (too variable)")
-            
+                criteria_failed.append(
+                    f"StdDev={result['std_time_diff']:.2f}s > {MAX_STD_DEV}s (too variable)")
+
             # Overall pass/fail
             if len(criteria_failed) == 0:
                 result['status'] = 'pass'

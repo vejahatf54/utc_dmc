@@ -258,6 +258,38 @@ class FlowmeterAcceptanceService:
                         self.logger.error(
                             f"Error reading SCADATagID_ANL.csv: {e}")
 
+                # Load reference SCADA signal from exported Ref_SCADATagID CSV (new functionality)
+                ref_scada_tag = row.get('Ref_SCADATagID', '').strip(
+                ) if 'Ref_SCADATagID' in row else ''
+                if ref_scada_tag:
+                    ref_scada_csv = os.path.join(
+                        data_dir, "Ref_SCADATagID.csv") if data_dir else None
+                    if ref_scada_csv and os.path.exists(ref_scada_csv):
+                        try:
+                            ref_scada_df = pd.read_csv(ref_scada_csv)
+                            # Filter for this specific reference SCADA tag
+                            if 'tag_name' in ref_scada_df.columns and 'timestamp' in ref_scada_df.columns and 'value' in ref_scada_df.columns:
+                                tag_data = ref_scada_df[ref_scada_df['tag_name']
+                                                        == ref_scada_tag]
+                                if not tag_data.empty:
+                                    meter_plots_data['time_series']['ref_scada_signal'] = {
+                                        'timestamps': tag_data['timestamp'].tolist(),
+                                        'values': tag_data['value'].tolist()
+                                    }
+                                    # Statistics from real reference SCADA data
+                                    meter_plots_data['statistics']['ref_scada'] = {
+                                        'mean': float(tag_data['value'].mean()),
+                                        'std': float(tag_data['value'].std()),
+                                        'min': float(tag_data['value'].min()),
+                                        'max': float(tag_data['value'].max())
+                                    }
+                            else:
+                                self.logger.warning(
+                                    f"Ref_SCADATagID.csv missing expected columns (tag_name, timestamp, value)")
+                        except Exception as e:
+                            self.logger.error(
+                                f"Error reading Ref_SCADATagID.csv: {e}")
+
                 # Load and process Reference_Meter.csv data
                 if os.path.exists(ref_file):
                     try:
@@ -2159,6 +2191,9 @@ class FlowmeterAcceptanceService:
                 digital_tag = row['SCADATagID_DIG'].strip()
                 analog_tag = row['SCADATagID_ANL'].strip()
                 ref_tag = row['Reference_Meter'].strip()
+                # Handle the new Ref_SCADATagID column if it exists
+                ref_scada_tag = row.get('Ref_SCADATagID', '').strip(
+                ) if 'Ref_SCADATagID' in row else ''
 
                 self.logger.info(f"Exporting data for meter: {meter_name}")
 
@@ -2175,6 +2210,14 @@ class FlowmeterAcceptanceService:
                     self._export_rtu_tag_data(
                         rtu_file, analog_tag, anl_csv_file, time_start, time_end)
                     exported_files.append(anl_csv_file)
+
+                # Export RTU data for reference SCADA tag (new functionality)
+                if ref_scada_tag:
+                    ref_scada_csv_file = os.path.join(
+                        data_dir, "Ref_SCADATagID.csv")
+                    self._export_rtu_tag_data(
+                        rtu_file, ref_scada_tag, ref_scada_csv_file, time_start, time_end)
+                    exported_files.append(ref_scada_csv_file)
 
                 # Export Review data for MBS tag
                 if meter_name:

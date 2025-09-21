@@ -938,7 +938,7 @@ def run_flowmeter_analysis(n_clicks, rtu_file, csv_file, review_file, start_time
 
         csv_notification = dmc.Notification(
             title="CSV Data Exported",
-            message=f"Successfully exported {len(exported_files)} CSV files to _Data directory: SCADATagID_DIG.csv, SCADATagID_ANL.csv, MBSTagID.csv, Reference_Meter.csv",
+            message=f"Successfully exported {len(exported_files)} CSV files to _Data directory: SCADATagID_DIG.csv, SCADATagID_ANL.csv, Ref_SCADATagID.csv, MBSTagID.csv, Reference_Meter.csv",
             color="green",
             autoClose=5000,
             action="show",
@@ -1199,7 +1199,7 @@ def update_time_trends_plot(results_data, theme_data):
         if not data_dir:
             raise ValueError("No data directory found")
 
-        # Define the 4 required CSV files with their specific formats
+        # Define the 5 required CSV files with their specific formats
         data_sources = [
             {
                 'file': os.path.join(data_dir, "MBSTagID.csv"),
@@ -1233,6 +1233,15 @@ def update_time_trends_plot(results_data, theme_data):
                 'name': "RTU Digital Signal",
                 'color': '#d62728',  # Red
                 'line_style': 'dashdot',
+                'time_column': 'datetime',
+                'value_column': 'value',
+                'format_type': 'scada'
+            },
+            {
+                'file': os.path.join(data_dir, "Ref_SCADATagID.csv"),
+                'name': "Reference RTU Signal",
+                'color': '#9467bd',  # Purple
+                'line_style': 'longdash',
                 'time_column': 'datetime',
                 'value_column': 'value',
                 'format_type': 'scada'

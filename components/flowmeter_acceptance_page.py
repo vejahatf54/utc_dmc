@@ -557,7 +557,7 @@ def create_flowmeter_acceptance_page():
 
                         # Main Results Layout - Left column for test results, right column for plots
                         dmc.Group([
-                            # Left Column - Test Results Summary Card
+                            # Left Column - Test Results Summary Card - Wider and more compact
                             dmc.Card([
                                 dmc.Group([
                                     dmc.Title("Test Results Summary", order=4),
@@ -568,7 +568,7 @@ def create_flowmeter_acceptance_page():
                                     dmc.Text("Run an analysis to see test results.",
                                              ta="center", c="dimmed", size="sm", py="md")
                                 ])
-                            ], shadow="sm", p="md", style={"width": "280px", "height": "75vh", "overflow": "auto"}),
+                            ], shadow="sm", p="md", style={"width": "380px", "height": "75vh", "overflow": "auto"}),
 
                             # Right Column - Interactive Plots - Fill remaining space
                             dmc.Stack([
@@ -1067,20 +1067,37 @@ def update_results_summary(results_data, theme_data):
 
     test_results = results_data['test_results']
 
-    # Define the specific tests we want to show (1.1 to 4.1)
+    # Define the specific tests we want to show (1.1 to 4.1) - Complete list
     target_tests = [
-        ('Test 1.1 - Digital Signal Range', 'Test 1.1 - Range Check'),
-        ('Test 1.1 - Analog Signal Range', 'Test 1.1 - Range Check'),
-        ('Test 2.1 - Digital Signal Time Diff', 'Test 2.1 - Time Diff'),
-        ('Test 2.1 - Analog Signal Time Diff', 'Test 2.1 - Time Diff'),
+        # Test 1.1 - Range Checks
+        ('Test 1.1 - Digital Signal Range', 'Test 1.1 - Digital Range Check'),
+        ('Test 1.1 - Analog Signal Range', 'Test 1.1 - Analog Range Check'),
+        # Test 1.2 - Units Verification
+        ('Test 1.2 - Digital Signal Units', 'Test 1.2 - Digital Units Check'),
+        ('Test 1.2 - Analog Signal Units', 'Test 1.2 - Analog Units Check'),
+        # Test 1.3 - Quality Checks (stored as different keys in reliability_tests)
+        ('Digital Signal Quality Check', 'Test 1.3 - Digital Quality Check'),
+        ('Analog Signal Quality Check', 'Test 1.3 - Analog Quality Check'),
+        # Test 1.4 - Review File Quality
+        ('Test 1.4 - Review File Quality', 'Test 1.4 - Review Quality Check'),
+        # Test 2.1 - Time Differences
+        ('Test 2.1 - Digital Signal Time Diff', 'Test 2.1 - Digital Time Diff'),
+        ('Test 2.1 - Analog Signal Time Diff', 'Test 2.1 - Analog Time Diff'),
+        # Test 2.2 - FLAT Attribute
+        ('Test 2.2 - FLAT Attribute Check', 'Test 2.2 - FLAT Attribute'),
+        # Test 3.1 - Mean Squared Error
         ('Test 3.1 - Mean Squared Error', 'Test 3.1 - MSE Analysis'),
-        ('Test 3.2 - Digital Signal SNR', 'Test 3.2 - SNR Analysis'),
-        ('Test 3.2 - Analog Signal SNR', 'Test 3.2 - SNR Analysis'),
+        # Test 3.2 - Signal-to-Noise Ratio
+        ('Test 3.2 - Digital Signal SNR', 'Test 3.2 - Digital SNR Analysis'),
+        ('Test 3.2 - Analog Signal SNR', 'Test 3.2 - Analog SNR Analysis'),
+        # Test 3.3 & 3.4 - Target Comparisons
         ('Test 3.3 - Target vs Digital', 'Test 3.3 - Target vs Digital'),
         ('Test 3.4 - Target vs Reference', 'Test 3.4 - Target vs Reference'),
+        # Test 3.5 - SNR Comparison
         ('Test 3.5 - SNR Comparison', 'Test 3.5 - SNR Comparison'),
-        ('Test 4.1 - Digital Signal Stability', 'Test 4.1 - Signal Stability'),
-        ('Test 4.1 - Analog Signal Stability', 'Test 4.1 - Signal Stability')
+        # Test 4.1 - Signal Stability
+        ('Test 4.1 - Digital Signal Stability', 'Test 4.1 - Digital Stability'),
+        ('Test 4.1 - Analog Signal Stability', 'Test 4.1 - Analog Stability')
     ]
 
     # Create compact test results summary
@@ -1097,12 +1114,12 @@ def update_results_summary(results_data, theme_data):
         test_cards.append(
             dmc.Card([
                 dmc.Group([
-                    BootstrapIcon(icon=status_icon, width=16,
+                    BootstrapIcon(icon=status_icon, width=14,
                                   color=status_color),
                     dmc.Text(f"Meter: {meter_name}", fw=600, size="sm")
-                ], gap="xs", mb="xs"),
-                dmc.Divider(size="xs", mb="xs")
-            ], p="xs", mb="xs", style={"backgroundColor": "var(--mantine-color-gray-1)" if not is_dark else "var(--mantine-color-dark-6)"})
+                ], gap="xs", mb="2px"),
+                dmc.Divider(size="xs", mb="2px")
+            ], p="xs", mb="4px", style={"backgroundColor": "var(--mantine-color-gray-1)" if not is_dark else "var(--mantine-color-dark-6)"})
         )
 
         # Collect all tests from all categories
@@ -1126,10 +1143,10 @@ def update_results_summary(results_data, theme_data):
 
                 test_cards.append(
                     dmc.Group([
-                        BootstrapIcon(icon=test_icon, width=16,
+                        BootstrapIcon(icon=test_icon, width=14,
                                       color=test_color),
-                        dmc.Text(display_name, size="sm", fw=500)
-                    ], gap="sm", align="center", ml="sm", mb="xs")
+                        dmc.Text(display_name, size="xs", fw=500)
+                    ], gap="xs", align="center", ml="sm", mb="2px")
                 )
 
     # Check if all tests passed and add pass image
@@ -1171,7 +1188,7 @@ def update_results_summary(results_data, theme_data):
             ], mt="md")
         )
 
-    test_summary = dmc.Stack(test_cards, gap="xs") if test_cards else dmc.Text(
+    test_summary = dmc.Stack(test_cards, gap="2px") if test_cards else dmc.Text(
         "No test results available.", c="dimmed", size="sm")
 
     return test_summary
@@ -2138,27 +2155,28 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                     ('Type:', flowmeter_details.get('type', 'N/A'))
                 ]
 
-                # Draw table border
-                rect = patches.Rectangle((0.05, details_y - len(details_mapping) * row_height - 0.01),
+                # Draw table border with increased padding
+                rect = patches.Rectangle((0.05, details_y - len(details_mapping) * row_height - 0.02),
                                          0.9, len(details_mapping) *
-                                         row_height + 0.02,
+                                         row_height + 0.04,
                                          linewidth=1, edgecolor='black', facecolor='lightgray', alpha=0.3,
                                          transform=ax.transAxes)
                 ax.add_patch(rect)
 
                 for label, value in details_mapping:
-                    ax.text(0.07, details_y, label, transform=ax.transAxes,
+                    # Increased padding from border edges
+                    ax.text(0.08, details_y, label, transform=ax.transAxes,
                             fontsize=10, fontweight='bold')
                     # Increased spacing between label and value to prevent overlapping
-                    ax.text(0.35, details_y, str(value), transform=ax.transAxes,
+                    ax.text(0.36, details_y, str(value), transform=ax.transAxes,
                             fontsize=10)
                     details_y -= row_height
 
                 y_start = details_y - 0.05
 
-            # Test Results Summary Card (Visual Snapshot Style)
+            # Test Results Summary - Two Column Layout
             if results_data and results_data.get('test_results'):
-                # Create a card-like visual summary similar to the UI
+                # Left Column: Test Results Summary Card
                 card_height = 0.45
                 card_rect = patches.Rectangle((0.05, y_start - card_height - 0.02), 0.4, card_height,
                                               linewidth=2, edgecolor='gray',
@@ -2177,24 +2195,53 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                 test_results = results_data['test_results']
                 y_pos = y_start - 0.09
 
+                # Use the same complete target_tests list as the UI
                 target_tests = [
-                    ('Test 1.1 - Digital Signal Range', 'Test 1.1 - Range Check'),
-                    ('Test 1.1 - Analog Signal Range', 'Test 1.1 - Range Check'),
-                    ('Test 2.1 - Digital Signal Time Diff', 'Test 2.1 - Time Diff'),
-                    ('Test 2.1 - Analog Signal Time Diff', 'Test 2.1 - Time Diff'),
+                    # Test 1.1 - Range Checks
+                    ('Test 1.1 - Digital Signal Range',
+                     'Test 1.1 - Digital Range Check'),
+                    ('Test 1.1 - Analog Signal Range',
+                     'Test 1.1 - Analog Range Check'),
+                    # Test 1.2 - Units Verification
+                    ('Test 1.2 - Digital Signal Units',
+                     'Test 1.2 - Digital Units Check'),
+                    ('Test 1.2 - Analog Signal Units',
+                     'Test 1.2 - Analog Units Check'),
+                    # Test 1.3 - Quality Checks (stored as different keys in reliability_tests)
+                    ('Digital Signal Quality Check',
+                     'Test 1.3 - Digital Quality Check'),
+                    ('Analog Signal Quality Check',
+                     'Test 1.3 - Analog Quality Check'),
+                    # Test 1.4 - Review File Quality
+                    ('Test 1.4 - Review File Quality',
+                     'Test 1.4 - Review Quality Check'),
+                    # Test 2.1 - Time Differences
+                    ('Test 2.1 - Digital Signal Time Diff',
+                     'Test 2.1 - Digital Time Diff'),
+                    ('Test 2.1 - Analog Signal Time Diff',
+                     'Test 2.1 - Analog Time Diff'),
+                    # Test 2.2 - FLAT Attribute
+                    ('Test 2.2 - FLAT Attribute Check',
+                     'Test 2.2 - FLAT Attribute'),
+                    # Test 3.1 - Mean Squared Error
                     ('Test 3.1 - Mean Squared Error', 'Test 3.1 - MSE Analysis'),
-                    ('Test 3.2 - Digital Signal SNR', 'Test 3.2 - SNR Analysis'),
-                    ('Test 3.2 - Analog Signal SNR', 'Test 3.2 - SNR Analysis'),
+                    # Test 3.2 - Signal-to-Noise Ratio
+                    ('Test 3.2 - Digital Signal SNR',
+                     'Test 3.2 - Digital SNR Analysis'),
+                    ('Test 3.2 - Analog Signal SNR',
+                     'Test 3.2 - Analog SNR Analysis'),
+                    # Test 3.3 & 3.4 - Target Comparisons
                     ('Test 3.3 - Target vs Digital',
                      'Test 3.3 - Target vs Digital'),
                     ('Test 3.4 - Target vs Reference',
                      'Test 3.4 - Target vs Reference'),
-                    ('Test 3.5 - SNR Comparison',
-                     'Test 3.5 - SNR Comparison'),
+                    # Test 3.5 - SNR Comparison
+                    ('Test 3.5 - SNR Comparison', 'Test 3.5 - SNR Comparison'),
+                    # Test 4.1 - Signal Stability
                     ('Test 4.1 - Digital Signal Stability',
-                     'Test 4.1 - Signal Stability'),
+                     'Test 4.1 - Digital Stability'),
                     ('Test 4.1 - Analog Signal Stability',
-                     'Test 4.1 - Signal Stability')
+                     'Test 4.1 - Analog Stability')
                 ]
 
                 total_tests = 0
@@ -2257,18 +2304,33 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                     if y_pos < y_start - card_height + 0.02:
                         break
 
-                # Add pass status at bottom of card if all tests passed
+                # Right Column: Show passed.png if all tests passed
                 all_passed = total_tests > 0 and passed_tests == total_tests
                 if all_passed:
-                    # Add "ALL TESTS PASSED!" at the bottom of the card
-                    pass_rect = patches.Rectangle((0.07, y_start - card_height + 0.02), 0.36, 0.04,
-                                                  linewidth=1, edgecolor='green',
-                                                  facecolor='lightgreen', alpha=0.3,
-                                                  transform=ax.transAxes)
-                    ax.add_patch(pass_rect)
-                    ax.text(0.25, y_start - card_height + 0.04, 'ALL TESTS PASSED!',
-                            transform=ax.transAxes, fontsize=10, fontweight='bold',
-                            color='green', ha='center')
+                    try:
+                        # Load the passed.png image from assets folder
+                        passed_img_path = os.path.join(os.path.dirname(
+                            os.path.dirname(__file__)), 'assets', 'passed.png')
+                        if os.path.exists(passed_img_path):
+                            # Load and display the passed.png image
+                            import PIL.Image
+                            passed_img = PIL.Image.open(passed_img_path)
+
+                            # Create an axes for the image in the right column
+                            img_ax = fig.add_axes(
+                                [0.55, y_start - card_height, 0.35, card_height])
+                            img_ax.imshow(passed_img)
+                            img_ax.axis('off')
+                        else:
+                            # Fallback text if image not found
+                            ax.text(0.72, y_start - card_height/2, 'ALL TESTS\nPASSED!',
+                                    transform=ax.transAxes, fontsize=16, fontweight='bold',
+                                    color='green', ha='center', va='center')
+                    except Exception as e:
+                        # Fallback text if image loading fails
+                        ax.text(0.72, y_start - card_height/2, 'ALL TESTS\nPASSED!',
+                                transform=ax.transAxes, fontsize=16, fontweight='bold',
+                                color='green', ha='center', va='center')
 
             pdf.savefig(fig, bbox_inches='tight')
             plt.close(fig)
@@ -2346,7 +2408,7 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                 except Exception as e:
                     print(f"Error adding stability plot: {e}")
 
-            # Page 5: Quality Metrics Summary
+            # Page 5: Quality Metrics Dashboard - Create visual snapshot like the UI tab
             if results_data and results_data.get('test_results'):
                 try:
                     fig, ax = plt.subplots(figsize=(11, 8.5))
@@ -2358,87 +2420,142 @@ def generate_comprehensive_pdf_report(pdf_path, results_data, trends_fig, dist_f
                     ax.set_title('Quality Metrics Dashboard',
                                  fontsize=18, fontweight='bold', pad=20)
 
-                    # Create quality metrics summary
                     test_results = results_data['test_results']
                     y_pos = 0.85
 
+                    # Create cards layout similar to the Quality Metrics tab
                     for meter_name, meter_results in test_results.items():
-                        # Meter header
-                        ax.text(0.05, y_pos, f'Meter: {meter_name}', transform=ax.transAxes,
+                        # Meter header with icon (like in UI)
+                        ax.text(0.05, y_pos, '⚡', transform=ax.transAxes,
+                                fontsize=16, color='orange')
+                        ax.text(0.08, y_pos, f'Meter: {meter_name}', transform=ax.transAxes,
                                 fontsize=16, fontweight='bold', color='darkblue')
-                        y_pos -= 0.05
+                        y_pos -= 0.08
 
-                        # Look for accuracy tests (MSE and SNR values)
-                        accuracy_tests = meter_results.get(
-                            'accuracy_tests', {})
+                        # Extract metrics values
+                        mse_value = "N/A"
+                        snr_digital = "N/A"
+                        snr_analog = "N/A"
+                        snr_reference = "N/A"
 
-                        # MSE Analysis
-                        if 'Test 3.1 - Mean Squared Error' in accuracy_tests:
-                            mse_result = accuracy_tests['Test 3.1 - Mean Squared Error']
-                            mse_value = mse_result.get('value', 'N/A')
-                            mse_status = mse_result.get('status', 'unknown')
-                            status_color = 'green' if mse_status == 'pass' else 'red'
+                        if 'accuracy_tests' in meter_results:
+                            accuracy_tests = meter_results['accuracy_tests']
 
-                            ax.text(0.1, y_pos, 'Mean Squared Error (MSE):', transform=ax.transAxes,
-                                    fontsize=12, fontweight='bold')
-                            ax.text(0.4, y_pos, str(mse_value), transform=ax.transAxes,
-                                    fontsize=12, color=status_color)
-                            y_pos -= 0.04
+                            # Get MSE from Test 3.1
+                            mse_test = accuracy_tests.get(
+                                'Test 3.1 - Mean Squared Error')
+                            if mse_test and 'MSE:' in mse_test.get('value', ''):
+                                try:
+                                    mse_str = mse_test['value'].split(
+                                        'MSE:')[1].split(',')[0].strip()
+                                    mse_value = f"{float(mse_str):.4f}"
+                                except:
+                                    mse_value = "N/A"
 
-                        # SNR Analysis - Digital
-                        if 'Test 3.2 - Digital Signal SNR' in accuracy_tests:
-                            snr_result = accuracy_tests['Test 3.2 - Digital Signal SNR']
-                            snr_value = snr_result.get('value', 'N/A')
-                            snr_status = snr_result.get('status', 'unknown')
-                            status_color = 'green' if snr_status == 'pass' else 'red'
+                            # Get Digital SNR from Test 3.2
+                            snr_dig_test = accuracy_tests.get(
+                                'Test 3.2 - Digital Signal SNR')
+                            if snr_dig_test and 'SNR:' in snr_dig_test.get('value', ''):
+                                try:
+                                    snr_str = snr_dig_test['value'].split('SNR:')[
+                                        1].strip()
+                                    if snr_str != 'N/A':
+                                        snr_digital = f"{float(snr_str.split()[0]):.2f} dB"
+                                except:
+                                    snr_digital = "N/A"
 
-                            ax.text(0.1, y_pos, 'Digital Signal SNR:', transform=ax.transAxes,
-                                    fontsize=12, fontweight='bold')
-                            ax.text(0.4, y_pos, str(snr_value), transform=ax.transAxes,
-                                    fontsize=12, color=status_color)
-                            y_pos -= 0.04
+                            # Get Analog SNR from Test 3.2
+                            snr_anl_test = accuracy_tests.get(
+                                'Test 3.2 - Analog Signal SNR')
+                            if snr_anl_test and 'SNR:' in snr_anl_test.get('value', ''):
+                                try:
+                                    snr_str = snr_anl_test['value'].split('SNR:')[
+                                        1].strip()
+                                    if snr_str != 'N/A':
+                                        snr_analog = f"{float(snr_str.split()[0]):.2f} dB"
+                                except:
+                                    snr_analog = "N/A"
 
-                        # SNR Analysis - Analog
-                        if 'Test 3.2 - Analog Signal SNR' in accuracy_tests:
-                            snr_result = accuracy_tests['Test 3.2 - Analog Signal SNR']
-                            snr_value = snr_result.get('value', 'N/A')
-                            snr_status = snr_result.get('status', 'unknown')
-                            status_color = 'green' if snr_status == 'pass' else 'red'
+                            # Get Reference SNR from Test 3.5
+                            snr_comp_test = accuracy_tests.get(
+                                'Test 3.5 - SNR Comparison')
+                            if snr_comp_test and 'Ref:' in snr_comp_test.get('value', ''):
+                                try:
+                                    snr_str = snr_comp_test['value'].split('Ref:')[
+                                        1].strip()
+                                    if snr_str != 'N/A' and 'dB' in snr_str:
+                                        ref_value = snr_str.replace(
+                                            'dB', '').strip()
+                                        snr_reference = f"{float(ref_value):.2f} dB"
+                                except:
+                                    snr_reference = "N/A"
 
-                            ax.text(0.1, y_pos, 'Analog Signal SNR:', transform=ax.transAxes,
-                                    fontsize=12, fontweight='bold')
-                            ax.text(0.4, y_pos, str(snr_value), transform=ax.transAxes,
-                                    fontsize=12, color=status_color)
-                            y_pos -= 0.04
+                        # Create 4-card layout (similar to UI SimpleGrid cols=4)
+                        card_width = 0.18
+                        card_height = 0.15
+                        card_spacing = 0.02
+                        start_x = 0.05
 
-                        # Target vs Digital/Reference comparisons
-                        if 'Test 3.3 - Target vs Digital' in accuracy_tests:
-                            target_dig_result = accuracy_tests['Test 3.3 - Target vs Digital']
-                            target_dig_value = target_dig_result.get(
-                                'value', 'N/A')
-                            target_dig_status = target_dig_result.get(
-                                'status', 'unknown')
-                            status_color = 'green' if target_dig_status == 'pass' else 'red'
+                        # MSE Card
+                        mse_rect = patches.Rectangle((start_x, y_pos - card_height), card_width, card_height,
+                                                     linewidth=1, edgecolor='orange', facecolor='white',
+                                                     alpha=0.9, transform=ax.transAxes)
+                        ax.add_patch(mse_rect)
+                        ax.text(start_x + card_width/2, y_pos - 0.03, 'MSE', transform=ax.transAxes,
+                                fontsize=10, fontweight='bold', ha='center', color='orange')
+                        ax.text(start_x + card_width/2, y_pos - 0.06, 'Mean Squared Error', transform=ax.transAxes,
+                                fontsize=8, fontweight='bold', ha='center')
+                        ax.text(start_x + card_width/2, y_pos - 0.10, mse_value, transform=ax.transAxes,
+                                fontsize=12, fontweight='bold', ha='center', color='orange')
+                        ax.text(start_x + card_width/2, y_pos - 0.13, 'Test 3.1 Result', transform=ax.transAxes,
+                                fontsize=6, ha='center', color='gray')
 
-                            ax.text(0.1, y_pos, 'Target vs Digital:', transform=ax.transAxes,
-                                    fontsize=12, fontweight='bold')
-                            ax.text(0.4, y_pos, str(target_dig_value), transform=ax.transAxes,
-                                    fontsize=12, color=status_color)
-                            y_pos -= 0.04
+                        # Digital SNR Card
+                        dig_x = start_x + card_width + card_spacing
+                        dig_rect = patches.Rectangle((dig_x, y_pos - card_height), card_width, card_height,
+                                                     linewidth=1, edgecolor='blue', facecolor='white',
+                                                     alpha=0.9, transform=ax.transAxes)
+                        ax.add_patch(dig_rect)
+                        ax.text(dig_x + card_width/2, y_pos - 0.03, 'DIG', transform=ax.transAxes,
+                                fontsize=10, fontweight='bold', ha='center', color='blue')
+                        ax.text(dig_x + card_width/2, y_pos - 0.06, 'Digital SNR', transform=ax.transAxes,
+                                fontsize=8, fontweight='bold', ha='center')
+                        ax.text(dig_x + card_width/2, y_pos - 0.10, snr_digital, transform=ax.transAxes,
+                                fontsize=12, fontweight='bold', ha='center', color='blue')
+                        ax.text(dig_x + card_width/2, y_pos - 0.13, 'Test 3.2 Result', transform=ax.transAxes,
+                                fontsize=6, ha='center', color='gray')
 
-                        if 'Test 3.4 - Target vs Reference' in accuracy_tests:
-                            target_ref_result = accuracy_tests['Test 3.4 - Target vs Reference']
-                            target_ref_value = target_ref_result.get(
-                                'value', 'N/A')
-                            target_ref_status = target_ref_result.get(
-                                'status', 'unknown')
-                            status_color = 'green' if target_ref_status == 'pass' else 'red'
+                        # Analog SNR Card
+                        anl_x = dig_x + card_width + card_spacing
+                        anl_rect = patches.Rectangle((anl_x, y_pos - card_height), card_width, card_height,
+                                                     linewidth=1, edgecolor='green', facecolor='white',
+                                                     alpha=0.9, transform=ax.transAxes)
+                        ax.add_patch(anl_rect)
+                        ax.text(anl_x + card_width/2, y_pos - 0.03, 'ANL', transform=ax.transAxes,
+                                fontsize=10, fontweight='bold', ha='center', color='green')
+                        ax.text(anl_x + card_width/2, y_pos - 0.06, 'Analog SNR', transform=ax.transAxes,
+                                fontsize=8, fontweight='bold', ha='center')
+                        ax.text(anl_x + card_width/2, y_pos - 0.10, snr_analog, transform=ax.transAxes,
+                                fontsize=12, fontweight='bold', ha='center', color='green')
+                        ax.text(anl_x + card_width/2, y_pos - 0.13, 'Test 3.2 Result', transform=ax.transAxes,
+                                fontsize=6, ha='center', color='gray')
 
-                            ax.text(0.1, y_pos, 'Target vs Reference:', transform=ax.transAxes,
-                                    fontsize=12, fontweight='bold')
-                            ax.text(0.4, y_pos, str(target_ref_value), transform=ax.transAxes,
-                                    fontsize=12, color=status_color)
-                            y_pos -= 0.06
+                        # Reference SNR Card
+                        ref_x = anl_x + card_width + card_spacing
+                        ref_rect = patches.Rectangle((ref_x, y_pos - card_height), card_width, card_height,
+                                                     linewidth=1, edgecolor='purple', facecolor='white',
+                                                     alpha=0.9, transform=ax.transAxes)
+                        ax.add_patch(ref_rect)
+                        ax.text(ref_x + card_width/2, y_pos - 0.03, 'REF', transform=ax.transAxes,
+                                fontsize=10, fontweight='bold', ha='center', color='purple')
+                        ax.text(ref_x + card_width/2, y_pos - 0.06, 'Reference SNR', transform=ax.transAxes,
+                                fontsize=8, fontweight='bold', ha='center')
+                        ax.text(ref_x + card_width/2, y_pos - 0.10, snr_reference, transform=ax.transAxes,
+                                fontsize=12, fontweight='bold', ha='center', color='purple')
+                        ax.text(ref_x + card_width/2, y_pos - 0.13, 'Test 3.5 Result', transform=ax.transAxes,
+                                fontsize=6, ha='center', color='gray')
+
+                        y_pos -= card_height + 0.05
 
                     pdf.savefig(fig, bbox_inches='tight')
                     plt.close(fig)

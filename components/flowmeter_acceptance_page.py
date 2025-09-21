@@ -1924,68 +1924,73 @@ def update_quality_metrics_cards(results_data, theme_data):
                 dmc.Text(f"Meter: {meter_name}", fw=600, size="md")
             ], gap="xs", mb="md"),
 
-            # Quality metrics grid
-            dmc.SimpleGrid([
-                # MSE Card - Default DMC styling
-                dmc.Card([
-                    dmc.Stack([
-                        dmc.Group([
-                            BootstrapIcon(icon="calculator", width=18,
-                                          color="var(--mantine-color-orange-6)"),
-                            dmc.Text("Mean Squared Error", size="sm", fw=500)
-                        ], gap="xs", justify="center"),
-                        dmc.Text(mse_value, size="xl", fw=700,
-                                 ta="center", c="orange"),
-                        dmc.Text("Test 3.1 Result", size="xs",
-                                 c="dimmed", ta="center")
-                    ], gap="xs")
-                ], shadow="sm", p="md"),
+            # Quality metrics layout - Centered cards
+            dmc.Center([
+                dmc.Stack([
+                    # MSE Card - Top center
+                    dmc.Card([
+                        dmc.Stack([
+                            dmc.Group([
+                                BootstrapIcon(icon="calculator", width=18,
+                                              color="var(--mantine-color-orange-6)"),
+                                dmc.Text("Mean Squared Error",
+                                         size="sm", fw=500)
+                            ], gap="xs", justify="center"),
+                            dmc.Text(mse_value, size="xl", fw=700,
+                                     ta="center", c="orange"),
+                            dmc.Text("Test 3.1 Result", size="xs",
+                                     c="dimmed", ta="center")
+                        ], gap="xs")
+                    ], shadow="sm", p="md", style={"width": "300px"}),
 
-                # Digital SNR Card - Default DMC styling
-                dmc.Card([
-                    dmc.Stack([
-                        dmc.Group([
-                            BootstrapIcon(icon="activity", width=18,
-                                          color="var(--mantine-color-blue-6)"),
-                            dmc.Text("Digital SNR", size="sm", fw=500)
-                        ], gap="xs", justify="center"),
-                        dmc.Text(snr_digital, size="xl",
-                                 fw=700, ta="center", c="blue"),
-                        dmc.Text("Test 3.2 Result", size="xs",
-                                 c="dimmed", ta="center")
-                    ], gap="xs")
-                ], shadow="sm", p="md"),
+                    # Combined SNR Card - Below MSE, centered
+                    dmc.Card([
+                        dmc.Stack([
+                            # Card header with icon
+                            dmc.Group([
+                                BootstrapIcon(icon="activity", width=18,
+                                              color="var(--mantine-color-blue-6)"),
+                                dmc.Text("Signal-to-Noise Ratio (SNR)",
+                                         size="sm", fw=500)
+                            ], gap="xs", justify="center"),
 
-                # Analog SNR Card - Default DMC styling
-                dmc.Card([
-                    dmc.Stack([
-                        dmc.Group([
-                            BootstrapIcon(icon="graph-up", width=18,
-                                          color="var(--mantine-color-green-6)"),
-                            dmc.Text("Analog SNR", size="sm", fw=500)
-                        ], gap="xs", justify="center"),
-                        dmc.Text(snr_analog, size="xl", fw=700,
-                                 ta="center", c="green"),
-                        dmc.Text("Test 3.2 Result", size="xs",
-                                 c="dimmed", ta="center")
-                    ], gap="xs")
-                ], shadow="sm", p="md"),
+                            # SNR values in a horizontal layout
+                            dmc.Group([
+                                # Digital SNR
+                                dmc.Stack([
+                                    dmc.Text("Digital", size="xs",
+                                             fw=500, ta="center", c="blue"),
+                                    dmc.Text(snr_digital, size="lg",
+                                             fw=700, ta="center", c="blue"),
+                                ], gap="2px", align="center"),
 
-                # Reference SNR Card - Default DMC styling
-                dmc.Card([
-                    dmc.Stack([
-                        dmc.Group([
-                            BootstrapIcon(icon="shield-check", width=18,
-                                          color="var(--mantine-color-purple-6)"),
-                            dmc.Text("Reference SNR", size="sm", fw=500)
-                        ], gap="xs", justify="center"),
-                        dmc.Text(snr_reference, size="xl", fw=700,
-                                 ta="center", c="purple"),
-                        dmc.Text("Test 3.5 Result", size="xs",
-                                 c="dimmed", ta="center")
-                    ], gap="xs")
-                ], shadow="sm", p="md")
-            ], cols=4, spacing="md")
+                                dmc.Divider(orientation="vertical", size="sm"),
+
+                                # Analog SNR
+                                dmc.Stack([
+                                    dmc.Text("Analog", size="xs",
+                                             fw=500, ta="center", c="green"),
+                                    dmc.Text(snr_analog, size="lg",
+                                             fw=700, ta="center", c="green"),
+                                ], gap="2px", align="center"),
+
+                                dmc.Divider(orientation="vertical", size="sm"),
+
+                                # Reference SNR
+                                dmc.Stack([
+                                    dmc.Text("Reference", size="xs",
+                                             fw=500, ta="center", c="purple"),
+                                    dmc.Text(snr_reference, size="lg",
+                                             fw=700, ta="center", c="purple"),
+                                ], gap="2px", align="center")
+                            ], justify="center", gap="lg"),
+
+                            dmc.Text("Test 3.2 & 3.5 Results", size="xs",
+                                     c="dimmed", ta="center")
+                        ], gap="md")
+                    ], shadow="sm", p="md", style={"width": "400px"})
+                ], gap="lg", align="center")
+            ])
         ], shadow="sm", p="md", mb="md")
 
         cards.append(meter_card)

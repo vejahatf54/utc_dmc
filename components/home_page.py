@@ -40,7 +40,7 @@ def create_home_page():
                                 ),
 
                                 dmc.Text(
-                                    "his platform provides a suite of tools designed to assist with leak detection and survey data analysis.",
+                                    "This platform provides a suite of tools designed to assist with leak detection and survey data analysis.",
                                     size="lg",
                                     mb="sm"
                                 ),

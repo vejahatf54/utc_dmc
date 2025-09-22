@@ -1,6 +1,6 @@
 """
 Fetch RTU Data Page for DMC Application.
-Allows users to select date ranges or single dates, pipeline lines, and output directories to fetch RTU data.
+Allows users to select date ranges or single dates, pipeline lines, and output directories to fetch RTU data with parallel decompression.
 """
 
 import dash
@@ -93,7 +93,9 @@ layout = dmc.Container([
                                     "Choose pipeline lines to process"),
                                 dmc.ListItem("Select output directory"),
                                 dmc.ListItem(
-                                    "Click 'Fetch RTU Data' to copy files")
+                                    "Click 'Fetch RTU Data' to copy files"),
+                                dmc.ListItem(
+                                    "Parallel processing decompresses multiple zip files simultaneously")
                             ], size="sm")
                         ])
                     ], span=6)
@@ -302,6 +304,35 @@ layout = dmc.Container([
                                     ]
                                 )
                             ])
+
+                        ], gap="sm", p="sm")
+                    ], shadow="sm", radius="md", withBorder=True),
+
+                    # Parallel Processing Configuration
+                    dmc.Paper([
+                        dmc.Stack([
+                            dmc.Group([
+                                BootstrapIcon(icon="cpu", width=16),
+                                dmc.Text("Parallel Processing",
+                                         fw=500, size="md")
+                            ], gap="xs"),
+
+                            dmc.Divider(size="xs"),
+
+                            dmc.Stack([
+                                dmc.Text("Max Parallel Decompression",
+                                         size="sm", fw=500),
+                                dmc.NumberInput(
+                                    id="max-parallel-decompress-input",
+                                    value=4,
+                                    min=1,
+                                    max=8,
+                                    step=1,
+                                    style={"width": "100%"},
+                                    size="sm",
+                                    description="Number of zip files to decompress simultaneously (1-8)"
+                                )
+                            ], gap="xs"),
 
                         ], gap="sm", p="sm")
                     ], shadow="sm", radius="md", withBorder=True),
@@ -525,10 +556,11 @@ def validate_fetch_form(single_date, start_date, end_date, selected_lines, outpu
      State(directory_ids['input'], 'value'),
      State('server-filter-input-rtu', 'value'),
      State('fetch-rtu-status-store', 'data'),
-     State('rtu-date-mode-store', 'data')],
+     State('rtu-date-mode-store', 'data'),
+     State('max-parallel-decompress-input', 'value')],
     prevent_initial_call=True
 )
-def fetch_rtu_data(n_clicks, single_date, start_date, end_date, selected_lines, output_directory, server_filter, current_status, date_mode):
+def fetch_rtu_data(n_clicks, single_date, start_date, end_date, selected_lines, output_directory, server_filter, current_status, date_mode, max_parallel_workers):
     """Fetch RTU data using FetchRtuDataService with notifications."""
     if not n_clicks:
         return "", {'status': 'idle'}, False, no_update
@@ -550,7 +582,8 @@ def fetch_rtu_data(n_clicks, single_date, start_date, end_date, selected_lines, 
                 line_ids=selected_lines,
                 output_directory=output_directory,
                 single_date=single_date,
-                server_filter=server_filter
+                server_filter=server_filter,
+                max_parallel_workers=max_parallel_workers or 4
             )
         else:  # range mode
             fetch_result = fetch_rtu_service.fetch_rtu_data(
@@ -558,7 +591,8 @@ def fetch_rtu_data(n_clicks, single_date, start_date, end_date, selected_lines, 
                 output_directory=output_directory,
                 start_date=start_date,
                 end_date=end_date,
-                server_filter=server_filter
+                server_filter=server_filter,
+                max_parallel_workers=max_parallel_workers or 4
             )
 
         if fetch_result['success']:

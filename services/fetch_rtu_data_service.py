@@ -11,6 +11,8 @@ from typing import Dict, Any, List
 from datetime import datetime, date, timedelta
 from .config_manager import get_config_manager
 from logging_config import get_logger
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 
 logger = get_logger(__name__)
 
@@ -41,6 +43,11 @@ class FetchRtuDataService:
         self.timeout = self.config_manager.get_rtudata_timeout()
         
         logger.debug(f"RTU data configuration loaded - Base path: {self.rtudata_base_path}, Default output: {self.default_output_path}, Timeout: {self.timeout}s")
+        
+        # Thread-safe progress tracking for parallel processing
+        self._progress_lock = Lock()
+        self._processed_files = 0
+        self._total_files = 0
 
     def _check_unc_path_accessible(self) -> bool:
         """
@@ -67,6 +74,94 @@ class FetchRtuDataService:
         except Exception as e:
             logger.warning(f"Error checking default output path: {e}")
             return False
+
+    def _process_single_zip_file(self, file_info: Dict[str, Any], line_output_dir: str, 
+                                 progress_callback=None) -> Dict[str, Any]:
+        """
+        Process a single zip file for parallel decompression.
+        
+        Args:
+            file_info: Dictionary containing file information (source_path, filename, date_str, etc.)
+            line_output_dir: Output directory for the line
+            progress_callback: Optional callback for progress updates
+            
+        Returns:
+            Dictionary with processing results
+        """
+        try:
+            source_file_path = file_info['source_path']
+            filename = file_info['filename']
+            date_str = file_info['date_str']
+            line_id = file_info['line_id']
+            
+            extracted_files = []
+            
+            # Extract zip file
+            with zipfile.ZipFile(source_file_path, 'r') as zip_ref:
+                # Find .dt files in the zip
+                dt_files = [f for f in zip_ref.namelist() if f.endswith('.dt')]
+                
+                if not dt_files:
+                    return {
+                        'success': False,
+                        'error': f"No .dt file found in {filename}",
+                        'filename': filename,
+                        'extracted_files': []
+                    }
+                
+                # Process each .dt file (usually just one)
+                for dt_file in dt_files:
+                    # Extract the .dt file
+                    dt_content = zip_ref.read(dt_file)
+                    
+                    # Create new filename: line_date.dt (e.g., l05_20250804.dt)
+                    new_filename = f"{line_id}_{date_str}.dt"
+                    output_file_path = os.path.join(line_output_dir, new_filename)
+                    
+                    # Write the extracted content to the new file
+                    with open(output_file_path, 'wb') as output_file:
+                        output_file.write(dt_content)
+                    
+                    extracted_files.append({
+                        'original_zip': filename,
+                        'extracted_file': new_filename,
+                        'full_path': output_file_path,
+                        'date': date_str,
+                        'server': file_info['server']
+                    })
+                    
+                    logger.info(f"Extracted {dt_file} from {filename} as {new_filename}")
+            
+            # Update progress with thread safety
+            if progress_callback:
+                with self._progress_lock:
+                    self._processed_files += 1
+                    progress_callback(self._processed_files, self._total_files, filename)
+            
+            return {
+                'success': True,
+                'filename': filename,
+                'extracted_files': extracted_files
+            }
+            
+        except zipfile.BadZipFile:
+            error_msg = f"Invalid zip file: {filename}"
+            logger.error(error_msg)
+            return {
+                'success': False,
+                'error': error_msg,
+                'filename': filename,
+                'extracted_files': []
+            }
+        except Exception as e:
+            error_msg = f"Error extracting {filename}: {str(e)}"
+            logger.error(error_msg)
+            return {
+                'success': False,
+                'error': error_msg,
+                'filename': filename,
+                'extracted_files': []
+            }
 
     def get_available_lines(self) -> Dict[str, Any]:
         """
@@ -321,9 +416,10 @@ class FetchRtuDataService:
             }
 
     def fetch_rtu_data(self, line_ids: List[str], output_directory: str, start_date: str = None, 
-                       end_date: str = None, single_date: str = None, server_filter: str = None) -> Dict[str, Any]:
+                       end_date: str = None, single_date: str = None, server_filter: str = None,
+                       max_parallel_workers: int = 4, progress_callback=None) -> Dict[str, Any]:
         """
-        Fetch RTU data for specified lines and date range.
+        Fetch RTU data for specified lines and date range with parallel decompression.
 
         Args:
             line_ids: List of pipeline line IDs to fetch
@@ -332,6 +428,8 @@ class FetchRtuDataService:
             end_date: End date string (YYYY-MM-DD) for date range  
             single_date: Single date string (YYYY-MM-DD) for single date fetch
             server_filter: Optional server filter (e.g., "LPP02WVSPSS15")
+            max_parallel_workers: Maximum number of zip files to process in parallel (default: 4)
+            progress_callback: Optional callback for progress updates
 
         Returns:
             Dictionary containing fetch operation results
@@ -410,69 +508,67 @@ class FetchRtuDataService:
                     # Log that we're skipping duplicate files
                     logger.info(f"Skipping duplicate file for {line_id} date {date_str}: {file_info['filename']} (keeping {files_by_line[line_id][date_str]['filename']})")
 
+            # Prepare all files for parallel processing
+            all_files_to_process = []
+            line_output_dirs = {}
+            
             for line_id, date_files in files_by_line.items():
-                try:
-                    # Create line output directory: output_dir/line_id/
-                    line_output_dir = os.path.join(output_directory, line_id)
-                    os.makedirs(line_output_dir, exist_ok=True)
-                    
-                    extracted_files[line_id] = []
-                    
-                    for date_str, file_info in date_files.items():
-                        source_file_path = file_info['source_path']
-                        filename = file_info['filename']
-                        
-                        try:
-                            # Extract zip file
-                            with zipfile.ZipFile(source_file_path, 'r') as zip_ref:
-                                # Find .dt files in the zip
-                                dt_files = [f for f in zip_ref.namelist() if f.endswith('.dt')]
-                                
-                                if not dt_files:
-                                    extract_errors.append(f"No .dt file found in {filename}")
-                                    continue
-                                
-                                # Process each .dt file (usually just one)
-                                for dt_file in dt_files:
-                                    # Extract the .dt file
-                                    dt_content = zip_ref.read(dt_file)
-                                    
-                                    # Create new filename: line_date.dt (e.g., l05_20250804.dt)
-                                    new_filename = f"{line_id}_{date_str}.dt"
-                                    output_file_path = os.path.join(line_output_dir, new_filename)
-                                    
-                                    # Write the extracted content to the new file
-                                    with open(output_file_path, 'wb') as output_file:
-                                        output_file.write(dt_content)
-                                    
-                                    extracted_files[line_id].append({
-                                        'original_zip': filename,
-                                        'extracted_file': new_filename,
-                                        'full_path': output_file_path,
-                                        'date': date_str,
-                                        'server': file_info['server']
-                                    })
-                                    
-                                    logger.info(f"Extracted {dt_file} from {filename} as {new_filename}")
-                        
-                        except zipfile.BadZipFile:
-                            extract_errors.append(f"Invalid zip file: {filename}")
-                        except Exception as e:
-                            extract_errors.append(f"Error extracting {filename}: {str(e)}")
-                    
-                    # Create a text file listing all extracted files for this line
-                    if extracted_files[line_id]:
-                        list_file_path = os.path.join(line_output_dir, f"{line_id}.txt")
-                        with open(list_file_path, 'w') as list_file:
-                            for file_info in extracted_files[line_id]:
-                                list_file.write(f"{file_info['full_path']}\n")
-                        
-                        logger.info(f"Created file list: {list_file_path}")
+                # Create line output directory: output_dir/line_id/
+                line_output_dir = os.path.join(output_directory, line_id)
+                os.makedirs(line_output_dir, exist_ok=True)
+                line_output_dirs[line_id] = line_output_dir
+                extracted_files[line_id] = []
+                
+                # Add each file to the processing list
+                for date_str, file_info in date_files.items():
+                    all_files_to_process.append((file_info, line_output_dir))
 
-                except Exception as e:
-                    error_msg = f"Error processing line {line_id}: {str(e)}"
-                    extract_errors.append(error_msg)
-                    logger.error(error_msg)
+            # Initialize progress tracking
+            self._total_files = len(all_files_to_process)
+            self._processed_files = 0
+            
+            # Determine number of workers
+            max_workers = min(max_parallel_workers, self._total_files, 4)  # Cap at 4 workers
+            
+            logger.info(f"Starting parallel decompression of {self._total_files} zip files with {max_workers} workers")
+            
+            # Process files in parallel using ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all files for processing
+                future_to_file = {}
+                for file_info, line_output_dir in all_files_to_process:
+                    future = executor.submit(
+                        self._process_single_zip_file,
+                        file_info,
+                        line_output_dir,
+                        progress_callback
+                    )
+                    future_to_file[future] = file_info
+                
+                # Collect results as they complete
+                for future in as_completed(future_to_file):
+                    file_info = future_to_file[future]
+                    result = future.result()
+                    
+                    line_id = file_info['line_id']
+                    
+                    if result['success']:
+                        # Add extracted files to the line's list
+                        extracted_files[line_id].extend(result['extracted_files'])
+                    else:
+                        # Add error to the list
+                        extract_errors.append(result['error'])
+
+            # Create file lists for each line after all processing is complete
+            for line_id, line_files in extracted_files.items():
+                if line_files:
+                    line_output_dir = line_output_dirs[line_id]
+                    list_file_path = os.path.join(line_output_dir, f"{line_id}.txt")
+                    with open(list_file_path, 'w') as list_file:
+                        for file_info in line_files:
+                            list_file.write(f"{file_info['full_path']}\n")
+                    
+                    logger.info(f"Created file list: {list_file_path}")
 
             # Prepare result summary
             total_files_extracted = sum(len(files) for files in extracted_files.values())

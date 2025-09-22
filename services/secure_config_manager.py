@@ -1,5 +1,5 @@
 """
-Secure Configuration Manager for DMC application.
+Secure Configuration Manager for WUTC application.
 Provides encryption/decryption of sensitive configuration values using Windows DPAPI.
 Similar to C# DPAPI functionality - encrypted values are tied to the local machine.
 """
@@ -64,7 +64,7 @@ class SecureConfigManager:
                 machine_details = "default_machine_info"
 
             # Create a machine-specific salt combining multiple machine identifiers
-            machine_string = f"{machine_id}:{machine_domain}:{mac_address}:{machine_details}:DMC_CONFIG_SALT"
+            machine_string = f"{machine_id}:{machine_domain}:{mac_address}:{machine_details}:WUTC_CONFIG_SALT"
             salt = machine_string.encode('utf-8')
 
             # Derive key using PBKDF2 (similar to how DPAPI works internally)
@@ -77,7 +77,7 @@ class SecureConfigManager:
             )
 
             # Use a fixed password combined with machine info for reproducibility
-            password = f"DMC_SECURE_CONFIG_{machine_id}".encode('utf-8')
+            password = f"WUTC_SECURE_CONFIG_{machine_id}".encode('utf-8')
             key = kdf.derive(password)
 
             logger.debug(

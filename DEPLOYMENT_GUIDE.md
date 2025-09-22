@@ -103,9 +103,9 @@ Example winsw configuration:
 
 ```xml
 <service>
-    <id>DMCService</id>
-    <name>DMC Application</name>
-    <description>DMC Application Service</description>
+    <id>WUTCService</id>
+    <name>WUTC Application</name>
+    <description>WUTC Application Service</description>
     <executable>C:\Path\To\Python\python.exe</executable>
     <arguments>C:\Path\To\Your\App\app.py</arguments>
     <workingdirectory>C:\Path\To\Your\App</workingdirectory>
@@ -168,7 +168,7 @@ This means:
 **Check logs** for error messages:
 
 ```
-grep "First run detected" logs/dmc_*.log
+grep "First run detected" logs/wutc_*.log
 ```
 
 **Verify cryptography library** is installed:

@@ -2,10 +2,10 @@
 
 <#
 .SYNOPSIS
-    DMC Application - Complete Build and Packaging Script
+    WUTC Application - Complete Build and Packaging Script
 
 .DESCRIPTION
-    This script builds the DMC application as a standalone executable using PyInstaller
+    This script builds the WUTC application as a standalone executable using PyInstaller
     and creates a complete deployment package for offline servers.
     Config.json is kept external to the executable for easy configuration changes.
 
@@ -29,7 +29,7 @@ $ProgressPreference = "SilentlyContinue"
 $ProjectRoot = $PSScriptRoot
 $VenvPath = Join-Path $ProjectRoot ".venv"
 $PythonExe = Join-Path $VenvPath "Scripts\python.exe"
-$SpecFile = Join-Path $ProjectRoot "dmc.spec"
+$SpecFile = Join-Path $ProjectRoot "wutc.spec"
 $DistPath = Join-Path $ProjectRoot "dist"
 $BuildPath = Join-Path $ProjectRoot "build"
 $ConfigFile = Join-Path $ProjectRoot "config.json"
@@ -70,7 +70,7 @@ function Write-Error-Custom {
 
 # Main build function
 function Start-Build {
-    Write-Host "DMC - Complete Build & Package Script" -ForegroundColor $Green
+    Write-Host "WUTC - Complete Build & Package Script" -ForegroundColor $Green
     Write-Host "======================================" -ForegroundColor $Green
     
     try {
@@ -124,7 +124,7 @@ function Test-Environment {
     $pythonVersion = & $PythonExe --version 2>&1
     Write-Success "Python version: $pythonVersion"
     
-    # Check critical packages for DMC functionality
+    # Check critical packages for WUTC functionality
     Write-Info "Verifying required packages..."
     $requiredPackages = @(
         @{name = "dash"; import = "dash" },
@@ -153,7 +153,7 @@ function Test-Environment {
         }
     }
 
-    # Verify DMC version for DatePickerInput compatibility
+    # Verify Dash Mantine Components version for DatePickerInput compatibility
     $dmcVersion = & $PythonExe -c "import dash_mantine_components as dmc; print(dmc.__version__)" 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Success "dash-mantine-components version: $dmcVersion"
@@ -161,10 +161,10 @@ function Test-Environment {
         # Test DatePickerInput specifically for Fetch Archive page
         $dmcTest = & $PythonExe -c "from dash_mantine_components import DatePickerInput, MantineProvider; print('DatePickerInput available')" 2>&1
         if ($LASTEXITCODE -eq 0) {
-            Write-Success "DMC DatePickerInput: OK"
+            Write-Success "Dash Mantine Components DatePickerInput: OK"
         }
         else {
-            Write-Warning "DMC DatePickerInput test failed: $dmcTest"
+            Write-Warning "Dash Mantine Components DatePickerInput test failed: $dmcTest"
         }
     }
     else {
@@ -297,9 +297,9 @@ except Exception as e:
         Write-Warning "SQL directory not found: $sqlPath"
     }
     
-    # Test DMC components
-    Write-Info "Testing DMC application components..."
-    $env:DMC_BUILD_MODE = "true"
+    # Test WUTC components
+    Write-Info "Testing WUTC application components..."
+    $env:WUTC_BUILD_MODE = "true"
     $testResult = & $PythonExe -c "
 import components.sidebar
 import components.home_page
@@ -328,16 +328,16 @@ print('All components imported successfully')
 " 2>&1
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Success "DMC components validation passed"
+        Write-Success "WUTC components validation passed"
         Write-Info $testResult
     }
     else {
-        throw "DMC components validation failed: $testResult"
+        throw "WUTC components validation failed: $testResult"
     }
     
     # Test services (import only, do not instantiate to avoid config encryption during build)
-    Write-Info "Testing DMC services..."
-    $env:DMC_BUILD_MODE = "true"
+    Write-Info "Testing WUTC services..."
+    $env:WUTC_BUILD_MODE = "true"
     $serviceTestResult = & $PythonExe -c "
 # Import services but do NOT instantiate ConfigManager to avoid triggering encryption during build
 import importlib
@@ -375,7 +375,7 @@ print('All services imported successfully (no instantiation during build)')
 " 2>&1
     
     if ($LASTEXITCODE -eq 0) {
-        Write-Success "DMC services validation passed"
+        Write-Success "WUTC services validation passed"
         Write-Info $serviceTestResult
     }
     else {
@@ -428,7 +428,7 @@ function Invoke-PyInstallerBuild {
 }
 
 function Test-BuildOutput {
-    $exePath = Join-Path $DistPath "DMC.exe"
+    $exePath = Join-Path $DistPath "WUTC.exe"
     
     if (-not (Test-Path $exePath)) {
         throw "Build output not found: $exePath"
@@ -444,7 +444,7 @@ function Test-BuildOutput {
 
 function New-DeploymentPackage {
     $timestamp = Get-Date -Format "yyyyMMdd-HHmm"
-    $packageName = "DMC-Final-$timestamp"
+    $packageName = "WUTC-Final-$timestamp"
     $packagePath = Join-Path $DistPath $packageName
     
     Write-Info "Creating deployment package: $packageName"
@@ -456,9 +456,9 @@ function New-DeploymentPackage {
     New-Item -ItemType Directory -Path $packagePath -Force | Out-Null
     
     # Copy executable
-    $exePath = Join-Path $DistPath "DMC.exe"
+    $exePath = Join-Path $DistPath "WUTC.exe"
     Copy-Item $exePath $packagePath
-    Write-Success "Copied: DMC.exe"
+    Write-Success "Copied: WUTC.exe"
     
     # Copy config.json to deployment package (external to executable)
     Copy-Item $ConfigFile $packagePath
@@ -466,8 +466,8 @@ function New-DeploymentPackage {
     
     # Create README for deployment
     $readmeContent = @"
-DMC - Data Management Center
-============================
+WUTC - Water Utilities Test Center
+==================================
 
 STANDALONE OFFLINE DEPLOYMENT PACKAGE
 
@@ -475,8 +475,8 @@ Build Date: $(Get-Date -Format "MMMM dd, yyyy 'at' HH:mm")
 Status: READY FOR DEPLOYMENT
 
 QUICK START:
-1. Double-click "Launch-DMC.bat" for guided startup, or
-2. Run "DMC.exe" directly
+1. Double-click "Launch-WUTC.bat" for guided startup, or
+2. Run "WUTC.exe" directly
 3. Open your browser to the displayed URL (typically http://127.0.0.1:8050)
 
 SYSTEM REQUIREMENTS:
@@ -487,9 +487,9 @@ SYSTEM REQUIREMENTS:
 - Some features may require external tools (see EXTERNAL DEPENDENCIES below)
 
 PACKAGE CONTENTS:
-- DMC.exe - Main application ($(([math]::Round((Get-Item $exePath).Length / 1MB, 0)))MB)
+- WUTC.exe - Main application ($(([math]::Round((Get-Item $exePath).Length / 1MB, 0)))MB)
 - config.json - External configuration file (editable without rebuilding)
-- Launch-DMC.bat - Simple batch launcher
+- Launch-WUTC.bat - Simple batch launcher
 - README.txt - This file
 
 FEATURES INCLUDED:
@@ -552,17 +552,17 @@ For technical support or questions, refer to the main project documentation.
     # Create Batch launcher
     $batchContent = @'
 @echo off
-title DMC - Data Management Center
+title WUTC - Water Utilities Test Center
 
 echo.
 echo ================================================================
-echo   DMC - Data Management Center
+echo   WUTC - Water Utilities Test Center
 echo ================================================================
 echo.
 
-:: Check if DMC.exe exists
-if not exist "DMC.exe" (
-    echo ERROR: DMC.exe not found in current directory
+:: Check if WUTC.exe exists
+if not exist "WUTC.exe" (
+    echo ERROR: WUTC.exe not found in current directory
     echo Please ensure you're running this script from the deployment folder
     echo.
     pause
@@ -572,13 +572,13 @@ if not exist "DMC.exe" (
 :: Check if config.json exists
 if not exist "config.json" (
     echo ERROR: config.json not found in current directory
-    echo Please ensure config.json is in the same folder as DMC.exe
+    echo Please ensure config.json is in the same folder as WUTC.exe
     echo.
     pause
     exit /b 1
 )
 
-echo Starting DMC application...
+echo Starting WUTC application...
 echo Location: %CD%
 echo.
 
@@ -588,7 +588,7 @@ echo Once started, open your web browser and navigate to:
 echo.
 echo     http://127.0.0.1:8050
 echo.
-echo Loading DMC services...
+echo Loading WUTC services...
 echo * CSV to RTU conversion service
 echo * RTU to CSV conversion service
 echo * Fluid ID converter service  
@@ -610,29 +610,29 @@ echo Configuration: config.json (can be edited while app is running)
 echo.
 
 :: Start the application in the same window
-echo Launching DMC.exe...
-"DMC.exe"
+echo Launching WUTC.exe...
+"WUTC.exe"
 '@
     
-    $batchFile = Join-Path $packagePath "Launch-DMC.bat"
+    $batchFile = Join-Path $packagePath "Launch-WUTC.bat"
     $batchContent | Out-File -FilePath $batchFile -Encoding ASCII
-    Write-Success "Created: Launch-DMC.bat"
+    Write-Success "Created: Launch-WUTC.bat"
     
     Write-Success "Deployment package created at: $packagePath"
     return $packagePath
 }
 
 function Show-BuildSummary {
-    $exePath = Join-Path $DistPath "DMC.exe"
+    $exePath = Join-Path $DistPath "WUTC.exe"
     $fileInfo = Get-Item $exePath
     $sizeInMB = [math]::Round($fileInfo.Length / 1MB, 2)
     
     Write-Host ""
     Write-Host "BUILD SUMMARY" -ForegroundColor $Green
     Write-Host "================" -ForegroundColor $Green
-    Write-Host "SUCCESS: Executable: DMC.exe ($sizeInMB MB)" -ForegroundColor $Green
+    Write-Host "SUCCESS: Executable: WUTC.exe ($sizeInMB MB)" -ForegroundColor $Green
     Write-Host "SUCCESS: External config: config.json" -ForegroundColor $Green
-    Write-Host "SUCCESS: Batch launcher: Launch-DMC.bat" -ForegroundColor $Green
+    Write-Host "SUCCESS: Batch launcher: Launch-WUTC.bat" -ForegroundColor $Green
     Write-Host "SUCCESS: PyInstaller build successful" -ForegroundColor $Green
     Write-Host "SUCCESS: Deployment package created" -ForegroundColor $Green
     Write-Host "SUCCESS: All dependencies bundled" -ForegroundColor $Green

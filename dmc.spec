@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec file for DMC Dash Application
+PyInstaller spec file for WUTC Dash Application
 This creates a one-file executable with all dependencies included
 Config.json is kept external to the executable for easy configuration
 """
@@ -59,13 +59,13 @@ try:
     from PyInstaller.utils.hooks import collect_data_files
     dmc_data = collect_data_files('dash_mantine_components')
     datas.extend(dmc_data)
-    print(f"Added {len(dmc_data)} DMC data files")
+    print(f"Added {len(dmc_data)} Dash Mantine Components data files")
 except ImportError:
-    # Fallback method for DMC
+    # Fallback method for Dash Mantine Components
     try:
         import dash_mantine_components as dmc
         dmc_path = os.path.dirname(dmc.__file__)
-        # Add the entire DMC package assets
+        # Add the entire Dash Mantine Components package assets
         if os.path.exists(dmc_path):
             datas.append((dmc_path, 'dash_mantine_components'))
     except ImportError:
@@ -334,7 +334,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='DMC',
+    name='WUTC',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

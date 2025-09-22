@@ -1,5 +1,5 @@
 """
-Date Range Service for DMC Application.
+Date Range Service for WUTC Application.
 Provides centralized date range generation with frequency patterns.
 Based on UTC_Core patterns for comprehensive date/time handling.
 """

@@ -1,5 +1,5 @@
 """
-Custom exception classes for the DMC application services.
+Custom exception classes for the WUTC application services.
 """
 
 from logging_config import get_logger
@@ -7,8 +7,8 @@ from logging_config import get_logger
 logger = get_logger(__name__)
 
 
-class DMCError(Exception):
-    """Base exception class for DMC application."""
+class WUTCError(Exception):
+    """Base exception class for WUTC application."""
 
     def __init__(self, message: str, details: str = None):
         self.message = message
@@ -21,37 +21,37 @@ class DMCError(Exception):
             logger.error(f"Details: {details}")
 
 
-class ValidationError(DMCError):
+class ValidationError(WUTCError):
     """Raised when input validation fails."""
     pass
 
 
-class DataNotFoundError(DMCError):
+class DataNotFoundError(WUTCError):
     """Raised when requested data is not found."""
     pass
 
 
-class DatabaseError(DMCError):
+class DatabaseError(WUTCError):
     """Raised when database operations fail."""
     pass
 
 
-class ConfigurationError(DMCError):
+class ConfigurationError(WUTCError):
     """Raised when configuration is invalid."""
     pass
 
 
-class ProcessingError(DMCError):
+class ProcessingError(WUTCError):
     """Raised when data processing operations fail."""
     pass
 
 
-class ExportError(DMCError):
+class ExportError(WUTCError):
     """Raised when data export operations fail."""
     pass
 
 
-class ServiceError(DMCError):
+class ServiceError(WUTCError):
     """Raised when service layer operations fail."""
     pass
 

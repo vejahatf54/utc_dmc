@@ -1,5 +1,5 @@
 """
-SPS Time Converter service for DMC application.
+SPS Time Converter service for WUTC application.
 Converts between SPS Unix timestamp (in minutes) and DateTime.
 Based on TimeConversionHelper.cs from UTC_Core project.
 Ignores daylight saving time by using fixed UTC offset.

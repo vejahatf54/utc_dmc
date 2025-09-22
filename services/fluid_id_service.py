@@ -1,5 +1,5 @@
 """
-Fluid ID Converter service for DMC application.
+Fluid ID Converter service for WUTC application.
 Converts between SCADA FID (37-basis numeric) and Fluid Names (alphanumeric).
 """
 

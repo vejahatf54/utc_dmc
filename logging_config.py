@@ -1,5 +1,5 @@
 """
-Logging configuration for DMC application.
+Logging configuration for WUTC application.
 Sets up file-based logging to avoid cluttering the terminal.
 """
 
@@ -18,7 +18,7 @@ def setup_logging():
     os.makedirs(logs_dir, exist_ok=True)
     
     # Create log filename with current date
-    log_filename = f"dmc_{datetime.now().strftime('%Y%m%d')}.log"
+    log_filename = f"wutc_{datetime.now().strftime('%Y%m%d')}.log"
     log_filepath = os.path.join(logs_dir, log_filename)
     
     # Configure root logger

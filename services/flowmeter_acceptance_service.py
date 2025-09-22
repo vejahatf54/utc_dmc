@@ -2323,7 +2323,7 @@ class FlowmeterAcceptanceService:
         return fig
 
     def _get_plotly_template(self, dmc_template: str) -> str:
-        """Convert DMC theme to Plotly template."""
+        """Convert Dash Mantine Components theme to Plotly template."""
         template_map = {
             'mantine_light': 'plotly_white',
             'mantine_dark': 'plotly_dark'

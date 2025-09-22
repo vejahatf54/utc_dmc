@@ -1,6 +1,6 @@
 """
 PyInstaller hook for dash_mantine_components
-Ensures all DMC components and assets are included for offline operation
+Ensures all Dash Mantine Components and assets are included for offline operation
 """
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -12,7 +12,7 @@ datas = collect_data_files('dash_mantine_components')
 # Collect all submodules
 hiddenimports = collect_submodules('dash_mantine_components')
 
-# Add specific DMC components that are commonly used
+# Add specific Dash Mantine Components that are commonly used
 dmc_components = [
     'dash_mantine_components.DatePickerInput',
     'dash_mantine_components.MantineProvider',
@@ -79,12 +79,12 @@ dmc_components = [
 
 hiddenimports.extend(dmc_components)
 
-# Ensure we get any assets/static files from DMC
+# Ensure we get any assets/static files from Dash Mantine Components
 try:
     import dash_mantine_components as dmc
     dmc_path = os.path.dirname(dmc.__file__)
     
-    # Add the entire DMC package to ensure assets are included
+    # Add the entire Dash Mantine Components package to ensure assets are included
     if os.path.exists(dmc_path):
         # Look for common asset directories
         for subdir in ['assets', 'static', '_assets', 'dist']:

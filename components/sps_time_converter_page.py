@@ -1,6 +1,6 @@
 """
-SPS Time Converter page component for DMC application.
-Uses pure DMC components with default theme styling.
+SPS Time Converter page component for WUTC application.
+Uses pure Dash Mantine components with default theme styling.
 Based on UcSpsTimeConverter from UTC_Core project.
 """
 

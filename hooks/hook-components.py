@@ -1,5 +1,5 @@
 """
-PyInstaller hook for DMC application components and services
+PyInstaller hook for WUTC application components and services
 Ensures all UI components and services are properly included
 """
 
@@ -106,7 +106,7 @@ scipy_modules = [
 ]
 hiddenimports.extend(scipy_modules)
 
-# Add DMC-specific modules (only components that exist in the current version)
+# Add Dash Mantine Components modules (only components that exist in the current version)
 dmc_modules = [
     'dash_mantine_components.DatePickerInput',
     'dash_mantine_components.MantineProvider',

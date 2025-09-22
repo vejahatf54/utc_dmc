@@ -1,6 +1,6 @@
 """
 Fetch Archive service for retrieving historical pipeline data.
-Adapted from LDUTC for DMC requirements - accessing UNC paths and decompressing zip files.
+Adapted from LDUTC for WUTC requirements - accessing UNC paths and decompressing zip files.
 """
 
 import os

@@ -1,5 +1,5 @@
 """
-Configuration Manager for DMC application.
+Configuration Manager for WUTC application.
 Provides centralized configuration loading capabilities with automatic decryption of sensitive values.
 """
 
@@ -304,21 +304,21 @@ class ConfigManager:
         """
         try:
             # Check for development/testing environment variables that disable encryption
-            if os.environ.get('DMC_DISABLE_ENCRYPTION', '').lower() in ('true', '1', 'yes'):
+            if os.environ.get('WUTC_DISABLE_ENCRYPTION', '').lower() in ('true', '1', 'yes'):
                 logger.debug(
-                    "Encryption disabled by DMC_DISABLE_ENCRYPTION environment variable")
+                    "Encryption disabled by WUTC_DISABLE_ENCRYPTION environment variable")
                 return False
 
             # Check if we're running in development mode (has sys._MEIPASS means packaged)
             if not hasattr(sys, '_MEIPASS'):
                 # Running in development mode - check if we should allow encryption
-                if os.environ.get('DMC_ALLOW_DEV_ENCRYPTION', '').lower() not in ('true', '1', 'yes'):
+                if os.environ.get('WUTC_ALLOW_DEV_ENCRYPTION', '').lower() not in ('true', '1', 'yes'):
                     logger.debug(
-                        "Encryption disabled in development mode (set DMC_ALLOW_DEV_ENCRYPTION=true to enable)")
+                        "Encryption disabled in development mode (set WUTC_ALLOW_DEV_ENCRYPTION=true to enable)")
                     return False
 
             # Check if we're running during build process
-            if os.environ.get('DMC_BUILD_MODE', '').lower() in ('true', '1', 'yes'):
+            if os.environ.get('WUTC_BUILD_MODE', '').lower() in ('true', '1', 'yes'):
                 logger.debug("Encryption disabled during build process")
                 return False
 

@@ -12,9 +12,15 @@ def setup_logging():
     """
     Configure logging to write to files instead of terminal.
     Creates a logs directory and rotates log files to prevent them from getting too large.
+    Logs are placed in D:\logs\WUTC if D: drive exists, otherwise C:\logs\WUTC
     """
+    # Determine the logs directory - prefer D: drive, fallback to C: drive
+    if os.path.exists('D:\\'):
+        logs_dir = 'D:\\logs\\WUTC'
+    else:
+        logs_dir = 'C:\\logs\\WUTC'
+    
     # Create logs directory if it doesn't exist
-    logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
     os.makedirs(logs_dir, exist_ok=True)
     
     # Create log filename with current date

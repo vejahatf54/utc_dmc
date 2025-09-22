@@ -392,7 +392,8 @@ class RtuResizer:
                     tag = line.strip()
                     # Skip empty lines and comments
                     if tag and not tag.startswith('#'):
-                        peek_tags.add(tag)
+                        # Convert to lowercase for case-insensitive matching
+                        peek_tags.add(tag.lower())
 
             logger.info(
                 f"Loaded {len(peek_tags)} tags from PEEK file: {peek_file}")
@@ -408,7 +409,8 @@ class RtuResizer:
         """Check if tag should be included based on PEEK file filter."""
         if peek_tags is None:
             return True  # No filter, include all tags
-        return tag in peek_tags
+        # Convert tag to lowercase for case-insensitive matching
+        return tag.lower() in peek_tags
 
     def _load_all_points(self):
         """Vectorized load of all points across records into contiguous arrays."""

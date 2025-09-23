@@ -151,7 +151,8 @@ class TestCsvFileSizeValidator(unittest.TestCase):
 
     def test_invalid_input_type(self):
         """Test validation with invalid input type."""
-        result = self.validator.validate("not a path or size")
+        result = self.validator.validate(
+            [1, 2, 3])  # List is not a valid input type
 
         self.assertFalse(result.success)
         self.assertIn("Invalid input type", result.error)
@@ -239,10 +240,12 @@ class TestCsvStructureValidator(unittest.TestCase):
 
     def test_invalid_csv_file(self):
         """Test validation with invalid CSV file."""
-        # Create temp file with invalid CSV content
+        # Create temp file with invalid CSV content that pandas cannot parse
         temp_file = tempfile.NamedTemporaryFile(
             mode='w', suffix='.csv', delete=False)
-        temp_file.write("invalid,csv,content\nwith,mismatched\ncolumns")
+        # Write malformed CSV with unescaped quotes and special characters
+        temp_file.write(
+            'invalid"quotes"in,middle,of"field\n"unclosed,quote,field\nvalid,data,here')
         temp_file.close()
 
         try:

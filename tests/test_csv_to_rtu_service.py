@@ -136,8 +136,8 @@ class TestMockRtuDataWriter(unittest.TestCase):
 
     def test_write_rtu_data_directory_creation_error(self):
         """Test mock RTU data writing when directory creation fails."""
-        # Use invalid path that can't be created
-        invalid_path = "/invalid/nonexistent/path/test.dt"
+        # Use invalid path that can't be created (invalid characters for Windows)
+        invalid_path = "C:\\invalid|path*with?illegal<characters>\\test.dt"
         data_points = [RtuDataPoint(RtuTimestamp.now(), "TAG001", 123.45, 1)]
 
         result = self.writer.write_rtu_data(data_points, invalid_path)

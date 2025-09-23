@@ -1,18 +1,17 @@
 """
-SPS Time Converter page component for WUTC application.
-Uses pure Dash Mantine components with default theme styling.
-Based on UcSpsTimeConverter from UTC_Core project.
+SPS Time Converter page component following clean architecture with dependency injection.
+Maintains exact UI design while using new controller and service layers.
 """
 
 import dash_mantine_components as dmc
 from dash import html, Input, Output, State, callback, callback_context
 from components.bootstrap_icon import BootstrapIcon
-from services.sps_time_converter_service import SpsTimeConverterService
-from datetime import datetime
+from core.dependency_injection import DIContainer
+from controllers.sps_time_controller import SpsTimeConverterPageController, SpsTimeUIResponseFormatter
 
 
 def create_sps_time_converter_page():
-    """Create the SPS Time Converter page layout."""
+    """Create the SPS Time Converter page layout with exact same design."""
     return dmc.Container([
         # Header Section
         dmc.Stack([
@@ -21,7 +20,8 @@ def create_sps_time_converter_page():
                     dmc.Group([
                         dmc.Title("SPS Time Converter", order=1, ta="center"),
                         dmc.ActionIcon(
-                            BootstrapIcon(icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
+                            BootstrapIcon(
+                                icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
                             id="sps-help-modal-btn",
                             variant="light",
                             color="blue",
@@ -42,7 +42,8 @@ def create_sps_time_converter_page():
                         dmc.GridCol([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="info-circle", width=20),
+                                    BootstrapIcon(
+                                        icon="info-circle", width=20),
                                     dmc.Text("Conversion Logic", fw=500)
                                 ], gap="xs"),
                                 dmc.Text([
@@ -60,11 +61,16 @@ def create_sps_time_converter_page():
                                     dmc.Text("Usage Tips", fw=500)
                                 ], gap="xs"),
                                 dmc.List([
-                                    dmc.ListItem("Enter values in either field for automatic conversion"),
-                                    dmc.ListItem("SPS timestamp is in minutes since 1967-12-31"),
-                                    dmc.ListItem("DateTime format: YYYY/MM/DD HH:MM:SS"),
-                                    dmc.ListItem("Times use standard timezone (ignores daylight saving time)"),
-                                    dmc.ListItem("Use 'Current Time' button for current timestamp")
+                                    dmc.ListItem(
+                                        "Enter values in either field for automatic conversion"),
+                                    dmc.ListItem(
+                                        "SPS timestamp is in minutes since 1967-12-31"),
+                                    dmc.ListItem(
+                                        "DateTime format: YYYY/MM/DD HH:MM:SS"),
+                                    dmc.ListItem(
+                                        "Times use standard timezone (ignores daylight saving time)"),
+                                    dmc.ListItem(
+                                        "Use 'Current Time' button for current timestamp")
                                 ], size="sm")
                             ])
                         ], span=6)
@@ -85,7 +91,8 @@ def create_sps_time_converter_page():
                             # Header with icon
                             dmc.Group([
                                 BootstrapIcon(icon="stopwatch", width=24),
-                                dmc.Text("SPS Unix Timestamp", fw=500, size="lg")
+                                dmc.Text("SPS Unix Timestamp",
+                                         fw=500, size="lg")
                             ], justify="center", gap="xs"),
 
                             dmc.Divider(),
@@ -115,7 +122,8 @@ def create_sps_time_converter_page():
                                         id="get-current-time-btn",
                                         variant="light",
                                         size="sm",
-                                        leftSection=BootstrapIcon(icon="clock", width=16)
+                                        leftSection=BootstrapIcon(
+                                            icon="clock", width=16)
                                     )
                                 ])
                             ], gap="md")
@@ -155,7 +163,7 @@ def create_sps_time_converter_page():
                             dmc.Stack([
                                 dmc.Text("Pick date and time",
                                          ta="center", c="dimmed", size="sm"),
-                                
+
                                 # DateTime picker with seconds
                                 dmc.DateTimePicker(
                                     id="sps-datetime-input",
@@ -172,7 +180,7 @@ def create_sps_time_converter_page():
                                         }
                                     }
                                 ),
-                                
+
                                 dmc.Text("Format: YYYY/MM/DD HH:MM:SS (24-hour)",
                                          ta="center", c="dimmed", size="xs")
                             ], gap="md")
@@ -192,8 +200,11 @@ def create_sps_time_converter_page():
     ], size="lg", p="md")
 
 
-# Initialize the SPS time converter service
-sps_service = SpsTimeConverterService()
+# Get controller from DI container
+def _get_controller() -> SpsTimeConverterPageController:
+    """Get the SPS Time Converter controller from DI container."""
+    container = DIContainer.get_instance()
+    return container.resolve("SpsTimeConverterPageController")
 
 
 # Callback for Current Time button
@@ -203,11 +214,11 @@ sps_service = SpsTimeConverterService()
     prevent_initial_call=True
 )
 def get_current_time(n_clicks):
-    """Get current time as SPS timestamp."""
+    """Get current time as SPS timestamp using controller."""
     if n_clicks:
-        result = sps_service.get_current_sps_timestamp()
-        if result["success"]:
-            return result["sps_timestamp"]
+        controller = _get_controller()
+        result = controller.handle_current_time_request()
+        return SpsTimeUIResponseFormatter.format_current_time_response(result)
     return ""
 
 
@@ -221,7 +232,7 @@ def get_current_time(n_clicks):
     prevent_initial_call=True
 )
 def handle_sps_conversion(timestamp_value, datetime_value):
-    """Handle automatic bidirectional conversion as user types"""
+    """Handle automatic bidirectional conversion using controller."""
 
     # Determine which input triggered the callback
     ctx = callback_context
@@ -229,68 +240,25 @@ def handle_sps_conversion(timestamp_value, datetime_value):
         return None, "", ""
 
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    controller = _get_controller()
 
     # Handle SPS Timestamp to DateTime conversion
     if trigger_id == 'sps-timestamp-input':
         if not timestamp_value or timestamp_value.strip() == "":
             return None, timestamp_value or "", ""
 
-        result = sps_service.sps_timestamp_to_datetime(timestamp_value.strip())
-
-        if result["success"]:
-            # Convert the timezone-aware datetime to a naive datetime for the DateTimePicker
-            # The DateTimePicker expects a naive datetime representing local time
-            dt_obj = result["datetime_obj"]
-            naive_dt = dt_obj.replace(tzinfo=None)  # Remove timezone info but keep the time values
-            
-            message = dmc.Alert(
-                title="Conversion Successful",
-                children=f"Converted: {timestamp_value} minutes → {result['datetime']}",
-                color="green",
-                icon=BootstrapIcon(icon="check")
-            )
-            return naive_dt, timestamp_value, message
-        else:
-            message = dmc.Alert(
-                title="Conversion Error",
-                children=result['error'],
-                color="red",
-                icon=BootstrapIcon(icon="exclamation-circle")
-            )
-            return None, timestamp_value, message
+        result = controller.handle_input_change(
+            'sps-timestamp-input', timestamp_value)
+        return SpsTimeUIResponseFormatter.format_conversion_response(result)
 
     # Handle DateTime to SPS Timestamp conversion
     elif trigger_id == 'sps-datetime-input':
         if not datetime_value:
             return datetime_value, "", ""
-        
-        # Convert datetime object to string format expected by service
-        if isinstance(datetime_value, datetime):
-            # DateTimePicker returns a naive datetime representing local time in our standard timezone
-            # Convert it to the format expected by our service
-            datetime_str = datetime_value.strftime("%Y/%m/%d %H:%M:%S")
-        else:
-            # If it's already a string, convert format
-            datetime_str = str(datetime_value).replace("-", "/")
 
-        result = sps_service.datetime_to_sps_timestamp(datetime_str)
-
-        if result["success"]:
-            message = dmc.Alert(
-                title="Conversion Successful",
-                children=f"Converted: {datetime_str} → {result['sps_timestamp']} minutes",
-                color="green",
-                icon=BootstrapIcon(icon="check")
-            )
-            return datetime_value, result["sps_timestamp"], message
-        else:
-            message = dmc.Alert(
-                title="Conversion Error",
-                children=result['error'],
-                color="red",
-                icon=BootstrapIcon(icon="exclamation-circle")
-            )
-            return datetime_value, "", message
+        result = controller.handle_input_change(
+            'sps-datetime-input', datetime_value)
+        return SpsTimeUIResponseFormatter.format_conversion_response(result)
 
     # Default case
     return None, "", ""

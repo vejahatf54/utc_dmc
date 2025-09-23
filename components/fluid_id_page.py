@@ -23,7 +23,7 @@ def create_fluid_id_page():
                         dmc.ActionIcon(
                             BootstrapIcon(
                                 icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
-                            id="fluid-help-modal-btn-v2",
+                            id="fluid-help-modal-btn",
                             variant="light",
                             color="blue",
                             size="lg"
@@ -37,7 +37,7 @@ def create_fluid_id_page():
             # Help Modal
             dmc.Modal(
                 title="How It Works",
-                id="fluid-help-modal-v2",
+                id="fluid-help-modal",
                 children=[
                     dmc.Grid([
                         dmc.GridCol([
@@ -99,7 +99,7 @@ def create_fluid_id_page():
                                 dmc.Text("Enter numeric FID (37-basis)",
                                          ta="center", c="dimmed", size="sm"),
                                 dmc.TextInput(
-                                    id="fid-input-v2",
+                                    id="fid-input",
                                     placeholder="e.g. 16292",
                                     size="lg",
                                     styles={
@@ -150,7 +150,7 @@ def create_fluid_id_page():
                                 dmc.Text("Enter alphanumeric name",
                                          ta="center", c="dimmed", size="sm"),
                                 dmc.TextInput(
-                                    id="fluid-name-input-v2",
+                                    id="fluid-name-input",
                                     placeholder="e.g. AWB",
                                     size="lg",
                                     styles={
@@ -173,7 +173,7 @@ def create_fluid_id_page():
 
             # Status/Message Section
             dmc.Center([
-                html.Div(id="conversion-message-v2")
+                html.Div(id="conversion-message")
             ])
 
         ], gap="lg")
@@ -182,14 +182,14 @@ def create_fluid_id_page():
 
 # Callback for bidirectional conversion using the new architecture
 @callback(
-    [Output("fluid-name-input-v2", "value"),
-     Output("fid-input-v2", "value"),
-     Output("conversion-message-v2", "children")],
-    [Input("fid-input-v2", "value"),
-     Input("fluid-name-input-v2", "value")],
+    [Output("fluid-name-input", "value"),
+     Output("fid-input", "value"),
+     Output("conversion-message", "children")],
+    [Input("fid-input", "value"),
+     Input("fluid-name-input", "value")],
     prevent_initial_call=True
 )
-def handle_conversion_v2(fid_value, fluid_name_value):
+def handle_conversion(fid_value, fluid_name_value):
     """Handle bidirectional conversion using the new controller architecture."""
     try:
         # Get the controller from DI container
@@ -206,14 +206,14 @@ def handle_conversion_v2(fid_value, fluid_name_value):
         # Determine which input triggered the callback
         trigger_id = callback_context.triggered[0]["prop_id"].split(".")[0]
 
-        if trigger_id == 'fid-input-v2':
+        if trigger_id == 'fid-input':
             if not fid_value or fid_value.strip() == "":
                 return "", "", ""
 
             result = controller.handle_input_change('fid-input', fid_value)
             return FluidIdUIResponseFormatter.format_conversion_response(result)
 
-        elif trigger_id == 'fluid-name-input-v2':
+        elif trigger_id == 'fluid-name-input':
             if not fluid_name_value or fluid_name_value.strip() == "":
                 return "", "", ""
 
@@ -236,12 +236,12 @@ def handle_conversion_v2(fid_value, fluid_name_value):
 
 # Callback for help modal
 @callback(
-    Output("fluid-help-modal-v2", "opened"),
-    Input("fluid-help-modal-btn-v2", "n_clicks"),
-    State("fluid-help-modal-v2", "opened"),
+    Output("fluid-help-modal", "opened"),
+    Input("fluid-help-modal-btn", "n_clicks"),
+    State("fluid-help-modal", "opened"),
     prevent_initial_call=True,
 )
-def toggle_help_modal_v2(n_clicks, opened):
+def toggle_help_modal(n_clicks, opened):
     """Toggle the help modal using controller."""
     try:
         # Get the controller from DI container

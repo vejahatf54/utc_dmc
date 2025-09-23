@@ -35,9 +35,15 @@ class DIContainer:
     def __init__(self):
         self._services: Dict[Type, ServiceDescriptor] = {}
         self._singletons: Dict[Type, Any] = {}
+        self._string_services: Dict[str, Type] = {}  # String to Type mapping
+
+    @classmethod
+    def get_instance(cls) -> 'DIContainer':
+        """Get the singleton instance of the DI container."""
+        return _container
 
     def register_transient(self, service_type: Type[T], implementation: Type[T] = None,
-                           factory: Callable[[], T] = None) -> 'DIContainer':
+                           factory: Callable[[], T] = None, name: str = None) -> 'DIContainer':
         """Register a transient service (new instance each time)."""
         if implementation is None and factory is None:
             implementation = service_type
@@ -49,10 +55,15 @@ class DIContainer:
             lifetime=ServiceLifetime.TRANSIENT
         )
         self._services[service_type] = descriptor
+
+        # Also register by string name if provided
+        if name:
+            self._string_services[name] = service_type
+
         return self
 
     def register_singleton(self, service_type: Type[T], implementation: Type[T] = None,
-                           factory: Callable[[], T] = None, instance: T = None) -> 'DIContainer':
+                           factory: Callable[[], T] = None, instance: T = None, name: str = None) -> 'DIContainer':
         """Register a singleton service (same instance every time)."""
         if instance is not None:
             descriptor = ServiceDescriptor(
@@ -71,10 +82,21 @@ class DIContainer:
             )
 
         self._services[service_type] = descriptor
+
+        # Also register by string name if provided
+        if name:
+            self._string_services[name] = service_type
+
         return self
 
-    def resolve(self, service_type: Type[T]) -> T:
-        """Resolve a service instance."""
+    def resolve(self, service_type) -> Any:
+        """Resolve a service instance by type or string name."""
+        # Handle string-based resolution
+        if isinstance(service_type, str):
+            if service_type not in self._string_services:
+                raise ValueError(f"Service '{service_type}' is not registered")
+            service_type = self._string_services[service_type]
+
         if service_type not in self._services:
             raise ValueError(
                 f"Service {service_type.__name__} is not registered")
@@ -135,6 +157,7 @@ class DIContainer:
         """Clear all registrations and singletons."""
         self._services.clear()
         self._singletons.clear()
+        self._string_services.clear()
 
 
 # Global container instance
@@ -152,20 +175,39 @@ def configure_services() -> DIContainer:
     container.clear()  # Start fresh
 
     # Register validators
-    from validation.input_validators import create_fid_validator, create_fluid_name_validator
+    from validation.input_validators import (
+        create_fid_validator, create_fluid_name_validator,
+        create_sps_timestamp_validator, create_datetime_validator
+    )
     from core.interfaces import IValidator
 
     # Note: For now, we'll create validators directly in services
     # In a more complex system, we might register these separately
 
     # Register core services
-    from core.interfaces import IFluidIdConverter
+    from core.interfaces import IFluidIdConverter, ISpsTimeConverter
     from services.fluid_id_service import FluidIdConverterService
+    from services.sps_time_converter_service import SpsTimeConverterService
 
     container.register_singleton(IFluidIdConverter, FluidIdConverterService)
 
+    # Register SPS Time Converter service with validators
+    def sps_service_factory(): return SpsTimeConverterService(
+        timestamp_validator=create_sps_timestamp_validator(),
+        datetime_validator=create_datetime_validator()
+    )
+    container.register_singleton(
+        ISpsTimeConverter, factory=sps_service_factory)
+    container.register_singleton(
+        SpsTimeConverterService, factory=sps_service_factory, name="SpsTimeConverterService")
+
     # Register controllers (transient - new instance per request)
     from controllers.fluid_id_controller import FluidIdPageController
-    container.register_transient(FluidIdPageController)
+    from controllers.sps_time_controller import SpsTimeConverterPageController
+
+    container.register_transient(
+        FluidIdPageController, name="FluidIdPageController")
+    container.register_transient(
+        SpsTimeConverterPageController, name="SpsTimeConverterPageController")
 
     return container

@@ -117,6 +117,30 @@ class IFluidIdConverter(IConverter):
         pass
 
 
+class ISpsTimeConverter(IConverter):
+    """Interface for SPS Time conversion operations."""
+
+    @abstractmethod
+    def sps_timestamp_to_datetime(self, sps_timestamp: str) -> Result[Dict[str, Any]]:
+        """Convert SPS Unix timestamp (in minutes) to DateTime."""
+        pass
+
+    @abstractmethod
+    def datetime_to_sps_timestamp(self, datetime_str: str) -> Result[Dict[str, Any]]:
+        """Convert DateTime string to SPS Unix timestamp (in minutes)."""
+        pass
+
+    @abstractmethod
+    def get_current_sps_timestamp(self) -> Result[Dict[str, Any]]:
+        """Get current datetime as SPS timestamp."""
+        pass
+
+    @abstractmethod
+    def get_system_info(self) -> Result[Dict[str, Any]]:
+        """Get information about the SPS time conversion system."""
+        pass
+
+
 # UI Controller Interface
 class IPageController(ABC):
     """Interface for page controllers that handle UI logic."""

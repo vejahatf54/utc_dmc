@@ -100,6 +100,76 @@ class CompositeValidator(IValidator):
         return Result.ok(True, "All validations passed")
 
 
+class SpsTimestampInputValidator(IValidator):
+    """Validates SPS timestamp input."""
+
+    def validate(self, value: Any) -> Result[bool]:
+        """Validate SPS timestamp input format and constraints."""
+        if value is None:
+            return Result.fail("SPS timestamp cannot be None", "Please provide a valid timestamp value")
+
+        if not isinstance(value, str):
+            return Result.fail("SPS timestamp must be a string", "Timestamp input must be text")
+
+        value = value.strip()
+        if not value:
+            return Result.fail("SPS timestamp cannot be empty", "Please enter a timestamp value")
+
+        try:
+            numeric_value = float(value)
+            # Allow reasonable range for SPS timestamps
+            min_minutes = -100_000_000  # About 190 years before epoch
+            max_minutes = 100_000_000   # About 190 years after epoch
+
+            if numeric_value < min_minutes or numeric_value > max_minutes:
+                return Result.fail("SPS timestamp out of reasonable range",
+                                   f"Timestamp must be between {min_minutes} and {max_minutes}")
+        except ValueError:
+            return Result.fail("SPS timestamp must be numeric", "Timestamp must be a valid number")
+
+        return Result.ok(True, "SPS timestamp input is valid")
+
+
+class DateTimeInputValidator(IValidator):
+    """Validates DateTime string input."""
+
+    def validate(self, value: Any) -> Result[bool]:
+        """Validate datetime input format."""
+        if value is None:
+            return Result.fail("DateTime cannot be None", "Please provide a valid datetime value")
+
+        if not isinstance(value, str):
+            return Result.fail("DateTime must be a string", "DateTime input must be text")
+
+        value = value.strip()
+        if not value:
+            return Result.fail("DateTime cannot be empty", "Please enter a datetime value")
+
+        # Check for basic datetime format patterns
+        from datetime import datetime
+        formats = [
+            "%Y/%m/%d %H:%M:%S",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y/%m/%d",
+            "%Y-%m-%d"
+        ]
+
+        for fmt in formats:
+            try:
+                dt = datetime.strptime(value, fmt)
+                # Validate reasonable year range
+                if dt.year < 1900 or dt.year > 2200:
+                    return Result.fail("DateTime year out of reasonable range",
+                                       f"Year must be between 1900 and 2200")
+                return Result.ok(True, "DateTime input is valid")
+            except ValueError:
+                continue
+
+        return Result.fail("Invalid datetime format",
+                           "Expected formats: YYYY/MM/DD HH:MM:SS, YYYY-MM-DD HH:MM:SS, "
+                           "YYYY/MM/DD, or YYYY-MM-DD")
+
+
 # Factory functions for common validator combinations
 def create_fid_validator() -> IValidator:
     """Create a complete FID validator."""
@@ -114,4 +184,20 @@ def create_fluid_name_validator() -> IValidator:
     return CompositeValidator(
         NonEmptyStringValidator("FluidName"),
         FluidNameInputValidator()
+    )
+
+
+def create_sps_timestamp_validator() -> IValidator:
+    """Create a complete SPS timestamp validator."""
+    return CompositeValidator(
+        NonEmptyStringValidator("SPS Timestamp"),
+        SpsTimestampInputValidator()
+    )
+
+
+def create_datetime_validator() -> IValidator:
+    """Create a complete datetime validator."""
+    return CompositeValidator(
+        NonEmptyStringValidator("DateTime"),
+        DateTimeInputValidator()
     )

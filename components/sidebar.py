@@ -1,6 +1,7 @@
 import dash_mantine_components as dmc
-from dash import html
+from dash import html, Input, Output, State, callback
 from components.bootstrap_icon import BootstrapIcon
+from services.auth_middleware import check_authentication_status, should_show_admin_features, get_current_username
 
 
 def build_sidebar():
@@ -113,15 +114,10 @@ def build_sidebar():
                             ], href="/flowmeter-acceptance", className="nav-link"),
                         ],
                     ),
-
-                    # Bottom section - can be used for other items if needed
-                    html.Div(
-                        className="sidebar-bottom",
-                        children=[
-                            # Settings removed - now accessible via modal in top-right
-                        ],
-                    ),
                 ]
             )
         ],
     )
+
+
+# Sidebar callbacks removed - user menu now handled in separate component

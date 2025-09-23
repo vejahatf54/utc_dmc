@@ -467,3 +467,19 @@
 :root[data-mantine-color-scheme='dark'] .text-muted {
   color: #868e96 !important;
 }
+
+/* User Menu Styles */
+.user-menu-item {
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.user-menu-item:hover {
+  background-color: var(--mantine-color-gray-1);
+}
+
+:root[data-mantine-color-scheme='dark'] .user-menu-item:hover {
+  background-color: var(--mantine-color-dark-5);
+}

@@ -1,0 +1,308 @@
+/* Authentication-specific styles for WUTC */
+
+/* Login page styles */
+.login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.login-form {
+    width: 100%;
+    max-width: 400px;
+    padding: 2rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Sidebar authentication styles */
+.sidebar-admin {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+
+.sidebar-section-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+    padding: 0 0.75rem;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-section-title-text {
+    display: inline;
+}
+
+.user-info {
+    font-size: 0.75rem;
+    color: #6b7280;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.05);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.user-info-text {
+    display: inline;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Sidebar responsive behavior */
+@media (max-width: 768px) {
+    .sidebar-section-title-text,
+    .user-info-text,
+    .sb-label {
+        display: none;
+    }
+    
+    .sidebar-section-title {
+        justify-content: center;
+        padding: 0;
+    }
+    
+    .user-info {
+        justify-content: center;
+        padding: 0.5rem;
+    }
+    
+    .nav-link {
+        justify-content: center;
+        padding: 0.75rem;
+    }
+}
+
+.logout-btn {
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s;
+    justify-content: flex-start;
+}
+
+.logout-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Ensure proper alignment with other nav items */
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.nav-link:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.nav-icon {
+    flex-shrink: 0;
+}
+
+/* Icon-only navigation links */
+.nav-link-icon-only {
+    justify-content: center;
+    gap: 0;
+    padding: 0.75rem;
+}
+
+.nav-link-icon-only .nav-icon {
+    margin: 0;
+}
+
+/* Remove user info section entirely */
+.user-info {
+    display: none !important;
+}
+
+.sidebar-section-title {
+    display: none !important;
+}
+
+/* Clean logout styling - same as other nav items */
+.logout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+/* AG Grid theme adaptation - default light theme styling */
+.ag-theme-alpine.ag-theme-dark-adaptive {
+    --ag-background-color: #ffffff;
+    --ag-foreground-color: #000000;
+}
+
+/* Dark theme adaptation for AG Grid */
+[data-mantine-color-scheme="dark"] .ag-theme-alpine.ag-theme-dark-adaptive {
+    --ag-background-color: var(--mantine-color-dark-6);
+    --ag-header-background-color: var(--mantine-color-dark-5);
+    --ag-odd-row-background-color: var(--mantine-color-dark-6);
+    --ag-row-hover-color: var(--mantine-color-dark-5);
+    --ag-border-color: var(--mantine-color-dark-4);
+    --ag-foreground-color: var(--mantine-color-gray-1);
+    --ag-header-foreground-color: var(--mantine-color-gray-0);
+}
+
+/* Users grid container */
+.users-grid-container {
+    margin-top: 1rem;
+}
+
+/* AG Grid action buttons styling */
+.ag-cell-action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+}
+
+.ag-cell-action-buttons button {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Action buttons container styling */
+#users-action-buttons-container {
+    background-color: var(--mantine-color-gray-0);
+    border: 1px solid var(--mantine-color-gray-3);
+}
+
+[data-mantine-color-scheme="dark"] #users-action-buttons-container {
+    background-color: var(--mantine-color-dark-6);
+    border: 1px solid var(--mantine-color-dark-4);
+}
+
+/* User management table styles */
+.users-table {
+    margin-top: 1rem;
+}
+
+.users-table th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    color: #374151;
+}
+
+.users-table td {
+    vertical-align: middle;
+}
+
+/* Access denied page styles */
+.access-denied-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.access-denied-content {
+    text-align: center;
+    padding: 2rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 400px;
+}
+
+/* Status indicators */
+.status-active {
+    color: #059669;
+    font-weight: 500;
+}
+
+.status-inactive {
+    color: #dc2626;
+    font-weight: 500;
+}
+
+.admin-badge {
+    background-color: #fef3c7;
+    color: #d97706;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.user-badge {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Form validation styles */
+.form-error {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.form-success {
+    color: #059669;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* AG Grid styling */
+.ag-theme-alpine {
+    --ag-font-family: inherit;
+    --ag-font-size: 14px;
+    --ag-header-background-color: var(--mantine-color-gray-0);
+    --ag-header-foreground-color: var(--mantine-color-gray-9);
+    --ag-border-color: var(--mantine-color-gray-3);
+    --ag-row-hover-color: var(--mantine-color-gray-0);
+}
+
+.ag-theme-alpine .ag-header-cell {
+    font-weight: 600;
+}
+
+.ag-theme-alpine .ag-row-hover {
+    background-color: var(--ag-row-hover-color);
+}
+
+/* Users grid container */
+.users-grid-container {
+    margin-top: 1rem;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .login-form {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+    
+    .access-denied-content {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+    
+    .ag-theme-alpine {
+        --ag-font-size: 12px;
+    }
+}

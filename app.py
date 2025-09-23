@@ -1,8 +1,13 @@
 import dash_mantine_components as dmc
 import sys
+from datetime import timedelta
 from dash import Dash, Input, Output, State, callback, dcc, html
 from components.sidebar import build_sidebar
 from components.home_page import create_home_page
+import components.login_page as login_page
+from components.password_change_page import create_password_change_page, create_forced_password_change_page
+from services.auth_middleware import get_protected_content, get_admin_protected_content, get_user_protected_content, check_authentication_status
+from services.auth_service import auth_service
 from components.fluid_id_page import create_fluid_id_page
 from components.sps_time_converter_page import create_sps_time_converter_page
 from components.csv_to_rtu_page import create_csv_to_rtu_page
@@ -19,6 +24,7 @@ import components.fetch_rtu_data_page as fetch_rtu_data_page
 import components.elevation_page as elevation_page
 import components.linefill_page as linefill_page
 from components.custom_theme import theme_controls, theme_name_mapping, size_name_mapping
+from components.user_menu import user_menu
 from services.config_manager import initialize_config_manager
 from logging_config import setup_logging
 
@@ -46,6 +52,9 @@ else:
 # Configure Flask server with secret key from config
 app.server.secret_key = config_manager.get_app_secret_key()
 
+# Configure session settings for authentication
+app.server.permanent_session_lifetime = timedelta(hours=8)
+
 sidebar = build_sidebar()
 
 # Main content container; content will be swapped by callback
@@ -62,8 +71,10 @@ app.layout = dmc.MantineProvider(
             sidebar,
             html.Div(
                 [
-                    html.Div(theme_controls,
-                             className="theme-controls-topright"),
+                    html.Div([
+                        theme_controls,
+                        user_menu
+                    ], className="theme-controls-topright"),
                     content
                 ],
                 className="main-content-shell"
@@ -109,51 +120,83 @@ def toggle_customize_modal(n, opened):
     return not opened
 
 
-# Server side callback for routing
+# Server side callback for routing with authentication
 @app.callback(
     Output("page-content", "children"),
     Input("url", "pathname")
 )
 def render_page(pathname: str):
-    if pathname in ("/", ""):
-        return create_home_page()
+    # Public routes (no authentication required)
+    if pathname == "/login":
+        # If already authenticated, redirect to home
+        if auth_service.is_authenticated():
+            return get_protected_content(pathname, create_home_page)
+        return login_page.create_login_page()
+    
+    # User routes (authenticated users only)
+    elif pathname == "/change-password":
+        return get_user_protected_content(pathname, create_password_change_page)
+    
+    # Admin-only routes
+    elif pathname == "/admin/users":
+        return get_admin_protected_content(pathname, login_page.create_user_management_page)
+    
+    # Protected routes (authentication required)
+    elif pathname in ("/", ""):
+        return get_protected_content(pathname, create_home_page)
     elif pathname == "/fluid-id-converter":
-        return create_fluid_id_page()
+        return get_protected_content(pathname, create_fluid_id_page)
     elif pathname == "/sps-time-converter":
-        return create_sps_time_converter_page()
+        return get_protected_content(pathname, create_sps_time_converter_page)
     elif pathname == "/csv-to-rtu":
-        return create_csv_to_rtu_page()
+        return get_protected_content(pathname, create_csv_to_rtu_page)
     elif pathname == "/rtu-to-csv":
-        return create_rtu_to_csv_page()
+        return get_protected_content(pathname, create_rtu_to_csv_page)
     elif pathname == "/rtu-resizer":
-        return create_rtu_resizer_page()
+        return get_protected_content(pathname, create_rtu_resizer_page)
     elif pathname == "/review-to-csv":
-        return create_review_to_csv_page()
+        return get_protected_content(pathname, create_review_to_csv_page)
     elif pathname == "/replace-text":
-        return create_replace_text_page()
+        return get_protected_content(pathname, create_replace_text_page)
     elif pathname == "/replay-poke-extractor":
-        return create_replay_file_poke_page()
+        return get_protected_content(pathname, create_replay_file_poke_page)
     elif pathname == "/fluid-properties":
-        return create_fluid_properties_page()
+        return get_protected_content(pathname, create_fluid_properties_page)
     elif pathname == "/fetch-archive":
-        return fetch_archive_page.layout
+        return get_protected_content(pathname, lambda: fetch_archive_page.layout)
     elif pathname == "/fetch-rtu-data":
-        return fetch_rtu_data_page.layout
+        return get_protected_content(pathname, lambda: fetch_rtu_data_page.layout)
     elif pathname == "/elevation":
-        return elevation_page.create_elevation_page()
+        return get_protected_content(pathname, elevation_page.create_elevation_page)
     elif pathname == "/linefill":
-        return linefill_page.create_linefill_page()
+        return get_protected_content(pathname, linefill_page.create_linefill_page)
     elif pathname == "/pymbsd-services":
-        return create_pymbsd_page()
+        return get_protected_content(pathname, create_pymbsd_page)
     elif pathname == "/flowmeter-acceptance":
-        return create_flowmeter_acceptance_page()
+        return get_protected_content(pathname, create_flowmeter_acceptance_page)
     elif pathname == "/settings":
         # Redirect settings to home page since we use a modal now
-        return create_home_page()
+        return get_protected_content(pathname, create_home_page)
+    
+    # 404 page
     return dmc.Container([
         dmc.Title("404 - Page Not Found", order=2),
         dmc.Text(f"The page '{pathname}' could not be found.", c="dimmed"),
     ], size="xl")
+
+
+# Logout callback
+@app.callback(
+    Output("url", "pathname", allow_duplicate=True),
+    Input({"type": "logout-button", "index": "user-menu"}, "n_clicks"),
+    prevent_initial_call=True
+)
+def handle_logout(user_menu_clicks):
+    """Handle logout button click from user menu."""
+    if user_menu_clicks:
+        auth_service.logout()
+        return "/login"
+    return "/"
 
 
 if __name__ == "__main__":

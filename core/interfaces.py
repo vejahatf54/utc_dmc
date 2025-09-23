@@ -4,7 +4,7 @@ Defines abstract base classes that enforce SOLID principles.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, TypeVar, Generic
+from typing import Any, Dict, TypeVar, Generic, List
 
 
 # Result pattern for consistent error handling
@@ -236,4 +236,89 @@ class IFactory(ABC, Generic[T]):
     @abstractmethod
     def create(self, *args, **kwargs) -> T:
         """Create an instance of type T."""
+        pass
+
+
+# RTU Processing Interfaces
+class IRtuFileReader(ABC):
+    """Interface for reading RTU file information."""
+
+    @abstractmethod
+    def get_file_info(self, file_path: str) -> Result[Dict[str, Any]]:
+        """Get RTU file information including timestamps and counts."""
+        pass
+
+    @abstractmethod
+    def validate_file(self, file_path: str) -> Result[bool]:
+        """Validate RTU file format and accessibility."""
+        pass
+
+
+class IRtuProcessor(ABC):
+    """Interface for RTU processing operations."""
+
+    @abstractmethod
+    def resize_rtu(self, input_file: str, output_file: str, start_time: str = None,
+                   end_time: str = None, tag_mapping_file: str = None) -> Result[Dict[str, Any]]:
+        """Resize RTU file with optional time range and tag mapping."""
+        pass
+
+    @abstractmethod
+    def export_csv_flat(self, input_file: str, output_file: str, start_time: str = None,
+                        end_time: str = None, tags_file: str = None, enable_sampling: bool = False,
+                        sample_interval: int = 60, sample_mode: str = "actual") -> Result[Dict[str, Any]]:
+        """Export RTU data to CSV format with filtering and sampling options."""
+        pass
+
+
+class IRtuToCSVConverter(IConverter):
+    """Interface for RTU to CSV conversion operations."""
+
+    @abstractmethod
+    def convert_file(self, rtu_file_path: str, output_directory: str,
+                     processing_options: Dict[str, Any] = None) -> Result[Dict[str, Any]]:
+        """Convert a single RTU file to CSV format."""
+        pass
+
+    @abstractmethod
+    def convert_multiple_files(self, rtu_file_paths: List[str], output_directory: str,
+                               processing_options: Dict[str, Any] = None) -> Result[Dict[str, Any]]:
+        """Convert multiple RTU files to CSV format."""
+        pass
+
+    @abstractmethod
+    def get_file_info(self, file_path: str) -> Result[Dict[str, Any]]:
+        """Get RTU file information."""
+        pass
+
+    @abstractmethod
+    def get_system_info(self) -> Result[Dict[str, Any]]:
+        """Get information about the RTU to CSV conversion system."""
+        pass
+
+
+class IRtuResizer(IConverter):
+    """Interface for RTU file resizing operations."""
+
+    @abstractmethod
+    def resize_file(self, input_file_path: str, output_file_path: str,
+                    start_time: str = None, end_time: str = None,
+                    tag_mapping_file: str = None) -> Result[Dict[str, Any]]:
+        """Resize RTU file by time range with optional tag mapping."""
+        pass
+
+    @abstractmethod
+    def get_file_info(self, file_path: str) -> Result[Dict[str, Any]]:
+        """Get RTU file information for resizing operations."""
+        pass
+
+    @abstractmethod
+    def validate_resize_request(self, input_file_path: str, output_file_path: str,
+                                start_time: str = None, end_time: str = None) -> Result[bool]:
+        """Validate a resize request before processing."""
+        pass
+
+    @abstractmethod
+    def get_system_info(self) -> Result[Dict[str, Any]]:
+        """Get information about the RTU resizing system."""
         pass

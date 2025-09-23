@@ -250,6 +250,16 @@ class ReviewCsvService:
             return
 
         merged_df = pd.concat(df_list, ignore_index=True)
+
+        # Remove duplicate rows to keep only distinct rows
+        initial_row_count = len(merged_df)
+        merged_df = merged_df.drop_duplicates().reset_index(drop=True)
+        final_row_count = len(merged_df)
+
+        if initial_row_count != final_row_count:
+            logger.info(
+                f"Removed {initial_row_count - final_row_count} duplicate rows, keeping {final_row_count} distinct rows")
+
         merged_path = self.folder_path / self.merged_file
         merged_df.to_csv(merged_path, index=False)
         logger.info("Merged CSV saved to %s with %d rows",

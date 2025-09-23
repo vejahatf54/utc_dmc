@@ -1,6 +1,7 @@
 """
-RTU to CSV Converter page component for DMC application.
+RTU to CSV Converter page component for DMC application (v2 - Controller Integration).
 Converts RTU files to CSV format with peek file filtering and parallel processing.
+Uses SOLID principles with dependency injection and controller pattern.
 """
 
 import dash_mantine_components as dmc
@@ -18,9 +19,13 @@ from datetime import datetime, timedelta, date
 from components.directory_selector import create_directory_selector, create_directory_selector_callback
 import tempfile
 from logging_config import get_logger
+from core.dependency_injection import configure_services
 
 # Set up logging
 logger = get_logger(__name__)
+
+# Initialize dependency injection container
+container = configure_services()
 
 
 # RTU File Service Wrapper for handling background operations using new RTU service
@@ -153,10 +158,19 @@ class RtuServiceWrapper:
 
                 # Call the appropriate export method based on CSV format
                 try:
-                    if csv_format == "flat-csv":
+                    logger.info(
+                        f"CSV format selected: '{csv_format}' (type: {type(csv_format)})")
+
+                    # Normalize the csv_format value to handle any potential encoding issues
+                    csv_format_normalized = str(csv_format).strip().lower()
+
+                    if csv_format_normalized == "flat-csv" or "flat" in csv_format_normalized:
+                        logger.info("Using export_csv_flat method")
                         points_exported = self._current_service.export_csv_flat(
                             dt_file, output_file, **export_kwargs)
-                    else:  # dataframe-csv
+                    else:  # dataframe-csv or any other value
+                        logger.info(
+                            f"Using export_csv_dataframe method (csv_format was: '{csv_format}')")
                         points_exported = self._current_service.export_csv_dataframe(
                             dt_file, output_file, **export_kwargs)
 
@@ -266,10 +280,6 @@ class RtuServiceWrapper:
         for csv_file in csv_files:
             try:
                 df = pd.read_csv(csv_file)
-
-                # Add source file column
-                df['source_file'] = os.path.basename(csv_file)
-
                 dataframes.append(df)
                 logger.debug(f"Read {len(df)} rows from {csv_file}")
 
@@ -284,6 +294,15 @@ class RtuServiceWrapper:
         merged_df = pd.concat(dataframes, ignore_index=True)
         logger.info(
             f"Combined {len(merged_df)} total rows from {len(dataframes)} files")
+
+        # Remove duplicate rows to keep only distinct rows
+        initial_row_count = len(merged_df)
+        merged_df = merged_df.drop_duplicates().reset_index(drop=True)
+        final_row_count = len(merged_df)
+
+        if initial_row_count != final_row_count:
+            logger.info(
+                f"Removed {initial_row_count - final_row_count} duplicate rows, keeping {final_row_count} distinct rows")
 
         # Try to find timestamp column and sort by it
         timestamp_columns = []
@@ -1122,6 +1141,10 @@ def convert_rtu_to_csv(n_clicks, peek_file, start_datetime, end_datetime,
             action="show"
         )
 
+        # Log the csv_format value for debugging
+        logger.info(
+            f"Callback received csv_format: '{csv_format}' (type: {type(csv_format)})")
+
         # Prepare processing parameters
         processing_params = {
             'rtu_folder_path': rtu_folder['path'],
@@ -1192,6 +1215,23 @@ def cancel_rtu_processing(n_clicks, current_store):
     )
 
     return "", {'status': 'cancelled'}, True, True, False, cancel_notification
+
+
+# Debug callback to check CSV format value
+@callback(
+    Output('rtu-csv-notifications', 'children', allow_duplicate=True),
+    Input('csv-format-radio', 'value'),
+    prevent_initial_call=True
+)
+def debug_csv_format(csv_format):
+    """Debug callback to show current CSV format selection."""
+    return dmc.Notification(
+        title="CSV Format Debug",
+        message=f"Selected format: '{csv_format}' (type: {type(csv_format)})",
+        color="blue",
+        autoClose=3000,
+        action="show"
+    )
 
 
 # RTU Directory selector callback

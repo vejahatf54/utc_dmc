@@ -251,4 +251,52 @@ def configure_services() -> DIContainer:
     container.register_transient(
         CsvToRtuPageController, factory=csv_controller_factory, name="csv_to_rtu_controller")
 
+    # Register RTU services
+    from core.interfaces import IRtuFileReader, IRtuToCSVConverter, IRtuResizer
+    from services.rtu_file_reader_service import RtuFileReaderService
+    from services.rtu_to_csv_converter_service import RtuToCsvConverterService
+    from services.rtu_resizer_service import RtuResizerService
+
+    # Register RTU file reader (singleton - stateless service)
+    container.register_singleton(
+        IRtuFileReader, RtuFileReaderService, name="rtu_file_reader")
+
+    # Register RTU to CSV converter service
+    def rtu_csv_converter_factory():
+        file_reader = container.resolve("rtu_file_reader")
+        return RtuToCsvConverterService(file_reader)
+
+    container.register_singleton(
+        IRtuToCSVConverter, factory=rtu_csv_converter_factory, name="rtu_to_csv_converter")
+
+    # Register RTU resizer service
+    def rtu_resizer_factory():
+        file_reader = container.resolve("rtu_file_reader")
+        return RtuResizerService(file_reader)
+
+    container.register_singleton(
+        IRtuResizer, factory=rtu_resizer_factory, name="rtu_resizer")
+
+    # Register RTU controllers (transient - new instance per request)
+    from controllers.rtu_to_csv_controller import RtuToCsvPageController
+    from controllers.rtu_resizer_controller import RtuResizerPageController
+
+    # Register RTU to CSV controller
+    def rtu_csv_controller_factory():
+        converter_service = container.resolve("rtu_to_csv_converter")
+        file_reader = container.resolve("rtu_file_reader")
+        return RtuToCsvPageController(converter_service, file_reader)
+
+    container.register_transient(
+        RtuToCsvPageController, factory=rtu_csv_controller_factory, name="rtu_to_csv_controller")
+
+    # Register RTU resizer controller
+    def rtu_resizer_controller_factory():
+        resizer_service = container.resolve("rtu_resizer")
+        file_reader = container.resolve("rtu_file_reader")
+        return RtuResizerPageController(resizer_service, file_reader)
+
+    container.register_transient(
+        RtuResizerPageController, factory=rtu_resizer_controller_factory, name="rtu_resizer_controller")
+
     return container

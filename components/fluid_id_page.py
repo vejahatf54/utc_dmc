@@ -1,16 +1,18 @@
 """
-Fluid ID Converter page component for DMC application.
-Uses pure DMC components with default theme styling.
+Refactored Fluid ID Converter page component following clean architecture.
+Separates UI logic from business logic using dependency injection.
 """
 
 import dash_mantine_components as dmc
 from dash import html, Input, Output, State, callback, callback_context
 from components.bootstrap_icon import BootstrapIcon
-from services.fluid_id_service import FluidIdConverterService
+from controllers.fluid_id_controller import FluidIdPageController, FluidIdUIResponseFormatter
+from core.dependency_injection import get_container
+from core.interfaces import IFluidIdConverter
 
 
 def create_fluid_id_page():
-    """Create the Fluid ID Converter page layout."""
+    """Create the refactored Fluid ID Converter page layout."""
     return dmc.Container([
         # Header Section
         dmc.Stack([
@@ -19,8 +21,9 @@ def create_fluid_id_page():
                     dmc.Group([
                         dmc.Title("Fluid ID Converter", order=1, ta="center"),
                         dmc.ActionIcon(
-                            BootstrapIcon(icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
-                            id="fluid-help-modal-btn",
+                            BootstrapIcon(
+                                icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
+                            id="fluid-help-modal-btn-v2",
                             variant="light",
                             color="blue",
                             size="lg"
@@ -34,13 +37,14 @@ def create_fluid_id_page():
             # Help Modal
             dmc.Modal(
                 title="How It Works",
-                id="fluid-help-modal",
+                id="fluid-help-modal-v2",
                 children=[
                     dmc.Grid([
                         dmc.GridCol([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="info-circle", width=20),
+                                    BootstrapIcon(
+                                        icon="info-circle", width=20),
                                     dmc.Text("Conversion Logic", fw=500)
                                 ], gap="xs"),
                                 dmc.Text([
@@ -57,10 +61,14 @@ def create_fluid_id_page():
                                     dmc.Text("Usage Tips", fw=500)
                                 ], gap="xs"),
                                 dmc.List([
-                                    dmc.ListItem("Enter values in either field for automatic conversion"),
-                                    dmc.ListItem("FID values must be non-negative integers"),
-                                    dmc.ListItem("Fluid names support spaces and alphanumeric characters"),
-                                    dmc.ListItem("Names are automatically padded with spaces if needed")
+                                    dmc.ListItem(
+                                        "Enter values in either field for automatic conversion"),
+                                    dmc.ListItem(
+                                        "FID values must be non-negative integers"),
+                                    dmc.ListItem(
+                                        "Fluid names support spaces and alphanumeric characters"),
+                                    dmc.ListItem(
+                                        "Names are automatically padded with spaces if needed")
                                 ], size="sm")
                             ])
                         ], span=6)
@@ -91,7 +99,7 @@ def create_fluid_id_page():
                                 dmc.Text("Enter numeric FID (37-basis)",
                                          ta="center", c="dimmed", size="sm"),
                                 dmc.TextInput(
-                                    id="fid-input",
+                                    id="fid-input-v2",
                                     placeholder="e.g. 16292",
                                     size="lg",
                                     styles={
@@ -131,8 +139,7 @@ def create_fluid_id_page():
                         dmc.Stack([
                             # Header with icon
                             dmc.Group([
-                                BootstrapIcon(
-                                    icon="type", width=24),
+                                BootstrapIcon(icon="type", width=24),
                                 dmc.Text("Fluid Name", fw=500, size="lg")
                             ], justify="center", gap="xs"),
 
@@ -143,7 +150,7 @@ def create_fluid_id_page():
                                 dmc.Text("Enter alphanumeric name",
                                          ta="center", c="dimmed", size="sm"),
                                 dmc.TextInput(
-                                    id="fluid-name-input",
+                                    id="fluid-name-input-v2",
                                     placeholder="e.g. AWB",
                                     size="lg",
                                     styles={
@@ -166,96 +173,88 @@ def create_fluid_id_page():
 
             # Status/Message Section
             dmc.Center([
-                html.Div(id="conversion-message")
+                html.Div(id="conversion-message-v2")
             ])
 
         ], gap="lg")
     ], size="lg", p="md")
 
 
-# Initialize the fluid ID service
-fluid_service = FluidIdConverterService()
-
-
-# Callback for Fluid ID Converter
+# Callback for bidirectional conversion using the new architecture
 @callback(
-    [Output("fluid-name-input", "value"),
-     Output("fid-input", "value"),
-     Output("conversion-message", "children")],
-    [Input("fid-input", "value"),
-     Input("fluid-name-input", "value")],
+    [Output("fluid-name-input-v2", "value"),
+     Output("fid-input-v2", "value"),
+     Output("conversion-message-v2", "children")],
+    [Input("fid-input-v2", "value"),
+     Input("fluid-name-input-v2", "value")],
     prevent_initial_call=True
 )
-def handle_automatic_conversion(fid_value, fluid_name_value):
-    """Handle automatic bidirectional conversion as user types"""
+def handle_conversion_v2(fid_value, fluid_name_value):
+    """Handle bidirectional conversion using the new controller architecture."""
+    try:
+        # Get the controller from DI container
+        container = get_container()
+        if not container.is_registered(IFluidIdConverter):
+            # Fallback if not registered yet
+            from services.fluid_id_service import FluidIdConverterService
+            converter = FluidIdConverterService()
+        else:
+            converter = container.resolve(IFluidIdConverter)
 
-    # Determine which input triggered the callback
-    ctx = callback_context
-    if not ctx.triggered:
+        controller = FluidIdPageController(converter)
+
+        # Determine which input triggered the callback
+        trigger_id = callback_context.triggered[0]["prop_id"].split(".")[0]
+
+        if trigger_id == 'fid-input-v2':
+            if not fid_value or fid_value.strip() == "":
+                return "", "", ""
+
+            result = controller.handle_input_change('fid-input', fid_value)
+            return FluidIdUIResponseFormatter.format_conversion_response(result)
+
+        elif trigger_id == 'fluid-name-input-v2':
+            if not fluid_name_value or fluid_name_value.strip() == "":
+                return "", "", ""
+
+            result = controller.handle_input_change(
+                'fluid-name-input', fluid_name_value)
+            return FluidIdUIResponseFormatter.format_conversion_response(result)
+
+        # Default case
         return "", "", ""
 
-    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-
-    # Handle FID to Fluid Name conversion
-    if trigger_id == 'fid-input':
-        if not fid_value or fid_value.strip() == "":
-            return "", fid_value or "", ""
-
-        result = fluid_service.convert_fid_to_fluid_name(fid_value.strip())
-
-        if result["success"]:
-            message = dmc.Alert(
-                title="Conversion Successful",
-                children=f"Converted: {fid_value} → {result['fluid_name']}",
-                color="green",
-                icon=BootstrapIcon(icon="check")
-            )
-            return result["fluid_name"], fid_value, message
-        else:
-            message = dmc.Alert(
-                title="Conversion Error",
-                children=result['error'],
-                color="red",
-                icon=BootstrapIcon(icon="exclamation-circle")
-            )
-            return "", fid_value, message
-
-    # Handle Fluid Name to FID conversion
-    elif trigger_id == 'fluid-name-input':
-        if not fluid_name_value or fluid_name_value.strip() == "":
-            return fluid_name_value or "", "", ""
-
-        result = fluid_service.convert_fluid_name_to_fid(
-            fluid_name_value.strip())
-
-        if result["success"]:
-            message = dmc.Alert(
-                title="Conversion Successful",
-                children=f"Converted: {fluid_name_value} → {result['fid']}",
-                color="green",
-                icon=BootstrapIcon(icon="check")
-            )
-            return fluid_name_value, result["fid"], message
-        else:
-            message = dmc.Alert(
-                title="Conversion Error",
-                children=result['error'],
-                color="red",
-                icon=BootstrapIcon(icon="exclamation-circle")
-            )
-            return fluid_name_value, "", message
-
-    # Default case
-    return "", "", ""
+    except Exception as e:
+        error_message = dmc.Alert(
+            title="System Error",
+            children=f"An unexpected error occurred: {str(e)}",
+            color="red",
+            icon=BootstrapIcon(icon="exclamation-triangle")
+        )
+        return "", "", error_message
 
 
 # Callback for help modal
 @callback(
-    Output("fluid-help-modal", "opened"),
-    Input("fluid-help-modal-btn", "n_clicks"),
-    State("fluid-help-modal", "opened"),
+    Output("fluid-help-modal-v2", "opened"),
+    Input("fluid-help-modal-btn-v2", "n_clicks"),
+    State("fluid-help-modal-v2", "opened"),
     prevent_initial_call=True,
 )
-def toggle_help_modal(n_clicks, opened):
-    """Toggle the help modal."""
-    return not opened
+def toggle_help_modal_v2(n_clicks, opened):
+    """Toggle the help modal using controller."""
+    try:
+        # Get the controller from DI container
+        container = get_container()
+        if not container.is_registered(IFluidIdConverter):
+            from services.fluid_id_service import FluidIdConverterService
+            converter = FluidIdConverterService()
+        else:
+            converter = container.resolve(IFluidIdConverter)
+
+        controller = FluidIdPageController(converter)
+        return controller.handle_modal_toggle(n_clicks, opened)
+
+    except Exception:
+        # Fallback behavior
+        return not opened if n_clicks else opened

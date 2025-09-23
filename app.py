@@ -1,3 +1,4 @@
+from core.dependency_injection import configure_services
 import dash_mantine_components as dmc
 import sys
 from datetime import timedelta
@@ -36,6 +37,9 @@ dmc.add_figure_templates()
 
 # Initialize configuration manager on application startup
 config_manager = initialize_config_manager()
+
+# Initialize dependency injection container
+container = configure_services()
 
 # Initialize app with appropriate debug mode
 # When packaged with PyInstaller, disable debug mode for production
@@ -132,15 +136,15 @@ def render_page(pathname: str):
         if auth_service.is_authenticated():
             return get_protected_content(pathname, create_home_page)
         return login_page.create_login_page()
-    
+
     # User routes (authenticated users only)
     elif pathname == "/change-password":
         return get_user_protected_content(pathname, create_password_change_page)
-    
+
     # Admin-only routes
     elif pathname == "/admin/users":
         return get_admin_protected_content(pathname, login_page.create_user_management_page)
-    
+
     # Protected routes (authentication required)
     elif pathname in ("/", ""):
         return get_protected_content(pathname, create_home_page)
@@ -177,7 +181,7 @@ def render_page(pathname: str):
     elif pathname == "/settings":
         # Redirect settings to home page since we use a modal now
         return get_protected_content(pathname, create_home_page)
-    
+
     # 404 page
     return dmc.Container([
         dmc.Title("404 - Page Not Found", order=2),

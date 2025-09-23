@@ -201,13 +201,54 @@ def configure_services() -> DIContainer:
     container.register_singleton(
         SpsTimeConverterService, factory=sps_service_factory, name="SpsTimeConverterService")
 
+    # Register CSV to RTU services
+    from core.interfaces import ICsvToRtuConverter, ICsvValidator, IRtuDataWriter
+    from services.csv_to_rtu_service import (
+        CsvToRtuConverterService, SpsRtuDataWriter, MockRtuDataWriter
+    )
+    from validation.csv_validators import CsvToRtuValidator
+
+    # Register CSV validators
+    container.register_singleton(
+        ICsvValidator, CsvToRtuValidator, name="csv_validator")
+
+    # Register RTU data writer (use real sps_api writer if available, otherwise mock)
+    def rtu_writer_factory():
+        writer = SpsRtuDataWriter()
+        if writer.is_available():
+            return writer
+        else:
+            return MockRtuDataWriter()
+
+    container.register_singleton(
+        IRtuDataWriter, factory=rtu_writer_factory, name="rtu_writer")
+
+    # Register CSV to RTU converter service
+    def csv_converter_factory():
+        csv_validator = container.resolve("csv_validator")
+        rtu_writer = container.resolve("rtu_writer")
+        return CsvToRtuConverterService(csv_validator, rtu_writer)
+
+    container.register_singleton(
+        ICsvToRtuConverter, factory=csv_converter_factory, name="csv_to_rtu_converter")
+
     # Register controllers (transient - new instance per request)
     from controllers.fluid_id_controller import FluidIdPageController
     from controllers.sps_time_controller import SpsTimeConverterPageController
+    from controllers.csv_to_rtu_controller import CsvToRtuPageController
 
     container.register_transient(
         FluidIdPageController, name="FluidIdPageController")
     container.register_transient(
         SpsTimeConverterPageController, name="SpsTimeConverterPageController")
+
+    # Register CSV to RTU controller
+    def csv_controller_factory():
+        converter_service = container.resolve("csv_to_rtu_converter")
+        csv_validator = container.resolve("csv_validator")
+        return CsvToRtuPageController(converter_service, csv_validator)
+
+    container.register_transient(
+        CsvToRtuPageController, factory=csv_controller_factory, name="csv_to_rtu_controller")
 
     return container

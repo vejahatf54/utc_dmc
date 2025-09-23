@@ -1,22 +1,23 @@
 """
-CSV to RTU Converter page component for DMC application.
-Uses DMC components for file upload, directory selection, and conversion.
+CSV to RTU Converter page component - Refactored Implementation
+
+This component follows clean architecture principles while maintaining
+the exact same UI layout and design as the original implementation.
+Uses controller pattern and dependency injection.
 """
 
 import dash_mantine_components as dmc
 from dash import html, Input, Output, State, callback, callback_context, dcc, ALL, no_update
 from components.bootstrap_icon import BootstrapIcon
-import base64
-import io
-import pandas as pd
-import os
-from typing import List, Dict, Any
-from components.directory_selector import create_directory_selector, create_directory_selector_callback
-from services.csv_to_rtu_service import CsvToRtuService
+from components.directory_selector import create_directory_selector
+
+# Import the controller and services through dependency injection
+from core.dependency_injection import DIContainer
+from controllers.csv_to_rtu_controller import CsvToRtuPageController, CsvToRtuUIResponseFormatter
 
 
 def create_csv_to_rtu_page():
-    """Create the CSV to RTU Converter page layout."""
+    """Create the CSV to RTU Converter page layout - Refactored Version."""
 
     # Create directory selector component
     directory_component, directory_ids = create_directory_selector(
@@ -37,9 +38,11 @@ def create_csv_to_rtu_page():
             dmc.Center([
                 dmc.Stack([
                     dmc.Group([
-                        dmc.Title("CSV to RTU Converter", order=2, ta="center"),
+                        dmc.Title("CSV to RTU Converter",
+                                  order=2, ta="center"),
                         dmc.ActionIcon(
-                            BootstrapIcon(icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
+                            BootstrapIcon(
+                                icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
                             id="help-modal-btn",
                             variant="light",
                             color="blue",
@@ -53,42 +56,176 @@ def create_csv_to_rtu_page():
 
             # Help Modal
             dmc.Modal(
-                title="How It Works",
+                title="CSV to RTU Converter - Complete Guide",
                 id="help-modal",
                 children=[
-                    dmc.Grid([
-                        dmc.GridCol([
+                    dmc.Stack([
+                        # Main Instructions
+                        dmc.Alert(
+                            children=[
+                                dmc.Text([
+                                    "• Select the directory containing all the CSV files exported from PI.",
+                                    html.Br(),
+                                    "• PI data shall be exported into the following CSV file format"
+                                ])
+                            ],
+                            icon=BootstrapIcon(icon="info-circle", width=20),
+                            title="Overview",
+                            color="blue",
+                            variant="outline"
+                        ),
+
+                        dmc.Space(h="sm"),
+
+                        # CSV Format Example
+                        dmc.Paper([
+                            dmc.Stack([
+                                dmc.Text("Required CSV Format:",
+                                         fw=600, size="md"),
+                                dmc.Code(
+                                    """Time_Stamp,    TAG1,    TAG2,    TAG3,    ...
+9/1/2021 0:00:00, VALUE1, VALUE2, VALUE3, ...
+...""",
+                                    block=True,
+                                )
+                            ], gap="sm")
+                        ], withBorder=True, p="lg"),
+
+                        dmc.Space(h="md"),
+
+                        # Format Specifications with better spacing
+                        dmc.Grid([
+                            dmc.GridCol([
+                                dmc.Paper([
+                                    dmc.Stack([
+                                        dmc.Group([
+                                            BootstrapIcon(
+                                                icon="calendar", width=20, color="var(--mantine-color-blue-6)"),
+                                            dmc.Text(
+                                                "Column Specifications", fw=600, size="md")
+                                        ], gap="sm"),
+                                        dmc.Divider(size="xs"),
+                                        dmc.List([
+                                            dmc.ListItem([
+                                                dmc.Text("Time_stamp",
+                                                         fw=600, c="blue"),
+                                                dmc.Text(
+                                                    " - is a valid date time format associated with point", size="sm")
+                                            ]),
+                                            dmc.ListItem([
+                                                dmc.Text(
+                                                    "TAG1...3", fw=600, c="blue"),
+                                                dmc.Text(
+                                                    " - are the MBS tags defined in the lxx_scada.inc", size="sm")
+                                            ]),
+                                            dmc.ListItem([
+                                                dmc.Text("VALUE1...3",
+                                                         fw=600, c="blue"),
+                                                dmc.Text(
+                                                    " - are measured float values associated with each tags", size="sm")
+                                            ])
+                                        ], spacing="sm")
+                                    ], gap="sm")
+                                ], withBorder=True, p="md")
+                            ], span=6),
+                            dmc.GridCol([
+                                dmc.Paper([
+                                    dmc.Stack([
+                                        dmc.Group([
+                                            BootstrapIcon(
+                                                icon="gear", width=20, color="var(--mantine-color-green-6)"),
+                                            dmc.Text("Process Steps",
+                                                     fw=600, size="md")
+                                        ], gap="sm"),
+                                        dmc.Divider(size="xs"),
+                                        dmc.List([
+                                            dmc.ListItem([
+                                                dmc.Text(
+                                                    "1. Upload CSV files", fw=500),
+                                                dmc.Text(
+                                                    " with the correct format", size="sm")
+                                            ]),
+                                            dmc.ListItem([
+                                                dmc.Text(
+                                                    "2. Select output directory", fw=500),
+                                                dmc.Text(
+                                                    " for RTU files", size="sm")
+                                            ]),
+                                            dmc.ListItem([
+                                                dmc.Text(
+                                                    "3. Click ", size="sm"),
+                                                dmc.Text(
+                                                    "Write RtuFile", fw=600, c="green", span=True),
+                                                dmc.Text(
+                                                    " to convert files", size="sm")
+                                            ]),
+                                            dmc.ListItem([
+                                                dmc.Text(
+                                                    "4. RTU files saved", fw=500),
+                                                dmc.Text(
+                                                    " with same name in same directory", size="sm")
+                                            ])
+                                        ], spacing="sm")
+                                    ], gap="sm")
+                                ], withBorder=True, p="md")
+                            ], span=6)
+                        ], gutter="lg"),
+
+                        dmc.Space(h="md"),
+
+                        # Warning Section
+                        dmc.Alert(
+                            children=[
+                                dmc.Text([
+                                    "If ",
+                                    dmc.Text("VALUE1...3", fw=700,
+                                             c="orange", span=True),
+                                    " cannot be parsed into a float number value, the value by default will be set to ",
+                                    dmc.Text("ZERO", fw=700,
+                                             c="red", span=True),
+                                    " and the quality of the point will be set to ",
+                                    dmc.Text("BAD", fw=700,
+                                             c="red", span=True),
+                                    " in the RTU data file."
+                                ])
+                            ],
+                            icon=BootstrapIcon(
+                                icon="exclamation-triangle", width=20),
+                            title="Important Warning",
+                            color="orange",
+                            variant="outline"
+                        ),
+
+                        dmc.Space(h="sm"),
+
+                        # Requirements Section
+                        dmc.Paper([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="info-circle", width=20),
-                                    dmc.Text("Requirements", fw=500)
-                                ], gap="xs"),
+                                    BootstrapIcon(
+                                        icon="check-circle", width=20, color="var(--mantine-color-teal-6)"),
+                                    dmc.Text("System Requirements",
+                                             fw=600, size="md")
+                                ], gap="sm"),
+                                dmc.Divider(size="xs"),
                                 dmc.List([
-                                    dmc.ListItem("CSV files with timestamp as first column"),
-                                    dmc.ListItem("sps_api library installed (pip install sps_api)"),
-                                    dmc.ListItem("Valid output directory selected"),
-                                    dmc.ListItem("Write permissions to output folder")
-                                ], size="sm")
-                            ])
-                        ], span=6),
-                        dmc.GridCol([
-                            dmc.Stack([
-                                dmc.Group([
-                                    BootstrapIcon(icon="lightbulb", width=20),
-                                    dmc.Text("Process", fw=500)
-                                ], gap="xs"),
-                                dmc.List([
-                                    dmc.ListItem("Upload one or more CSV files"),
-                                    dmc.ListItem("Select output directory for RTU files"),
-                                    dmc.ListItem("Click 'Write RTU Data' to process files"),
-                                    dmc.ListItem("RTU files will be saved with .dt extension")
-                                ], size="sm")
-                            ])
-                        ], span=6)
-                    ])
+                                    dmc.ListItem(
+                                        "sps_api library installed (pip install sps_api)"),
+                                    dmc.ListItem(
+                                        "Valid output directory selected"),
+                                    dmc.ListItem(
+                                        "Write permissions to output folder"),
+                                    dmc.ListItem(
+                                        "CSV files must have timestamp as first column"),
+                                    dmc.ListItem(
+                                        "Date/time format must be parseable (e.g., M/d/yyyy H:mm:ss)")
+                                ], spacing="xs")
+                            ], gap="sm")
+                        ], withBorder=True, p="md")
+                    ], gap="md")
                 ],
                 opened=False,
-                size="lg"
+                size="xl"
             ),
 
             dmc.Space(h="md"),
@@ -113,10 +250,13 @@ def create_csv_to_rtu_page():
                                     id='csv-upload',
                                     children=dmc.Stack([
                                         dmc.Center([
-                                            BootstrapIcon(icon="cloud-upload", width=48, height=48, color="var(--mantine-color-blue-6)")
+                                            BootstrapIcon(
+                                                icon="cloud-upload", width=48, height=48, color="var(--mantine-color-blue-6)")
                                         ]),
-                                        dmc.Text('Drag and Drop CSV Files', size="md", fw=500, ta="center"),
-                                        dmc.Text('or click to browse', size="sm", c="dimmed", ta="center")
+                                        dmc.Text('Drag and Drop CSV Files',
+                                                 size="md", fw=500, ta="center"),
+                                        dmc.Text(
+                                            'or click to browse', size="sm", c="dimmed", ta="center")
                                     ], gap="sm", p="md", align="center"),
                                     style={
                                         'width': '100%',
@@ -152,13 +292,15 @@ def create_csv_to_rtu_page():
                     dmc.Stack([
                         # Directory Selection Section
                         directory_component,
-                        
+
                         # RTU Conversion Section
                         dmc.Paper([
                             dmc.Stack([
                                 dmc.Group([
-                                    BootstrapIcon(icon="arrow-repeat", width=20),
-                                    dmc.Text("RTU Conversion", fw=500, size="md")
+                                    BootstrapIcon(
+                                        icon="arrow-repeat", width=20),
+                                    dmc.Text("RTU Conversion",
+                                             fw=500, size="md")
                                 ], gap="xs", justify="center"),
 
                                 dmc.Divider(size="xs"),
@@ -170,7 +312,8 @@ def create_csv_to_rtu_page():
                                         type='default',
                                         children=html.Div([
                                             dmc.Button([
-                                                BootstrapIcon(icon="download", width=20),
+                                                BootstrapIcon(
+                                                    icon="download", width=20),
                                                 "Write RTU Data"
                                             ], id='write-rtu-btn', size="lg", disabled=True, className="px-4", variant="filled")
                                         ], id='write-rtu-content')
@@ -194,47 +337,11 @@ def create_csv_to_rtu_page():
     ], size="lg", p="sm")
 
 
-# Initialize the service
-csv_rtu_service = CsvToRtuService()
-
-
-# Helper function to create file display components
-def create_file_components(file_list):
-    """Create file display components with pattern-matching IDs for removal."""
-    if not file_list:
-        return [
-            dmc.Alert([
-                dmc.Group([
-                    BootstrapIcon(icon="info-circle", width=20),
-                    dmc.Text("No files selected. Upload CSV files to get started.", size="sm")
-                ], gap="xs")
-            ], color="blue", variant="light", radius="md")
-        ]
-    
-    components = []
-    for file_info in file_list:
-        component = dmc.Paper([
-            dmc.Group([
-                BootstrapIcon(icon="file-earmark-spreadsheet", width=24, color="green"),
-                dmc.Stack([
-                    dmc.Text(file_info['name'], fw=500, size="sm"),
-                    dmc.Group([
-                        dmc.Badge(f"{file_info['rows']} rows", color="blue", variant="light", size="xs"),
-                        dmc.Badge(f"{file_info['columns']} cols", color="cyan", variant="light", size="xs"),
-                        dmc.Badge(f"{file_info['size']/1024:.1f} KB", color="gray", variant="light", size="xs"),
-                    ], gap="xs")
-                ], gap="xs", flex=1),
-                dmc.ActionIcon(
-                    BootstrapIcon(icon="x", width=16),
-                    id={'type': 'remove-file-btn', 'index': file_info['name']},
-                    color='red', variant="light", size="sm"
-                )
-            ], justify="space-between", align="center")
-        ], p="md", radius="md", withBorder=True, className="mb-2")
-        
-        components.append(component)
-    
-    return components
+# Initialize controller through dependency injection
+def _get_controller() -> CsvToRtuPageController:
+    """Get CSV to RTU controller from dependency injection container."""
+    container = DIContainer.get_instance()
+    return container.resolve('csv_to_rtu_controller')
 
 
 # File upload callback
@@ -249,48 +356,13 @@ def create_file_components(file_list):
     [State('csv-upload', 'filename'), State('csv-files-store', 'data')]
 )
 def handle_csv_upload(contents, filenames, stored_files):
-    """Mirror LDUTC: load CSVs, build list, success alert."""
-    # If there's no new upload interaction, keep displaying already stored files
-    if not contents:
-        existing_files = stored_files or []
-        existing_components = create_file_components(existing_files)
-        return existing_files, existing_components, "", len(existing_files) == 0
-
-    if not isinstance(contents, list):
-        contents = [contents]
-        filenames = [filenames] if filenames else []
-
-    new_files = stored_files or []
-
-    for content, filename in zip(contents, filenames or []):
-        if filename and filename.lower().endswith('.csv'):
-            try:
-                content_type, content_string = content.split(',')
-                decoded = base64.b64decode(content_string)
-                df = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
-                file_info = {
-                    'name': filename,
-                    'content': content,
-                    'rows': len(df),
-                    'columns': len(df.columns),
-                    'size': len(decoded)
-                }
-                if not any(f['name'] == filename for f in new_files):
-                    new_files.append(file_info)
-            except Exception:
-                continue
-
-    if new_files:
-        file_components = create_file_components(new_files)
-        status_message = ""
-    else:
-        file_components = create_file_components([])
-        status_message = ""
-
-    return new_files, file_components, status_message, len(new_files) == 0
+    """Handle CSV file upload using controller."""
+    controller = _get_controller()
+    result = controller.handle_csv_upload(contents, filenames, stored_files)
+    return CsvToRtuUIResponseFormatter.format_upload_response(result)
 
 
-# Pattern-matching callback for file removal using proper Dash syntax
+# Pattern-matching callback for file removal
 @callback(
     [
         Output('csv-files-store', 'data', allow_duplicate=True),
@@ -304,53 +376,43 @@ def handle_csv_upload(contents, filenames, stored_files):
     prevent_initial_call=True
 )
 def remove_csv_file(n_clicks, stored_files):
-    """Remove a specific CSV file using pattern-matching callbacks."""
-    
-    print(f"DEBUG: remove_csv_file called with n_clicks={n_clicks}, stored_files count={len(stored_files) if stored_files else 0}")
-    
+    """Remove a specific CSV file using controller."""
     # Check if any button was actually clicked
     if not n_clicks or not any(n_clicks) or not stored_files:
-        print("DEBUG: Early return - no clicks or no files")
         return no_update, no_update, no_update, no_update, no_update
 
     # Get callback context to identify which button was clicked
     ctx = callback_context
     if not ctx.triggered:
-        print("DEBUG: No callback context triggered")
         return no_update, no_update, no_update, no_update, no_update
 
-    print(f"DEBUG: ctx.triggered = {ctx.triggered}")
-    
     # Parse the triggered component ID to get the filename
     triggered_prop_id = ctx.triggered[0]['prop_id']
-    print(f"DEBUG: triggered_prop_id = {triggered_prop_id}")
-    
-    # Extract the component ID part (before the .n_clicks) - use rsplit to get the last .n_clicks
     component_id_str = triggered_prop_id.rsplit('.n_clicks', 1)[0]
-    print(f"DEBUG: component_id_str = {component_id_str}")
-    
+
     try:
         import json
         component_id = json.loads(component_id_str)
         filename_to_remove = component_id['index']
-        print(f"DEBUG: filename_to_remove = {filename_to_remove}")
-    except (json.JSONDecodeError, KeyError) as e:
-        print(f"DEBUG: Error parsing component ID: {e}")
+    except (json.JSONDecodeError, KeyError):
         return no_update, no_update, no_update, no_update, no_update
 
-    # Filter out the file to remove
-    updated_files = [f for f in stored_files if f.get('name') != filename_to_remove]
-    print(f"DEBUG: updated_files count = {len(updated_files)}")
-    
-    # Create new file components
-    file_components = create_file_components(updated_files)
-    
+    # Use controller to handle file removal
+    controller = _get_controller()
+    result = controller.handle_file_removal(filename_to_remove, stored_files)
+
+    # Format response
+    files, file_components, status_message, upload_disabled = CsvToRtuUIResponseFormatter.format_file_removal_response(
+        result)
+
     # Recreate upload component to allow re-uploading same filename
     new_upload = dcc.Upload(
-        id='csv-upload',
+        id='csv-upload-v2',
         children=dmc.Stack([
-            dmc.Center([BootstrapIcon(icon="cloud-upload", width=48, height=48, color="var(--mantine-color-blue-6)")]),
-            dmc.Text('Drag and Drop CSV Files', size="md", fw=500, ta="center"),
+            dmc.Center([BootstrapIcon(icon="cloud-upload", width=48,
+                       height=48, color="var(--mantine-color-blue-6)")]),
+            dmc.Text('Drag and Drop CSV Files',
+                     size="md", fw=500, ta="center"),
             dmc.Text('or click to browse', size="sm", c="dimmed", ta="center")
         ], gap="sm", p="md", align="center"),
         style={
@@ -367,9 +429,8 @@ def remove_csv_file(n_clicks, stored_files):
         multiple=True,
         accept='.csv'
     )
-    
-    print(f"DEBUG: Returning updated files and components")
-    return updated_files, file_components, "", len(updated_files) == 0, new_upload
+
+    return files, file_components, status_message, upload_disabled, new_upload
 
 
 # Help modal callback
@@ -393,7 +454,7 @@ def toggle_help_modal(n_clicks, opened):
     prevent_initial_call=True
 )
 def handle_directory_selection(browse_clicks):
-    """Handle directory selection for CSV to RTU output directory."""
+    """Handle directory selection using controller."""
     ctx = callback_context
     if not ctx.triggered:
         return "", "", {'path': ''}
@@ -401,39 +462,14 @@ def handle_directory_selection(browse_clicks):
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if trigger_id == 'browse-btn-csv-rtu-output':
-        try:
-            import tkinter as tk
-            from tkinter import filedialog
-
-            root = tk.Tk()
-            root.withdraw()  # Hide the main window
-            root.lift()      # Bring to front
-            root.attributes("-topmost", True)
-
-            directory = filedialog.askdirectory(
-                title="Select Output Directory for RTU Files")
-            root.destroy()
-
-            if directory:
-                return directory, "", {'path': directory}
-            else:
-                return "", "", {'path': ''}
-
-        except Exception as e:
-            status = dmc.Alert(
-                title="Error",
-                children=f"Error selecting directory: {str(e)}",
-                icon=BootstrapIcon(icon="exclamation-circle"),
-                color="red",
-                withCloseButton=False
-            )
-
-            return "", status, {'path': ''}
+        controller = _get_controller()
+        result = controller.handle_directory_selection()
+        return CsvToRtuUIResponseFormatter.format_directory_selection_response(result)
 
     return "", "", {'path': ''}
 
 
-# RTU conversion callback - matches LDUTC pattern
+# RTU conversion callback
 @callback(
     [Output('csv-processing-store', 'data'),
      Output('rtu-processing-status', 'children'),
@@ -445,150 +481,18 @@ def handle_directory_selection(browse_clicks):
     prevent_initial_call=True
 )
 def write_rtu_data(n_clicks, csv_files, output_dir_data):
-    """Convert CSV files to RTU format - mirrors LDUTC logic"""
+    """Handle RTU conversion using controller."""
     if not n_clicks or not csv_files:
         # Initial state - idle button
         idle_button = dmc.Button([
             BootstrapIcon(icon="download", width=20),
             "Write RTU Data"
         ], id='write-rtu-btn', size="lg", disabled=len(csv_files or []) == 0, className="px-4", variant="filled")
-        
+
         return {'status': 'idle'}, "", idle_button, no_update
 
-    # Get output directory with fallback
-    output_dir = output_dir_data.get('path', '') if output_dir_data else ''
-    if not output_dir or output_dir.strip() == '':
-        output_dir = os.path.join(os.getcwd(), 'RTU_Output')
+    # Use controller to handle conversion
+    controller = _get_controller()
+    result = controller.handle_rtu_conversion(csv_files, output_dir_data)
 
-    # Ensure output directory exists
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-    except Exception as e:
-        error_notification = [{
-            "title": "Output Directory Error",
-            "message": f"Could not create output directory '{output_dir}': {str(e)}. Please check the directory path and permissions.",
-            "color": "red",
-            "autoClose": 5000,
-            "action": "show"
-        }]
-        
-        # Error button state
-        error_button = dmc.Button([
-            BootstrapIcon(icon="download", width=20),
-            "Write RTU Data"
-        ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
-        
-        return {'status': 'error', 'message': str(e)}, "", error_button, error_notification
-
-    # Initialize temp files list for cleanup
-    temp_files = []
-    
-    try:
-        # Create temp directory for uploaded files
-        import tempfile
-        import shutil
-        
-        temp_dir = tempfile.mkdtemp(prefix="csv_upload_")
-        csv_file_paths = []
-        
-        # Save uploaded files to temporary location
-        for file_info in csv_files:
-            try:
-                # Decode file content
-                content_type, content_string = file_info['content'].split(',')
-                decoded = base64.b64decode(content_string)
-                csv_content = decoded.decode('utf-8')
-                
-                # Save to temp file
-                temp_file_path = os.path.join(temp_dir, file_info['name'])
-                with open(temp_file_path, 'w', encoding='utf-8') as f:
-                    f.write(csv_content)
-                
-                csv_file_paths.append(temp_file_path)
-                temp_files.append(temp_file_path)
-                
-            except Exception as e:
-                continue  # Skip problematic files
-        
-        if not csv_file_paths:
-            # Cleanup
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            error_notification = [{
-                "title": "Error",
-                "message": "No valid CSV files found to convert",
-                "color": "red",
-                "autoClose": 5000,
-                "action": "show"
-            }]
-            
-            # Error button state
-            error_button = dmc.Button([
-                BootstrapIcon(icon="download", width=20),
-                "Write RTU Data"
-            ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
-            
-            return {'status': 'error'}, "", error_button, error_notification
-        
-        # Convert files using the service
-        result = csv_rtu_service.convert_to_rtu(csv_file_paths, output_dir)
-        
-        # Cleanup temp directory
-        shutil.rmtree(temp_dir, ignore_errors=True)
-        
-        if result['success']:
-            success_notification = [{
-                "title": "Conversion Complete",
-                "message": f"Successfully converted {result['successful_conversions']} of {result['total_files']} files. Output directory: {output_dir}",
-                "color": "green",
-                "autoClose": 7000,
-                "action": "show"
-            }]
-            
-            # Success button state - reset to normal
-            success_button = dmc.Button([
-                BootstrapIcon(icon="download", width=20),
-                "Write RTU Data"
-            ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
-            
-            return {'status': 'completed', 'result': result}, "", success_button, success_notification
-        else:
-            error_notification = [{
-                "title": "Conversion Failed",
-                "message": result.get('error', 'An error occurred during conversion'),
-                "color": "red",
-                "autoClose": 5000,
-                "action": "show"
-            }]
-            
-            # Error button state
-            error_button = dmc.Button([
-                BootstrapIcon(icon="download", width=20),
-                "Write RTU Data"
-            ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
-            
-            return {'status': 'error', 'result': result}, "", error_button, error_notification
-
-    except Exception as e:
-        # Cleanup temp files
-        for temp_file in temp_files:
-            try:
-                if os.path.exists(temp_file):
-                    os.remove(temp_file)
-            except Exception:
-                pass
-                
-        error_notification = [{
-            "title": "Unexpected Error",
-            "message": f"An unexpected error occurred: {str(e)}",
-            "color": "red",
-            "autoClose": 5000,
-            "action": "show"
-        }]
-        
-        # Error button state
-        error_button = dmc.Button([
-            BootstrapIcon(icon="download", width=20),
-            "Write RTU Data"
-        ], id='write-rtu-btn', size="lg", disabled=False, className="px-4", variant="filled")
-        
-        return {'status': 'error', 'error': str(e)}, "", error_button, error_notification
+    return CsvToRtuUIResponseFormatter.format_conversion_response(result)

@@ -176,6 +176,59 @@ class IConfigurable(ABC):
         pass
 
 
+# CSV to RTU Conversion Interfaces
+class ICsvValidator(IValidator):
+    """Interface for CSV file validation."""
+
+    @abstractmethod
+    def validate_file_structure(self, file_path: str) -> Result[Dict[str, Any]]:
+        """Validate CSV file structure and return metadata."""
+        pass
+
+    @abstractmethod
+    def validate_file_content(self, content: str, filename: str) -> Result[Dict[str, Any]]:
+        """Validate CSV content from upload and return metadata."""
+        pass
+
+
+class IRtuDataWriter(ABC):
+    """Interface for writing RTU data files."""
+
+    @abstractmethod
+    def write_rtu_data(self, data_points: list, output_path: str) -> Result[Dict[str, Any]]:
+        """Write RTU data points to file."""
+        pass
+
+    @abstractmethod
+    def is_available(self) -> bool:
+        """Check if RTU writer is available (sps_api installed)."""
+        pass
+
+
+class ICsvToRtuConverter(IConverter):
+    """Interface for CSV to RTU conversion operations."""
+
+    @abstractmethod
+    def convert_file(self, csv_file_path: str, output_directory: str) -> Result[Dict[str, Any]]:
+        """Convert a single CSV file to RTU format."""
+        pass
+
+    @abstractmethod
+    def convert_multiple_files(self, csv_file_paths: list, output_directory: str) -> Result[Dict[str, Any]]:
+        """Convert multiple CSV files to RTU format."""
+        pass
+
+    @abstractmethod
+    def validate_conversion_request(self, csv_file_path: str, output_directory: str) -> Result[bool]:
+        """Validate a conversion request before processing."""
+        pass
+
+    @abstractmethod
+    def get_system_info(self) -> Result[Dict[str, Any]]:
+        """Get information about the conversion system."""
+        pass
+
+
 # Factory Interface
 class IFactory(ABC, Generic[T]):
     """Interface for factory classes."""

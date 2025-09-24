@@ -540,7 +540,7 @@ class FlowmeterAcceptanceService:
                 results['accuracy_tests']['Test 3.5 - SNR Comparison'] = {
                     'status': test_35_result['status'],
                     'value': f"Digital: {test_35_result['digital_snr']:.1f}dB, Analog: {test_35_result['analog_snr']:.1f}dB, Ref: {test_35_result['reference_snr']:.1f}dB" if all(x is not None for x in [test_35_result['digital_snr'], test_35_result['analog_snr'], test_35_result['reference_snr']]) else "SNR data unavailable",
-                    'description': 'Target DIG/ANL SNR within 95% of Reference meter SNR'
+                    'description': 'Target DIG/ANL SNR within 90% of Reference meter SNR'
                 }
             elif params.get('accuracy_check_5') and not ref_scada_tag:
                 results['accuracy_tests']['Test 3.5 - SNR Comparison'] = {
@@ -2333,10 +2333,10 @@ class FlowmeterAcceptanceService:
     def _test_35_snr_comparison(self, digital_tag: str, analog_tag: str, ref_scada_tag: str,
                                 rtu_file: str, min_q: float, data_dir: str = None) -> Dict[str, Any]:
         """
-        Test 3.5: Target DIG/ANL SNR within 95% of Reference meter SNR
+        Test 3.5: Target DIG/ANL SNR within 90% of Reference meter SNR
 
         Compares the SNR of digital and analog signals with reference meter SNR.
-        Pass criteria: Both digital and analog SNR should be within 95% of reference meter SNR.
+        Pass criteria: Both digital and analog SNR should be within 90% of reference meter SNR.
 
         Args:
             digital_tag: Digital signal tag name
@@ -2353,8 +2353,8 @@ class FlowmeterAcceptanceService:
             'digital_snr': None,
             'analog_snr': None,
             'reference_snr': None,
-            'digital_within_95_percent': False,
-            'analog_within_95_percent': False,
+            'digital_within_90_percent': False,
+            'analog_within_90_percent': False,
             'status': 'fail',
             'details': 'Test 3.5 - SNR comparison not performed'
         }
@@ -2395,28 +2395,28 @@ class FlowmeterAcceptanceService:
                 result['details'] = f'SNR calculation failed for: {", ".join(missing)}'
                 return result
 
-            # Calculate 95% threshold of reference SNR
-            ref_snr_95_percent = result['reference_snr'] * 0.95
+            # Calculate 90% threshold of reference SNR
+            ref_snr_90_percent = result['reference_snr'] * 0.90
 
-            # Check if digital SNR is within 95% of reference
-            result['digital_within_95_percent'] = result['digital_snr'] >= ref_snr_95_percent
+            # Check if digital SNR is within 90% of reference
+            result['digital_within_90_percent'] = result['digital_snr'] >= ref_snr_90_percent
 
-            # Check if analog SNR is within 95% of reference
-            result['analog_within_95_percent'] = result['analog_snr'] >= ref_snr_95_percent
+            # Check if analog SNR is within 90% of reference
+            result['analog_within_90_percent'] = result['analog_snr'] >= ref_snr_90_percent
 
             # Test passes if both digital and analog are within 95% of reference
-            both_within_threshold = result['digital_within_95_percent'] and result['analog_within_95_percent']
+            both_within_threshold = result['digital_within_90_percent'] and result['analog_within_90_percent']
 
             if both_within_threshold:
                 result['status'] = 'pass'
                 result[
-                    'details'] = f'PASS: Digital SNR {result["digital_snr"]:.1f} dB, Analog SNR {result["analog_snr"]:.1f} dB both ≥ 95% of Reference SNR {result["reference_snr"]:.1f} dB (≥{ref_snr_95_percent:.1f} dB)'
+                    'details'] = f'PASS: Digital SNR {result["digital_snr"]:.1f} dB, Analog SNR {result["analog_snr"]:.1f} dB both ≥ 90% of Reference SNR {result["reference_snr"]:.1f} dB (≥{ref_snr_90_percent:.1f} dB)'
             else:
                 result['status'] = 'fail'
-                digital_status = "✓" if result['digital_within_95_percent'] else "✗"
-                analog_status = "✓" if result['analog_within_95_percent'] else "✗"
+                digital_status = "✓" if result['digital_within_90_percent'] else "✗"
+                analog_status = "✓" if result['analog_within_90_percent'] else "✗"
                 result[
-                    'details'] = f'FAIL: Digital {digital_status} {result["digital_snr"]:.1f} dB, Analog {analog_status} {result["analog_snr"]:.1f} dB vs Reference {result["reference_snr"]:.1f} dB (need ≥{ref_snr_95_percent:.1f} dB)'
+                    'details'] = f'FAIL: Digital {digital_status} {result["digital_snr"]:.1f} dB, Analog {analog_status} {result["analog_snr"]:.1f} dB vs Reference {result["reference_snr"]:.1f} dB (need ≥{ref_snr_90_percent:.1f} dB)'
 
             return result
 

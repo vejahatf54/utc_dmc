@@ -30,7 +30,7 @@ service_modules = [
     'services.pymbsd_service',
     'services.replace_text_service',
     'services.replay_file_poke_service',
-    'services.review_to_csv_service',
+
     'services.rtu_service',
     'services.sps_time_converter_service',
 ]

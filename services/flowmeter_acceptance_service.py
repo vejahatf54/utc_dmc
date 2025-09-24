@@ -13,7 +13,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 from services.exceptions import ProcessingError
 from services.rtu_service import RTUService
-from services.review_to_csv_service import ReviewCsvService
+from core.dependency_injection import get_container
 from services.config_manager import ConfigManager
 import tempfile
 import shutil
@@ -2585,37 +2585,51 @@ class FlowmeterAcceptanceService:
             ]
 
             try:
-                # Create ReviewCsvService instance exactly like REVIEW to CSV page
-                review_service = ReviewCsvService(
-                    folder_path=review_folder,
-                    start_time=start_formatted,
-                    end_time=end_formatted,
-                    peek_list=tag_variants,  # Set peek_list directly instead of using file
-                    dump_all=True,  # Export all data points, not just sampled at intervals
-                    freq=None,  # Not used when dump_all=True
-                    merged_file=os.path.basename(output_file)
-                )
-                review_service.run()
+                # Use new clean architecture Review services
+                container = get_container()
+                review_converter = container.resolve('review_to_csv_converter')
 
-                # The merged file should be in the review folder, move it to output location
-                source_file = os.path.join(
-                    review_folder, os.path.basename(output_file))
-                if os.path.exists(source_file):
-                    if source_file != output_file:
-                        shutil.move(source_file, output_file)
+                processing_options = {
+                    'start_time': start_formatted,
+                    'end_time': end_formatted,
+                    'peek_file': {'tags': tag_variants},
+                    'dump_all': True,
+                    'frequency_minutes': None,
+                    # Use the specific output filename
+                    'merged_filename': os.path.basename(output_file)
+                }
+
+                # Convert Review files to CSV using new architecture
+                conversion_result = review_converter.convert_directory(
+                    review_folder, review_folder, processing_options
+                )
+
+                if not conversion_result.success:
+                    raise Exception(
+                        f"Review conversion failed: {conversion_result.error}")
+
+                # Get the merged file path from the conversion result
+                merged_file_path = conversion_result.data.get(
+                    'merged_file_path')
+                if merged_file_path and os.path.exists(merged_file_path):
+                    # Move to the final output location if different
+                    if merged_file_path != output_file:
+                        shutil.move(merged_file_path, output_file)
                     self.logger.info(
                         f"Successfully exported Review tag {tag_name} to {output_file}")
                 else:
                     self.logger.warning(
-                        f"Expected output file not found: {source_file}")
+                        f"Expected merged file not found: {merged_file_path}")
                     # Check if there are any CSV files generated in the review folder
                     csv_files = [f for f in os.listdir(
                         review_folder) if f.endswith('.csv')]
                     self.logger.info(
                         f"CSV files found in review folder: {csv_files}")
+                    raise Exception(
+                        f"Merged CSV file was not created: {merged_file_path}")
 
             except Exception as service_error:
-                self.logger.error(f"ReviewCsvService failed: {service_error}")
+                self.logger.error(f"Review conversion failed: {service_error}")
                 raise
 
         except Exception as e:

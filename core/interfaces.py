@@ -322,3 +322,66 @@ class IRtuResizer(IConverter):
     def get_system_info(self) -> Result[Dict[str, Any]]:
         """Get information about the RTU resizing system."""
         pass
+
+
+# Review Processing Interfaces
+class IReviewFileReader(ABC):
+    """Interface for reading Review file information."""
+
+    @abstractmethod
+    def get_file_info(self, file_path: str) -> Result[Dict[str, Any]]:
+        """Get Review file information including timestamps and metadata."""
+        pass
+
+    @abstractmethod
+    def validate_file(self, file_path: str) -> Result[bool]:
+        """Validate Review file format and accessibility."""
+        pass
+
+
+class IReviewToCsvConverter(IConverter):
+    """Interface for Review to CSV conversion operations."""
+
+    @abstractmethod
+    def convert_directory(self, review_directory_path: str, output_directory: str,
+                          processing_options: Dict[str, Any] = None) -> Result[Dict[str, Any]]:
+        """Convert all Review files in a directory to CSV format."""
+        pass
+
+    @abstractmethod
+    def convert_files(self, review_file_paths: List[str], output_directory: str,
+                      processing_options: Dict[str, Any] = None) -> Result[Dict[str, Any]]:
+        """Convert specific Review files to CSV format."""
+        pass
+
+    @abstractmethod
+    def get_directory_info(self, directory_path: str) -> Result[Dict[str, Any]]:
+        """Get information about Review files in a directory."""
+        pass
+
+    @abstractmethod
+    def get_system_info(self) -> Result[Dict[str, Any]]:
+        """Get information about the Review to CSV conversion system."""
+        pass
+
+    @abstractmethod
+    def cancel_conversion(self) -> Result[bool]:
+        """Cancel ongoing conversion operations."""
+        pass
+
+
+class IReviewProcessor(ABC):
+    """Interface for Review processing operations using dreview.exe."""
+
+    @abstractmethod
+    def process_review_file(self, review_file_path: str, output_csv_path: str,
+                            start_time: str, end_time: str, peek_items: List[str] = None,
+                            dump_all: bool = False, frequency: float = None) -> Result[Dict[str, Any]]:
+        """Process a single Review file to CSV using dreview.exe."""
+        pass
+
+    @abstractmethod
+    def validate_processing_options(self, start_time: str, end_time: str,
+                                    peek_items: List[str] = None) -> Result[bool]:
+        """Validate Review processing options."""
+        pass

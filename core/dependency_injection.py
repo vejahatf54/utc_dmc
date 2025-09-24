@@ -299,4 +299,38 @@ def configure_services() -> DIContainer:
     container.register_transient(
         RtuResizerPageController, factory=rtu_resizer_controller_factory, name="rtu_resizer_controller")
 
+    # Register Review services
+    from core.interfaces import IReviewFileReader, IReviewToCsvConverter, IReviewProcessor
+    from services.review_file_reader_service import ReviewFileReaderService
+    from services.review_processor_service import ReviewProcessorService
+    from services.review_to_csv_converter_service import ReviewToCsvConverterService
+
+    # Register Review file reader (singleton - stateless service)
+    container.register_singleton(
+        IReviewFileReader, ReviewFileReaderService, name="review_file_reader")
+
+    # Register Review processor (singleton - manages its own state)
+    container.register_singleton(
+        IReviewProcessor, ReviewProcessorService, name="review_processor")
+
+    # Register Review to CSV converter service
+    def review_csv_converter_factory():
+        file_reader = container.resolve("review_file_reader")
+        processor = container.resolve("review_processor")
+        return ReviewToCsvConverterService(file_reader, processor)
+
+    container.register_singleton(
+        IReviewToCsvConverter, factory=review_csv_converter_factory, name="review_to_csv_converter")
+
+    # Register Review controller (transient - new instance per request)
+    from controllers.review_to_csv_controller import ReviewToCsvPageController
+
+    def review_csv_controller_factory():
+        converter_service = container.resolve("review_to_csv_converter")
+        file_reader = container.resolve("review_file_reader")
+        return ReviewToCsvPageController(converter_service, file_reader)
+
+    container.register_transient(
+        ReviewToCsvPageController, factory=review_csv_controller_factory, name="review_to_csv_controller")
+
     return container

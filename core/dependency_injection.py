@@ -333,4 +333,52 @@ def configure_services() -> DIContainer:
     container.register_transient(
         ReviewToCsvPageController, factory=review_csv_controller_factory, name="review_to_csv_controller")
 
+    # Register Archive services
+    from core.interfaces import IArchiveValidator, IArchivePathService, IArchiveFileExtractor, IFetchArchiveService, IFetchArchiveController
+    from validation.archive_validators import create_fetch_archive_request_validator
+    from services.archive_path_service import create_archive_path_service
+    from services.archive_file_extractor import create_archive_file_extractor
+    from services.fetch_archive_service import FetchArchiveService, LegacyFetchArchiveService
+    from controllers.fetch_archive_controller import FetchArchivePageController
+
+    # Register archive validator (singleton - stateless service)
+    container.register_singleton(
+        IArchiveValidator, factory=create_fetch_archive_request_validator, name="archive_validator")
+
+    # Register archive path service (singleton - manages configuration)
+    container.register_singleton(
+        IArchivePathService, factory=create_archive_path_service, name="archive_path_service")
+
+    # Register archive file extractor (singleton - stateless service)
+    container.register_singleton(
+        IArchiveFileExtractor, factory=create_archive_file_extractor, name="archive_file_extractor")
+
+    # Register fetch archive service
+    def fetch_archive_service_factory():
+        validator = container.resolve("archive_validator")
+        path_service = container.resolve("archive_path_service")
+        file_extractor = container.resolve("archive_file_extractor")
+        return FetchArchiveService(validator, path_service, file_extractor)
+
+    container.register_singleton(
+        IFetchArchiveService, factory=fetch_archive_service_factory, name="fetch_archive_service")
+
+    # Register legacy wrapper for backward compatibility
+    def legacy_archive_service_factory():
+        new_service = container.resolve("fetch_archive_service")
+        return LegacyFetchArchiveService(new_service)
+
+    container.register_singleton(
+        LegacyFetchArchiveService, factory=legacy_archive_service_factory, name="legacy_fetch_archive_service")
+
+    # Register fetch archive controller (transient - new instance per request)
+    def fetch_archive_controller_factory():
+        archive_service = container.resolve("fetch_archive_service")
+        return FetchArchivePageController(archive_service)
+
+    container.register_transient(
+        IFetchArchiveController, factory=fetch_archive_controller_factory, name="fetch_archive_controller")
+    container.register_transient(
+        FetchArchivePageController, factory=fetch_archive_controller_factory, name="fetch_archive_page_controller")
+
     return container

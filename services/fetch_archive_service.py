@@ -1,418 +1,194 @@
 """
-Fetch Archive service for retrieving historical pipeline data.
-Adapted from LDUTC for WUTC requirements - accessing UNC paths and decompressing zip files.
+Refactored Fetch Archive service following SOLID principles.
+Uses dependency injection and separates concerns for better testability and maintainability.
 """
 
-import os
-import zipfile
-import shutil
-from pathlib import Path
-from typing import Dict, Any, List
+from typing import List, Dict, Any
 from datetime import datetime
-from .config_manager import get_config_manager
+from core.interfaces import IFetchArchiveService, IArchiveValidator, IArchivePathService, IArchiveFileExtractor, Result
+from domain.archive_models import (
+    ArchiveDate, PipelineLine, OutputDirectory, FetchArchiveRequest, 
+    FetchArchiveResult, ArchiveFileInfo, ArchiveConversionConstants
+)
 from logging_config import get_logger
 
 logger = get_logger(__name__)
 
 
-class FetchArchiveService:
-    """Service to fetch archive data for pipeline lines from UNC paths."""
+class FetchArchiveService(IFetchArchiveService):
+    """
+    Refactored fetch archive service using dependency injection.
+    Follows SOLID principles with separated concerns.
+    """
 
-    def __init__(self):
-        """Initialize the FetchArchiveService."""
-        # Get configuration manager
-        self.config_manager = get_config_manager()
+    def __init__(self, 
+                 validator: IArchiveValidator,
+                 path_service: IArchivePathService,
+                 file_extractor: IArchiveFileExtractor):
+        """Initialize service with dependency injection."""
+        self._validator = validator
+        self._path_service = path_service
+        self._file_extractor = file_extractor
+        logger.debug("FetchArchiveService initialized with dependency injection")
 
-        # Load initial configuration
-        self._load_config()
-
-    def _load_config(self):
-        """Load configuration settings from the config manager."""
-        # Get archive configuration
-        archive_config = self.config_manager.get_archive_config()
-
-        # UNC path for archive backup repository
-        self.archive_base_path = self.config_manager.get_archive_base_path()
-
-        # Timeout for large file operations
-        self.timeout = self.config_manager.get_archive_timeout()
-
-        logger.debug(
-            f"Archive configuration loaded - Base path: {self.archive_base_path}, Timeout: {self.timeout}s")
-
-    def _check_unc_path_accessible(self) -> bool:
-        """
-        Check if the UNC archive path is accessible.
-
-        Returns:
-            True if accessible, False otherwise
-        """
-        try:
-            return os.path.exists(self.archive_base_path) and os.path.isdir(self.archive_base_path)
-        except Exception as e:
-            logger.warning(f"Error checking UNC path accessibility: {e}")
-            return False
-
-    def get_available_lines(self) -> Dict[str, Any]:
-        """
-        Get list of available pipeline lines from UNC folder structure.
-
-        Returns:
-            Dictionary containing success status and list of available lines
-        """
-        logger.info(f"Getting available lines from {self.archive_base_path}")
+    def fetch_archive_data(self, archive_date: Any, line_ids: List[str], 
+                           output_directory: str) -> Result[Dict[str, Any]]:
+        """Fetch archive data for specified date and pipeline lines."""
+        logger.info(f"Starting archive fetch for {len(line_ids)} lines on {archive_date}")
 
         try:
-            # Check if UNC path is accessible
-            if not self._check_unc_path_accessible():
-                return {
-                    'success': False,
-                    'lines': [],
-                    'message': f'UNC path not accessible: {self.archive_base_path}'
-                }
+            # Validate parameters using validator
+            validation_result = self.validate_fetch_parameters(archive_date, line_ids, output_directory)
+            if not validation_result.success:
+                return Result.fail(validation_result.error, validation_result.message)
 
-            # Get all folder names in the UNC path - these represent line IDs
-            lines = []
-            for item in os.listdir(self.archive_base_path):
-                item_path = os.path.join(self.archive_base_path, item)
-                if os.path.isdir(item_path):
-                    lines.append({
-                        # Use folder name as-is (e.g., "l01", "l02")
-                        'label': item,
-                        'value': item
-                    })
+            # Create domain objects
+            archive_date_obj = ArchiveDate(archive_date) if not isinstance(archive_date, ArchiveDate) else archive_date
+            pipeline_lines = [PipelineLine(line_id) for line_id in line_ids]
+            output_dir = OutputDirectory(output_directory)
+            
+            # Create fetch request
+            fetch_request = FetchArchiveRequest(
+                archive_date=archive_date_obj,
+                pipeline_lines=pipeline_lines,
+                output_directory=output_dir
+            )
 
-            # Sort lines by name for better UI
-            lines.sort(key=lambda x: x['value'])
+            # Process each line
+            all_extracted_files = []
+            failed_lines = []
 
-            logger.info(f"Successfully retrieved {len(lines)} pipeline lines")
-
-            return {
-                'success': True,
-                'lines': lines,
-                'message': f'Successfully retrieved {len(lines)} lines',
-                'unc_path': self.archive_base_path
-            }
-
-        except Exception as e:
-            logger.error(f"Error getting available lines: {e}")
-            return {
-                'success': False,
-                'lines': [],
-                'message': f'Error accessing UNC path: {str(e)}'
-            }
-
-    def fetch_archive_data(
-        self,
-        archive_date: datetime,
-        line_ids: List[str],
-        output_directory: str
-    ) -> Dict[str, Any]:
-        """
-        Fetch archive data for specified date and pipeline lines.
-
-        Args:
-            archive_date: Date of archive data to fetch
-            line_ids: List of pipeline line identifiers
-            output_directory: Directory to save and decompress fetched archive files
-
-        Returns:
-            Dictionary containing operation results and file paths
-        """
-        logger.info(
-            f"Starting archive fetch for {len(line_ids)} lines on {archive_date.strftime('%Y-%m-%d')}")
-
-        # Check if UNC path is accessible
-        if not self._check_unc_path_accessible():
-            return {
-                'success': False,
-                'files': [],
-                'failed_lines': [{'line_id': line_id, 'error': 'UNC path not accessible'} for line_id in line_ids],
-                'message': f'UNC path not accessible: {self.archive_base_path}',
-                'output_directory': output_directory
-            }
-
-        # Validate parameters first
-        validation_result = self.validate_fetch_parameters(
-            archive_date, line_ids, output_directory)
-        if not validation_result['success']:
-            return validation_result
-
-        try:
-            # Ensure output directory exists
-            output_path = Path(output_directory)
-            output_path.mkdir(parents=True, exist_ok=True)
-
-            fetched_files = []
-            failed_fetches = []
-
-            # Fetch data for each line
-            for line_id in line_ids:
+            for pipeline_line in fetch_request.pipeline_lines:
                 try:
-                    file_result = self._fetch_line_archive(
-                        archive_date, line_id, output_path)
+                    line_result = self._process_single_line(
+                        pipeline_line, 
+                        fetch_request.archive_date, 
+                        fetch_request.output_directory
+                    )
 
-                    if file_result['success']:
-                        fetched_files.extend(file_result['files'])
-                        logger.info(
-                            f"Successfully fetched and decompressed archive for line {line_id}")
+                    if line_result.success:
+                        all_extracted_files.extend(line_result.data['files'])
+                        logger.info(f"Successfully processed line {pipeline_line.value}")
                     else:
-                        failed_fetches.append({
-                            'line_id': line_id,
-                            'error': file_result['message']
+                        failed_lines.append({
+                            'line_id': pipeline_line.value,
+                            'error': line_result.error
                         })
-                        logger.error(
-                            f"Failed to fetch archive for line {line_id}: {file_result['message']}")
+                        logger.error(f"Failed to process line {pipeline_line.value}: {line_result.error}")
 
                 except Exception as e:
-                    failed_fetches.append({
-                        'line_id': line_id,
+                    failed_lines.append({
+                        'line_id': pipeline_line.value,
                         'error': str(e)
                     })
-                    logger.error(
-                        f"Exception fetching archive for line {line_id}: {e}")
+                    logger.error(f"Exception processing line {pipeline_line.value}: {e}")
 
-            # Prepare result
-            success = len(fetched_files) > 0
-            message = self._create_result_message(
-                fetched_files, failed_fetches)
+            # Create result
+            success = len(all_extracted_files) > 0
+            message = self._create_result_message(all_extracted_files, failed_lines)
 
-            result = {
+            result_data = {
                 'success': success,
-                'files': fetched_files,
-                'failed_lines': failed_fetches,
+                'files': [file_info.__dict__ for file_info in all_extracted_files],
+                'failed_lines': failed_lines,
                 'message': message,
-                'output_directory': str(output_path),
-                'fetch_date': archive_date.isoformat(),
-                'requested_lines': line_ids
+                'output_directory': output_dir.value,
+                'fetch_date': archive_date_obj.iso_format,
+                'requested_lines': [line.value for line in pipeline_lines]
             }
 
-            logger.info(
-                f"Archive fetch completed: {len(fetched_files)} files processed, {len(failed_fetches)} failed")
-            return result
+            logger.info(f"Archive fetch completed: {len(all_extracted_files)} files, {len(failed_lines)} failed")
+            return Result.ok(result_data, message)
 
         except Exception as e:
             logger.error(f"Unexpected error during archive fetch: {e}")
-            return {
-                'success': False,
-                'files': [],
-                'failed_lines': [],
-                'message': f'Archive fetch failed: {str(e)}',
-                'output_directory': output_directory
-            }
+            return Result.fail(f"Archive fetch failed: {str(e)}", "Unexpected error occurred")
 
-    def validate_fetch_parameters(
-        self,
-        archive_date: datetime,
-        line_ids: List[str],
-        output_directory: str
-    ) -> Dict[str, Any]:
-        """
-        Validate parameters for fetch operation.
+    def get_available_lines(self) -> Result[List[Dict[str, str]]]:
+        """Get list of available pipeline lines."""
+        return self._path_service.get_available_lines()
 
-        Args:
-            archive_date: Date of archive data to fetch
-            line_ids: List of pipeline line identifiers
-            output_directory: Directory to save fetched archive files
+    def validate_fetch_parameters(self, archive_date: Any, line_ids: List[str], 
+                                  output_directory: str) -> Result[bool]:
+        """Validate parameters for fetch operation."""
+        return self._validator.validate_fetch_request(archive_date, line_ids, output_directory)
 
-        Returns:
-            Dictionary containing validation results
-        """
+    def get_system_info(self) -> Result[Dict[str, Any]]:
+        """Get information about the archive system."""
         try:
-            errors = []
+            system_info = ArchiveConversionConstants.get_system_info()
+            
+            # Add path accessibility info
+            path_check = self._path_service.check_path_accessibility()
+            system_info['archive_path_accessible'] = path_check.success
+            if not path_check.success:
+                system_info['archive_path_error'] = path_check.error
 
-            # Validate date
-            if not archive_date:
-                errors.append("Archive date is required")
-            elif archive_date > datetime.now():
-                errors.append("Archive date cannot be in the future")
-
-            # Validate line IDs
-            if not line_ids or len(line_ids) == 0:
-                errors.append("At least one pipeline line must be selected")
-
-            # Validate output directory
-            if not output_directory or output_directory.strip() == "":
-                errors.append("Output directory is required")
+            # Add available lines count
+            lines_result = self.get_available_lines()
+            if lines_result.success:
+                system_info['available_lines_count'] = len(lines_result.data)
             else:
-                try:
-                    output_path = Path(output_directory)
-                    # Try to create the directory to test permissions
-                    output_path.mkdir(parents=True, exist_ok=True)
-                except Exception as e:
-                    errors.append(f"Invalid output directory: {str(e)}")
+                system_info['available_lines_count'] = 0
+                system_info['lines_error'] = lines_result.error
 
-            if errors:
-                return {
-                    'success': False,
-                    'message': '; '.join(errors),
-                    'errors': errors
-                }
-
-            return {
-                'success': True,
-                'message': 'Parameters validated successfully'
-            }
+            return Result.ok(system_info, "System information retrieved successfully")
 
         except Exception as e:
-            logger.error(f"Error validating fetch parameters: {e}")
-            return {
-                'success': False,
-                'message': f'Validation error: {str(e)}'
-            }
+            logger.error(f"Error getting system info: {e}")
+            return Result.fail(f"System info error: {str(e)}", "Failed to retrieve system information")
 
-    def _fetch_line_archive(
-        self,
-        archive_date: datetime,
-        line_id: str,
-        output_path: Path
-    ) -> Dict[str, Any]:
-        """
-        Fetch and decompress archive data for a single pipeline line from UNC repository.
+    def convert(self, input_value: Any) -> Result[Any]:
+        """Convert input value to output format (required by IConverter interface)."""
+        # This method is required by IConverter but not directly used
+        # Could be implemented for batch processing if needed
+        return Result.ok(input_value, "No conversion performed")
 
-        Args:
-            archive_date: Date of archive data to fetch
-            line_id: Pipeline line identifier
-            output_path: Path to save and decompress archive files
-
-        Returns:
-            Dictionary containing fetch results for the line
-        """
+    def _process_single_line(self, pipeline_line: PipelineLine, archive_date: ArchiveDate, 
+                             output_dir: OutputDirectory) -> Result[Dict[str, Any]]:
+        """Process archive data for a single pipeline line."""
         try:
-            # Build path to line folder in UNC repository
-            # Structure: \\server\path\line_id\YYYYMMDD\*.zip
-            date_folder = archive_date.strftime('%Y%m%d')  # Format: 20231226
-            line_archive_path = os.path.join(
-                self.archive_base_path, line_id, date_folder)
+            # Find archive files for this line and date
+            files_result = self._path_service.find_archive_files(pipeline_line.value, archive_date)
+            if not files_result.success:
+                return Result.fail(files_result.error, files_result.message)
 
-            logger.debug(f"Looking for archive folder: {line_archive_path}")
-
-            # Check if line archive folder exists
-            if not os.path.exists(line_archive_path) or not os.path.isdir(line_archive_path):
-                date_str = archive_date.strftime('%Y-%m-%d')
-                return {
-                    'success': False,
-                    'files': [],
-                    'message': f'No archive data found for {line_id} on {date_str}'
-                }
-
-            # Find all zip files in the archive folder
-            zip_files = []
-            for file in os.listdir(line_archive_path):
-                if file.lower().endswith('.zip'):
-                    zip_files.append(os.path.join(line_archive_path, file))
-
-            if not zip_files:
-                date_str = archive_date.strftime('%Y-%m-%d')
-                return {
-                    'success': False,
-                    'files': [],
-                    'message': f'No archive files found for {line_id} on {date_str}'
-                }
+            zip_files = files_result.data
 
             # Create line-specific output directory
-            line_output_path = output_path / f"{line_id}_{date_folder}"
+            line_output_path = output_dir.get_line_output_path(pipeline_line.value, archive_date)
             line_output_path.mkdir(parents=True, exist_ok=True)
 
-            extracted_files = []
-            total_extracted = 0
+            # Extract all archive files for this line
+            extraction_result = self._file_extractor.extract_multiple_archives(
+                zip_files, str(line_output_path)
+            )
 
-            # Extract each zip file
-            for zip_file_path in zip_files:
-                try:
-                    zip_filename = os.path.basename(zip_file_path)
-                    # Get zip name without extension for renaming
-                    zip_name_base = os.path.splitext(zip_filename)[0]
+            if extraction_result.success:
+                extracted_files = []
+                for file_dict in extraction_result.data['extracted_files']:
+                    # Convert dict back to ArchiveFileInfo if needed
+                    if isinstance(file_dict, dict):
+                        file_info = ArchiveFileInfo(**file_dict)
+                    else:
+                        file_info = file_dict
+                    extracted_files.append(file_info)
 
-                    logger.info(
-                        f"Extracting {zip_filename} to {line_output_path}")
-
-                    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-                        # Extract each file and rename it to match the zip file name
-                        for member in zip_ref.namelist():
-                            # Skip directories
-                            if member.endswith('/'):
-                                continue
-
-                            # Extract the file to memory first
-                            file_data = zip_ref.read(member)
-
-                            # Get the original file extension
-                            original_name = os.path.basename(member)
-                            _, original_ext = os.path.splitext(original_name)
-
-                            # Create new filename: zip_name + original_extension
-                            new_filename = f"{zip_name_base}{original_ext}"
-                            new_file_path = line_output_path / new_filename
-
-                            # Write the file with the new name
-                            with open(new_file_path, 'wb') as f:
-                                f.write(file_data)
-
-                            # Record the extracted file
-                            extracted_files.append({
-                                'original_zip': zip_filename,
-                                'original_filename': original_name,
-                                'extracted_file': str(new_file_path),
-                                'filename': new_filename,
-                                'size_bytes': new_file_path.stat().st_size
-                            })
-                            total_extracted += 1
-
-                            logger.debug(
-                                f"Renamed {original_name} to {new_filename}")
-
-                    logger.info(
-                        f"Successfully extracted and renamed files from {zip_filename}")
-
-                except Exception as e:
-                    logger.error(f"Error extracting {zip_file_path}: {e}")
-                    # Continue with other files even if one fails
-                    continue
-
-            if extracted_files:
-                logger.info(
-                    f"Successfully extracted {total_extracted} files from {len(zip_files)} zip files for line {line_id}")
-
-                return {
-                    'success': True,
+                return Result.ok({
                     'files': extracted_files,
-                    'message': f'Successfully extracted {total_extracted} files from {len(zip_files)} zip archives',
-                    'total_zip_files': len(zip_files),
-                    'total_extracted_files': total_extracted,
-                    'output_directory': str(line_output_path)
-                }
+                    'line_id': pipeline_line.value,
+                    'output_directory': str(line_output_path),
+                    'total_files': len(extracted_files)
+                }, f"Successfully processed {len(extracted_files)} files for line {pipeline_line.value}")
             else:
-                return {
-                    'success': False,
-                    'files': [],
-                    'message': f'Failed to extract any files from {len(zip_files)} zip archives'
-                }
+                return Result.fail(extraction_result.error, extraction_result.message)
 
-        except FileNotFoundError as e:
-            logger.error(f"Archive repository access error for {line_id}: {e}")
-            return {
-                'success': False,
-                'files': [],
-                'message': f'Archive repository not accessible: {str(e)}'
-            }
-        except PermissionError as e:
-            logger.error(
-                f"Permission error accessing archive for {line_id}: {e}")
-            return {
-                'success': False,
-                'files': [],
-                'message': f'Permission denied accessing archive files: {str(e)}'
-            }
         except Exception as e:
-            logger.error(f"Error fetching archive for {line_id}: {e}")
-            return {
-                'success': False,
-                'files': [],
-                'message': f'Error fetching archive: {str(e)}'
-            }
+            logger.error(f"Error processing line {pipeline_line.value}: {e}")
+            return Result.fail(f"Line processing error: {str(e)}", f"Failed to process line {pipeline_line.value}")
 
-    def _create_result_message(self, fetched_files: List[Dict], failed_fetches: List[Dict]) -> str:
+    def _create_result_message(self, fetched_files: List[ArchiveFileInfo], 
+                               failed_fetches: List[Dict[str, str]]) -> str:
         """Create a summary message for fetch operation results."""
         success_count = len(fetched_files)
         failure_count = len(failed_fetches)
@@ -434,3 +210,65 @@ class FetchArchiveService:
                 return f"Failed to extract any archive files ({failure_count} failures)"
         else:
             return f"Extracted {success_count} archive file(s), {failure_count} failed"
+
+
+class LegacyFetchArchiveService:
+    """
+    Legacy wrapper service for backward compatibility.
+    Maintains the old API while using the new architecture internally.
+    """
+
+    def __init__(self, new_service: FetchArchiveService):
+        """Initialize with the new service implementation."""
+        self._new_service = new_service
+        logger.debug("LegacyFetchArchiveService initialized for backward compatibility")
+
+    def get_available_lines(self) -> Dict[str, Any]:
+        """Get available lines using legacy format."""
+        result = self._new_service.get_available_lines()
+        
+        if result.success:
+            return {
+                'success': True,
+                'lines': result.data,
+                'message': result.message
+            }
+        else:
+            return {
+                'success': False,
+                'lines': [],
+                'message': result.error
+            }
+
+    def fetch_archive_data(self, archive_date: datetime, line_ids: List[str], 
+                           output_directory: str) -> Dict[str, Any]:
+        """Fetch archive data using legacy format."""
+        result = self._new_service.fetch_archive_data(archive_date, line_ids, output_directory)
+        
+        # Convert Result to legacy dictionary format
+        if result.success:
+            return result.data
+        else:
+            return {
+                'success': False,
+                'files': [],
+                'failed_lines': [],
+                'message': result.error,
+                'output_directory': output_directory
+            }
+
+    def validate_fetch_parameters(self, archive_date: datetime, line_ids: List[str], 
+                                  output_directory: str) -> Dict[str, Any]:
+        """Validate parameters using legacy format."""
+        result = self._new_service.validate_fetch_parameters(archive_date, line_ids, output_directory)
+        
+        if result.success:
+            return {
+                'success': True,
+                'message': 'Parameters validated successfully'
+            }
+        else:
+            return {
+                'success': False,
+                'message': result.error
+            }

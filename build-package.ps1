@@ -135,6 +135,8 @@ function Test-Environment {
         @{name = "scipy"; import = "scipy" },
         @{name = "plotly"; import = "plotly" },
         @{name = "flask"; import = "flask" },
+        @{name = "flask-login"; import = "flask_login" },
+        @{name = "bcrypt"; import = "bcrypt" },
         @{name = "sqlalchemy"; import = "sqlalchemy" },
         @{name = "pyodbc"; import = "pyodbc" },
         @{name = "requests"; import = "requests" },
@@ -324,6 +326,9 @@ import components.directory_selector
 import components.bootstrap_icon
 import components.icon_mapping
 import components.theme_switch
+import components.login_page
+import components.password_change_page
+import components.user_menu
 print('All components imported successfully')
 " 2>&1
     
@@ -359,9 +364,19 @@ services_to_test = [
     'services.pymbsd_service',
     'services.replace_text_service',
     'services.replay_file_poke_service',
-
+    'services.review_file_reader_service',
+    'services.review_processor_service',
+    'services.review_to_csv_converter_service',
+    'services.rtu_file_reader_service',
+    'services.rtu_resizer_service',
     'services.rtu_service',
-    'services.sps_time_converter_service'
+    'services.rtu_to_csv_converter_service',
+    'services.sps_time_converter_service',
+    'services.archive_file_extractor',
+    'services.archive_path_service',
+    'services.auth_database',
+    'services.auth_middleware',
+    'services.auth_service'
 ]
 
 for service in services_to_test:
@@ -379,7 +394,43 @@ print('All services imported successfully (no instantiation during build)')
         Write-Info $serviceTestResult
     }
     else {
-        throw "DMC services validation failed: $serviceTestResult"
+        throw "WUTC services validation failed: $serviceTestResult"
+    }
+    
+    # Test clean architecture components
+    Write-Info "Testing clean architecture components..."
+    $env:WUTC_BUILD_MODE = "true"
+    $archTestResult = & $PythonExe -c "
+# Test domain models
+import domain.archive_models
+import domain.csv_rtu_models
+import domain.fluid_models
+import domain.review_models
+import domain.rtu_models
+import domain.time_models
+
+# Test controllers
+import controllers.csv_to_rtu_controller
+import controllers.fetch_archive_controller
+import controllers.fluid_id_controller
+import controllers.review_to_csv_controller
+import controllers.rtu_resizer_controller
+import controllers.rtu_to_csv_controller
+import controllers.sps_time_controller
+
+# Test core modules
+import core.interfaces
+import core.dependency_injection
+
+print('All clean architecture components imported successfully')
+" 2>&1
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Success "Clean architecture validation passed"
+        Write-Info $archTestResult
+    }
+    else {
+        throw "Clean architecture validation failed: $archTestResult"
     }
 }
 
@@ -643,12 +694,14 @@ function Show-BuildSummary {
     Write-Host "Ready to deploy to offline servers!" -ForegroundColor $Yellow
     Write-Host ""
     Write-Host "UPDATES IN THIS BUILD:" -ForegroundColor $Green
-    Write-Host "- Updated PyMBSd service management with 3-column layout" -ForegroundColor $Green
-    Write-Host "- Added loading indicators for better UX" -ForegroundColor $Green
-    Write-Host "- Optimized service status loading (5-second auto-refresh)" -ForegroundColor $Green
-    Write-Host "- Moved Select All checkbox below service list" -ForegroundColor $Green
-    Write-Host "- Fixed Refresh List button styling" -ForegroundColor $Green
-    Write-Host "- Removed test mode configuration for cleaner setup" -ForegroundColor $Green
+    Write-Host "- Implemented Clean Architecture with domain models, controllers, and interfaces" -ForegroundColor $Green
+    Write-Host "- Added comprehensive authentication system with Flask-Login and bcrypt" -ForegroundColor $Green
+    Write-Host "- Implemented dependency injection container for better testability" -ForegroundColor $Green
+    Write-Host "- Separated concerns into distinct layers (domain, services, controllers, core)" -ForegroundColor $Green
+    Write-Host "- Added new specialized services for file reading and processing" -ForegroundColor $Green
+    Write-Host "- Enhanced RTU and Review processing with dedicated converters" -ForegroundColor $Green
+    Write-Host "- Improved security with authentication middleware and secure config management" -ForegroundColor $Green
+    Write-Host "- All new clean architecture components validated and included in build" -ForegroundColor $Green
     Write-Host ""
     Write-Host "NOTES:" -ForegroundColor $Yellow
     Write-Host "- config.json is external and can be modified without rebuilding" -ForegroundColor $Yellow

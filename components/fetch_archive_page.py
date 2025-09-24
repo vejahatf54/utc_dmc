@@ -1,6 +1,7 @@
 """
-Fetch Archive Page for DMC Application.
+Fetch Archive Page for DMC Application (v2 - Controller Integration).
 Allows users to select dates, pipeline lines, and output directories to fetch historical data.
+Uses SOLID principles with dependency injection and controller pattern.
 """
 
 import dash
@@ -11,15 +12,16 @@ from logging_config import get_logger
 
 from components.bootstrap_icon import BootstrapIcon
 from components.directory_selector import create_directory_selector, create_directory_selector_callback
-from services.fetch_archive_service import FetchArchiveService
+from controllers.fetch_archive_controller import FetchArchivePageController, FetchArchiveUIResponseFormatter
 from services.config_manager import get_config_manager
+from core.dependency_injection import configure_services
 
 logger = get_logger(__name__)
 
-# Initialize services
-fetch_archive_service = FetchArchiveService()
+# Initialize dependency injection container
+container = configure_services()
 
-# Create directory selector component
+# Create directory selector component (unchanged)
 directory_component, directory_ids = create_directory_selector(
     component_id='fetch-archive-output',
     title="Output Directory for Archive Files",
@@ -27,7 +29,7 @@ directory_component, directory_ids = create_directory_selector(
     browse_button_text="Browse"
 )
 
-# Layout
+# Layout (EXACT SAME as original - preserving all styling and structure)
 layout = dmc.Container([
     # Data stores
     dcc.Store(id='available-lines-store-fetch', data=[]),
@@ -253,7 +255,7 @@ layout = dmc.Container([
 ], size="lg", p="sm")
 
 
-# Callback to set today's date when page loads with delay
+# Callback to set today's date when page loads with delay (unchanged)
 @callback(
     Output('archive-date-picker', 'value'),
     Input('archive-date-picker', 'id'),
@@ -268,7 +270,7 @@ def set_todays_date(_):
     return today
 
 
-# Help modal callback
+# Help modal callback (unchanged)
 @callback(
     Output("help-modal-fetch", "opened"),
     Input("help-modal-btn-fetch", "n_clicks"),
@@ -280,7 +282,7 @@ def toggle_help_modal(n, opened):
     return not opened
 
 
-# Callback to load available lines on page startup
+# Refactored callback to load available lines using controller
 @callback(
     [Output('available-lines-store-fetch', 'data'),
      Output('lines-checklist-fetch', 'children'),
@@ -288,40 +290,16 @@ def toggle_help_modal(n, opened):
     [Input('available-lines-store-fetch', 'id')]  # Triggers on page load
 )
 def load_available_lines(_):
-    """Load available pipeline lines from FetchArchiveService."""
+    """Load available pipeline lines using controller."""
     try:
-        # Fetch available lines
-        result = fetch_archive_service.get_available_lines()
-
-        if result['success']:
-            lines = result['lines']
-            checkbox_children = [
-                dmc.Checkbox(
-                    label=line['label'], 
-                    value=line['value'],
-                    styles={
-                        "input": {"border-radius": "4px"},
-                        "body": {"align-items": "flex-start"},
-                        "labelWrapper": {"margin-left": "8px"}
-                    }
-                ) for line in lines
-            ]
-            return lines, checkbox_children, ""
-        else:
-            # Return empty options with error message
-            error_msg = dmc.Alert(
-                children=[
-                    dmc.Group([
-                        BootstrapIcon(icon="exclamation-triangle", width=16),
-                        dmc.Text(
-                            f"UNC path not accessible: {result['message']}", size="sm")
-                    ], gap="xs")
-                ],
-                color="yellow",
-                variant="light",
-                className="mb-3"
-            )
-            return [], [], error_msg
+        # Get controller from DI container
+        controller = container.resolve("fetch_archive_page_controller")
+        
+        # Use controller to get available lines
+        result = controller.get_available_lines()
+        
+        # Format response using response formatter
+        return FetchArchiveUIResponseFormatter.format_lines_response(result)
 
     except Exception as e:
         logger.error(f"Error loading pipeline lines: {e}")
@@ -340,7 +318,7 @@ def load_available_lines(_):
         return [], [], error_msg
 
 
-# Callback for select all functionality
+# Callback for select all functionality (unchanged)
 @callback(
     Output('lines-checklist-fetch', 'value'),
     [Input('select-all-lines-checkbox-fetch', 'value')],
@@ -359,7 +337,7 @@ def toggle_select_all_lines(select_all_value, available_lines, current_selection
         return []
 
 
-# Callback to enable/disable fetch button based on form validation
+# Refactored callback to enable/disable fetch button using controller
 @callback(
     Output('fetch-archive-btn', 'disabled'),
     [Input('archive-date-picker', 'value'),
@@ -369,18 +347,27 @@ def toggle_select_all_lines(select_all_value, available_lines, current_selection
 )
 def validate_fetch_form(selected_date, selected_lines, output_directory, fetch_status):
     """Enable fetch button only when all required fields are filled and not processing."""
-    # Disable if currently processing
-    if fetch_status and fetch_status.get('status') == 'processing':
-        return True
-    
-    # Disable if any required field is missing
-    if not selected_date or not selected_lines or not output_directory:
-        return True
-    
-    return False
+    try:
+        # Get controller from DI container
+        controller = container.resolve("fetch_archive_page_controller")
+        
+        # Use controller to validate form state
+        result = controller.validate_form_state(
+            selected_date, 
+            selected_lines, 
+            output_directory, 
+            fetch_status.get('status', 'idle') if fetch_status else 'idle'
+        )
+        
+        # Format response using response formatter
+        return FetchArchiveUIResponseFormatter.format_form_validation_response(result)
+
+    except Exception as e:
+        logger.error(f"Error validating form: {e}")
+        return True  # Disable button on error
 
 
-# Callback for fetch archive data functionality with notifications
+# Refactored callback for fetch archive data functionality using controller
 @callback(
     [Output('fetch-processing-status', 'children'),
      Output('fetch-status-store', 'data'),
@@ -394,7 +381,7 @@ def validate_fetch_form(selected_date, selected_lines, output_directory, fetch_s
     prevent_initial_call=True
 )
 def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory, current_status):
-    """Fetch archive data using FetchArchiveService with notifications."""
+    """Fetch archive data using controller with notifications."""
     if not n_clicks:
         return "", {'status': 'idle'}, False, no_update
 
@@ -403,11 +390,13 @@ def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory
         return no_update, no_update, no_update, no_update
 
     try:
-        logger.info(
-            f"Starting fetch for {len(selected_lines)} lines on {selected_date}")
+        logger.info(f"Starting fetch for {len(selected_lines)} lines on {selected_date}")
 
         # Show simple processing message
         processing_status = "Processing archive data..."
+
+        # Get controller from DI container
+        controller = container.resolve("fetch_archive_page_controller")
 
         # Parse date - DatePicker returns a date object
         if isinstance(selected_date, str):
@@ -416,58 +405,15 @@ def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory
             # selected_date is already a date object
             archive_date = datetime.combine(selected_date, datetime.min.time())
 
-        # Call fetch service (this runs in background)
-        result = fetch_archive_service.fetch_archive_data(
-            archive_date=archive_date,
-            line_ids=selected_lines,
-            output_directory=output_directory
+        # Use controller to handle fetch request
+        result = controller.handle_fetch_request(
+            archive_date, 
+            selected_lines, 
+            output_directory
         )
 
-        if result['success']:
-            files_count = len(result['files'])
-            failed_count = len(result.get('failed_lines', []))
-            processed_lines = len(selected_lines) - failed_count
-
-            if failed_count == 0:
-                # Complete success - focus on lines processed
-                if processed_lines == 1:
-                    notification = [{
-                        "title": "Fetch Complete!",
-                        "message": f"Successfully processed 1 line ({files_count} file(s) extracted) to {output_directory}",
-                        "color": "green",
-                        "autoClose": 7000,
-                        "action": "show"
-                    }]
-                else:
-                    notification = [{
-                        "title": "Fetch Complete!",
-                        "message": f"Successfully processed {processed_lines} lines ({files_count} file(s) extracted) to {output_directory}",
-                        "color": "green",
-                        "autoClose": 7000,
-                        "action": "show"
-                    }]
-            else:
-                # Partial success
-                notification = [{
-                    "title": "Partial Success",
-                    "message": f"Processed {processed_lines} line(s), {failed_count} failed ({files_count} file(s) extracted). Check logs for details.",
-                    "color": "yellow",
-                    "autoClose": 7000,
-                    "action": "show"
-                }]
-
-            return "", {'status': 'completed'}, False, notification
-        else:
-            # Complete failure
-            notification = [{
-                "title": "Fetch Failed",
-                "message": result['message'],
-                "color": "red",
-                "autoClose": 7000,
-                "action": "show"
-            }]
-
-            return "", {'status': 'error'}, False, notification
+        # Format response using response formatter
+        return FetchArchiveUIResponseFormatter.format_fetch_response(result)
 
     except Exception as e:
         logger.error(f"Unexpected error during archive fetch: {e}")
@@ -483,50 +429,37 @@ def fetch_archive_data(n_clicks, selected_date, selected_lines, output_directory
         return "", {'status': 'error'}, False, notification
 
 
-# Callback to show date selection feedback
+# Refactored callback to show date selection feedback using controller
 @callback(
     Output('archive-date-status', 'children'),
     [Input('archive-date-picker', 'value')]
 )
 def update_date_status(selected_date):
-    """Show feedback for selected date."""
-    if not selected_date:
-        return ""
-
+    """Show feedback for selected date using controller."""
     try:
-        if isinstance(selected_date, str):
-            date_obj = datetime.strptime(selected_date, '%Y-%m-%d').date()
-        else:
-            date_obj = selected_date
+        # Get controller from DI container
+        controller = container.resolve("fetch_archive_page_controller")
+        
+        # Use controller to handle date selection
+        result = controller.handle_date_selection(selected_date)
+        
+        # Format response using response formatter
+        return FetchArchiveUIResponseFormatter.format_date_status_response(result)
 
-        formatted_date = date_obj.strftime('%B %d, %Y')
-        date_folder = date_obj.strftime('%Y%m%d')
-
-        return dmc.Alert(
-            children=[
-                dmc.Group([
-                    BootstrapIcon(icon="calendar-check", width=16),
-                    dmc.Text(
-                        f"Selected: {formatted_date} (Folder: {date_folder})", size="sm")
-                ], gap="xs")
-            ],
-            color="blue",
-            variant="light"
-        )
-
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error updating date status: {e}")
         return dmc.Alert(
             children=[
                 dmc.Group([
                     BootstrapIcon(icon="exclamation-triangle", width=16),
-                    dmc.Text("Invalid date selected", size="sm")
+                    dmc.Text("Error updating date status", size="sm")
                 ], gap="xs")
             ],
-            color="yellow",
+            color="red",
             variant="light"
         )
 
 
-# Create directory selector callback
+# Create directory selector callback (unchanged)
 create_directory_selector_callback(
     directory_ids, "Select Output Directory for Archive Files")

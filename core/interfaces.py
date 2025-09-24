@@ -385,3 +385,134 @@ class IReviewProcessor(ABC):
                                     peek_items: List[str] = None) -> Result[bool]:
         """Validate Review processing options."""
         pass
+
+
+# Archive Processing Interfaces
+class IArchiveValidator(IValidator):
+    """Interface for archive validation operations."""
+
+    @abstractmethod
+    def validate_archive_date(self, archive_date: Any) -> Result[bool]:
+        """Validate archive date."""
+        pass
+
+    @abstractmethod
+    def validate_pipeline_lines(self, pipeline_lines: List[str]) -> Result[bool]:
+        """Validate pipeline line selections."""
+        pass
+
+    @abstractmethod
+    def validate_output_directory(self, output_directory: str) -> Result[bool]:
+        """Validate output directory path."""
+        pass
+
+    @abstractmethod
+    def validate_fetch_request(self, archive_date: Any, pipeline_lines: List[str], 
+                               output_directory: str) -> Result[bool]:
+        """Validate complete fetch archive request."""
+        pass
+
+
+class IArchiveFileExtractor(ABC):
+    """Interface for archive file extraction operations."""
+
+    @abstractmethod
+    def extract_archive_file(self, zip_file_path: str, output_directory: str) -> Result[Dict[str, Any]]:
+        """Extract a single archive file to output directory."""
+        pass
+
+    @abstractmethod
+    def extract_multiple_archives(self, zip_file_paths: List[str], 
+                                   output_directory: str) -> Result[Dict[str, Any]]:
+        """Extract multiple archive files to output directory."""
+        pass
+
+    @abstractmethod
+    def get_archive_info(self, zip_file_path: str) -> Result[Dict[str, Any]]:
+        """Get information about an archive file."""
+        pass
+
+
+class IArchivePathService(ABC):
+    """Interface for archive path operations."""
+
+    @abstractmethod
+    def get_available_lines(self) -> Result[List[Dict[str, str]]]:
+        """Get list of available pipeline lines from archive structure."""
+        pass
+
+    @abstractmethod
+    def check_path_accessibility(self) -> Result[bool]:
+        """Check if archive path is accessible."""
+        pass
+
+    @abstractmethod
+    def get_line_archive_path(self, line_id: str, archive_date: Any) -> Result[str]:
+        """Get the archive path for a specific line and date."""
+        pass
+
+    @abstractmethod
+    def find_archive_files(self, line_id: str, archive_date: Any) -> Result[List[str]]:
+        """Find all archive files for a specific line and date."""
+        pass
+
+
+class IFetchArchiveService(IConverter):
+    """Interface for fetch archive operations."""
+
+    @abstractmethod
+    def fetch_archive_data(self, archive_date: Any, line_ids: List[str], 
+                           output_directory: str) -> Result[Dict[str, Any]]:
+        """Fetch archive data for specified date and pipeline lines."""
+        pass
+
+    @abstractmethod
+    def get_available_lines(self) -> Result[List[Dict[str, str]]]:
+        """Get list of available pipeline lines."""
+        pass
+
+    @abstractmethod
+    def validate_fetch_parameters(self, archive_date: Any, line_ids: List[str], 
+                                  output_directory: str) -> Result[bool]:
+        """Validate parameters for fetch operation."""
+        pass
+
+    @abstractmethod
+    def get_system_info(self) -> Result[Dict[str, Any]]:
+        """Get information about the archive system."""
+        pass
+
+
+class IFetchArchiveController(IPageController):
+    """Interface for fetch archive page controller."""
+
+    @abstractmethod
+    def handle_date_selection(self, archive_date: Any) -> Result[Dict[str, Any]]:
+        """Handle archive date selection and validation."""
+        pass
+
+    @abstractmethod
+    def handle_line_selection(self, selected_lines: List[str]) -> Result[Dict[str, Any]]:
+        """Handle pipeline line selection and validation."""
+        pass
+
+    @abstractmethod
+    def handle_output_directory_selection(self, output_directory: str) -> Result[Dict[str, Any]]:
+        """Handle output directory selection and validation."""
+        pass
+
+    @abstractmethod
+    def handle_fetch_request(self, archive_date: Any, selected_lines: List[str], 
+                             output_directory: str) -> Result[Dict[str, Any]]:
+        """Handle fetch archive request execution."""
+        pass
+
+    @abstractmethod
+    def get_available_lines(self) -> Result[List[Dict[str, str]]]:
+        """Get available pipeline lines for UI."""
+        pass
+
+    @abstractmethod
+    def get_system_info(self) -> Result[Dict[str, Any]]:
+        """Get system information for help modal."""
+        pass

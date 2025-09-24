@@ -516,3 +516,196 @@ class IFetchArchiveController(IPageController):
     def get_system_info(self) -> Result[Dict[str, Any]]:
         """Get system information for help modal."""
         pass
+
+
+# Fetch RTU Data Interfaces
+class IFetchRtuDataService(ABC):
+    """Interface for RTU data fetching service."""
+
+    @abstractmethod
+    def get_available_lines(self) -> Result[List[Dict[str, str]]]:
+        """
+        Get list of available pipeline lines from data source.
+        
+        Returns:
+            Result containing list of lines with 'label' and 'value' keys
+        """
+        pass
+
+    @abstractmethod 
+    def fetch_rtu_data(self, line_selection: Any, date_range: Any, 
+                       output_directory: Any, server_filter: Any = None,
+                       max_parallel_workers: int = 4) -> Result[Any]:
+        """
+        Fetch RTU data for specified parameters.
+        
+        Args:
+            line_selection: Selected pipeline lines (domain object)
+            date_range: Date range for data fetching (domain object)
+            output_directory: Output directory (domain object)
+            server_filter: Optional server filter (domain object)
+            max_parallel_workers: Maximum parallel processing workers
+            
+        Returns:
+            Result containing fetch operation results
+        """
+        pass
+
+    @abstractmethod
+    def validate_data_source_availability(self) -> Result[bool]:
+        """
+        Validate that the RTU data source is accessible.
+        
+        Returns:
+            Result indicating if data source is available
+        """
+        pass
+
+
+class IRtuLineProvider(ABC):
+    """Interface for providing available RTU pipeline lines."""
+
+    @abstractmethod
+    def get_lines(self) -> Result[List[Dict[str, str]]]:
+        """
+        Get available pipeline lines from data source.
+        
+        Returns:
+            Result containing list of available lines
+        """
+        pass
+
+    @abstractmethod
+    def validate_line_exists(self, line_id: str) -> Result[bool]:
+        """
+        Validate that a specific line exists in the data source.
+        
+        Args:
+            line_id: Pipeline line identifier
+            
+        Returns:
+            Result indicating if line exists
+        """
+        pass
+
+
+class IRtuDateValidator(ABC):
+    """Interface for RTU date validation."""
+
+    @abstractmethod
+    def validate_single_date(self, date_value: Any) -> Result[Any]:
+        """
+        Validate a single date for RTU data fetching.
+        
+        Args:
+            date_value: Date value to validate
+            
+        Returns:
+            Result containing validated domain object
+        """
+        pass
+
+    @abstractmethod
+    def validate_date_range(self, start_date: Any, end_date: Any) -> Result[Any]:
+        """
+        Validate a date range for RTU data fetching.
+        
+        Args:
+            start_date: Start date value
+            end_date: End date value
+            
+        Returns:
+            Result containing validated domain object
+        """
+        pass
+
+
+class IRtuDataProcessor(ABC):
+    """Interface for RTU data processing operations."""
+
+    @abstractmethod
+    def process_zip_file(self, file_info: Dict[str, Any], output_dir: str) -> Result[Dict[str, Any]]:
+        """
+        Process a single RTU zip file.
+        
+        Args:
+            file_info: Information about the zip file to process
+            output_dir: Output directory for extracted files
+            
+        Returns:
+            Result containing processing results
+        """
+        pass
+
+    @abstractmethod
+    def process_multiple_files(self, file_list: List[Dict[str, Any]], 
+                               output_dir: str, max_workers: int = 4) -> Result[Dict[str, Any]]:
+        """
+        Process multiple RTU files in parallel.
+        
+        Args:
+            file_list: List of files to process
+            output_dir: Output directory for extracted files
+            max_workers: Maximum number of parallel workers
+            
+        Returns:
+            Result containing processing results
+        """
+        pass
+
+
+class IFetchRtuDataController(IPageController):
+    """Interface for Fetch RTU Data page controller."""
+
+    @abstractmethod
+    def handle_date_mode_change(self, mode: str) -> Result[Dict[str, Any]]:
+        """Handle date mode selection (single/range)."""
+        pass
+
+    @abstractmethod
+    def handle_single_date_selection(self, date_value: Any) -> Result[Dict[str, Any]]:
+        """Handle single date selection and validation."""
+        pass
+
+    @abstractmethod
+    def handle_date_range_selection(self, start_date: Any, end_date: Any) -> Result[Dict[str, Any]]:
+        """Handle date range selection and validation."""
+        pass
+
+    @abstractmethod
+    def handle_line_selection(self, selected_lines: List[str]) -> Result[Dict[str, Any]]:
+        """Handle pipeline line selection and validation."""
+        pass
+
+    @abstractmethod
+    def handle_output_directory_selection(self, output_directory: str) -> Result[Dict[str, Any]]:
+        """Handle output directory selection and validation."""
+        pass
+
+    @abstractmethod
+    def handle_server_filter_change(self, filter_pattern: str) -> Result[Dict[str, Any]]:
+        """Handle server filter pattern changes."""
+        pass
+
+    @abstractmethod
+    def handle_fetch_request(self, mode: str, single_date: Any, start_date: Any, end_date: Any,
+                             selected_lines: List[str], output_directory: str, 
+                             server_filter: str = None, max_parallel_workers: int = 4) -> Result[Dict[str, Any]]:
+        """Handle RTU data fetch request execution."""
+        pass
+
+    @abstractmethod
+    def get_available_lines(self) -> Result[List[Dict[str, str]]]:
+        """Get available pipeline lines for UI."""
+        pass
+
+    @abstractmethod
+    def validate_fetch_form(self, mode: str, single_date: Any, start_date: Any, end_date: Any,
+                            selected_lines: List[str], output_directory: str) -> Result[bool]:
+        """Validate fetch form inputs."""
+        pass
+
+    @abstractmethod
+    def get_system_info(self) -> Result[Dict[str, Any]]:
+        """Get system information for help modal."""
+        pass

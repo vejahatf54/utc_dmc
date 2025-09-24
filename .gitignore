@@ -42,7 +42,7 @@ pip-wheel-metadata/
 *.manifest
 *.spec
 # But track our project's PyInstaller spec file
-!dmc.spec
+!wutc.spec
 
 # Unit test / coverage reports
 htmlcov/

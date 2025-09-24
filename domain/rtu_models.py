@@ -305,3 +305,420 @@ class RtuConversionConstants:
                 'iso': cls.TIME_FORMAT_ISO
             }
         }
+
+
+# Fetch RTU Data Domain Models
+class RtuDate(IValueObject):
+    """Value object representing an RTU fetch date with validation."""
+
+    def __init__(self, rtu_date: date):
+        if not isinstance(rtu_date, date):
+            raise ValueError("RTU date must be a date object")
+
+        self._validate_date(rtu_date)
+        self._value = rtu_date
+
+    @property
+    def value(self) -> date:
+        """Get the date value."""
+        return self._value
+
+    @property
+    def folder_name(self) -> str:
+        """Get the folder name format for RTU data (YYYYMMDD)."""
+        return self._value.strftime('%Y%m%d')
+
+    @property
+    def display_format(self) -> str:
+        """Get the human-readable format."""
+        return self._value.strftime('%B %d, %Y')
+
+    @property
+    def iso_format(self) -> str:
+        """Get the ISO format string."""
+        return self._value.strftime('%Y-%m-%d')
+
+    def _validate_date(self, rtu_date: date) -> None:
+        """Validate RTU date."""
+        if rtu_date > date.today():
+            raise ValueError("RTU date cannot be in the future")
+
+        # RTU dates should be reasonable (not too far in the past)
+        min_date = date(2000, 1, 1)
+        if rtu_date < min_date:
+            raise ValueError(f"RTU date cannot be before {min_date.strftime('%Y-%m-%d')}")
+
+    def __str__(self) -> str:
+        return self.iso_format
+
+    def __repr__(self) -> str:
+        return f"RtuDate('{self.iso_format}')"
+
+
+class RtuDateRange(IValueObject):
+    """Value object representing a date range for RTU data fetching."""
+
+    def __init__(self, start_date: date, end_date: date = None):
+        if end_date is None:
+            end_date = date.today()
+        
+        self._validate_date_range(start_date, end_date)
+        self._start_date = RtuDate(start_date)
+        self._end_date = RtuDate(end_date)
+
+    @property
+    def start_date(self) -> RtuDate:
+        """Get the start date."""
+        return self._start_date
+
+    @property
+    def end_date(self) -> RtuDate:
+        """Get the end date."""
+        return self._end_date
+
+    @property
+    def is_single_date(self) -> bool:
+        """Check if this represents a single date range (start to today)."""
+        return self._end_date.value == date.today()
+
+    @property
+    def day_count(self) -> int:
+        """Get the number of days in the range."""
+        return (self._end_date.value - self._start_date.value).days + 1
+
+    @property
+    def date_list(self) -> List[date]:
+        """Get list of all dates in the range."""
+        dates = []
+        current = self._start_date.value
+        while current <= self._end_date.value:
+            dates.append(current)
+            current = date.fromordinal(current.toordinal() + 1)
+        return dates
+
+    def _validate_date_range(self, start_date: date, end_date: date) -> None:
+        """Validate the date range."""
+        if not isinstance(start_date, date):
+            raise ValueError("Start date must be a date object")
+        if not isinstance(end_date, date):
+            raise ValueError("End date must be a date object")
+        if start_date > end_date:
+            raise ValueError("Start date cannot be after end date")
+
+    def contains_date(self, check_date: date) -> bool:
+        """Check if the range contains the specified date."""
+        return self._start_date.value <= check_date <= self._end_date.value
+
+    def __str__(self) -> str:
+        if self.is_single_date:
+            return f"From {self._start_date.display_format} to Today"
+        else:
+            return f"{self._start_date.display_format} to {self._end_date.display_format}"
+
+    def __repr__(self) -> str:
+        return f"RtuDateRange(start_date={self._start_date.value}, end_date={self._end_date.value})"
+
+
+class RtuServerFilter(IValueObject):
+    """Value object representing a server filter for RTU data."""
+
+    def __init__(self, pattern: str = None):
+        self._validate_pattern(pattern)
+        self._pattern = pattern.strip() if pattern else None
+
+    @property
+    def pattern(self) -> Optional[str]:
+        """Get the filter pattern."""
+        return self._pattern
+
+    @property
+    def is_empty(self) -> bool:
+        """Check if filter is empty (no filtering)."""
+        return self._pattern is None or self._pattern == ""
+
+    @property
+    def is_wildcard(self) -> bool:
+        """Check if pattern contains wildcards."""
+        return self._pattern and '*' in self._pattern
+
+    def _validate_pattern(self, pattern: str) -> None:
+        """Validate server filter pattern."""
+        if pattern is not None and not isinstance(pattern, str):
+            raise ValueError("Server filter pattern must be a string or None")
+
+        if pattern and len(pattern.strip()) == 0:
+            pattern = None  # Treat empty string as None
+
+    def matches(self, server_name: str) -> bool:
+        """Check if server name matches the filter pattern."""
+        if self.is_empty:
+            return True  # No filter means all servers match
+
+        if not server_name:
+            return False
+
+        import re
+        
+        # Convert to lowercase for case-insensitive matching
+        server_name_lower = server_name.lower()
+        pattern_lower = self._pattern.lower()
+        
+        # Escape special regex characters except *
+        escaped_pattern = re.escape(pattern_lower).replace(r'\*', '.*')
+        
+        # Add anchors to match the entire string
+        regex_pattern = f'^{escaped_pattern}$'
+        
+        return bool(re.match(regex_pattern, server_name_lower))
+
+    def __str__(self) -> str:
+        return self._pattern if self._pattern else "No filter"
+
+    def __repr__(self) -> str:
+        return f"RtuServerFilter('{self._pattern}')"
+
+
+class RtuLineSelection(IValueObject):
+    """Value object representing selected pipeline lines for RTU data fetch."""
+
+    def __init__(self, line_ids: List[str]):
+        self._validate_line_ids(line_ids)
+        self._line_ids = [line_id.strip() for line_id in line_ids]
+
+    @property
+    def line_ids(self) -> List[str]:
+        """Get the list of line IDs."""
+        return self._line_ids.copy()
+
+    @property
+    def count(self) -> int:
+        """Get the number of selected lines."""
+        return len(self._line_ids)
+
+    @property
+    def is_empty(self) -> bool:
+        """Check if no lines are selected."""
+        return self.count == 0
+
+    def _validate_line_ids(self, line_ids: List[str]) -> None:
+        """Validate line IDs."""
+        if not isinstance(line_ids, list):
+            raise ValueError("Line IDs must be a list")
+
+        if len(line_ids) == 0:
+            raise ValueError("At least one line must be selected")
+
+        for line_id in line_ids:
+            if not isinstance(line_id, str):
+                raise ValueError("All line IDs must be strings")
+            if not line_id.strip():
+                raise ValueError("Line IDs cannot be empty")
+
+    def contains_line(self, line_id: str) -> bool:
+        """Check if the selection contains the specified line."""
+        return line_id in self._line_ids
+
+    def __str__(self) -> str:
+        if self.count == 1:
+            return f"1 line: {self._line_ids[0]}"
+        else:
+            return f"{self.count} lines: {', '.join(self._line_ids[:3])}" + ("..." if self.count > 3 else "")
+
+    def __repr__(self) -> str:
+        return f"RtuLineSelection({self._line_ids})"
+
+
+class RtuOutputDirectory(IValueObject):
+    """Value object representing output directory for RTU data with validation."""
+
+    def __init__(self, directory_path: str):
+        self._validate_directory(directory_path)
+        self._path = Path(directory_path).resolve()
+
+    @property
+    def path(self) -> Path:
+        """Get the directory path."""
+        return self._path
+
+    @property
+    def path_str(self) -> str:
+        """Get the directory path as string."""
+        return str(self._path)
+
+    @property
+    def exists(self) -> bool:
+        """Check if directory exists."""
+        return self._path.exists() and self._path.is_dir()
+
+    @property
+    def is_writable(self) -> bool:
+        """Check if directory is writable."""
+        try:
+            # Try to create the directory if it doesn't exist
+            if not self.exists:
+                self._path.mkdir(parents=True, exist_ok=True)
+            
+            # Test write access by creating a temporary file
+            test_file = self._path / ".write_test"
+            test_file.touch()
+            test_file.unlink()
+            return True
+        except (OSError, PermissionError):
+            return False
+
+    def _validate_directory(self, directory_path: str) -> None:
+        """Validate directory path."""
+        if not isinstance(directory_path, str):
+            raise ValueError("Directory path must be a string")
+
+        if not directory_path.strip():
+            raise ValueError("Directory path cannot be empty")
+
+        # Check for invalid characters (basic validation, excluding drive letters)
+        invalid_chars = ['<', '>', '"', '|', '?', '*']
+        # Allow colon only as part of drive letter (e.g., C:)
+        path_without_drive = directory_path[2:] if len(directory_path) > 2 and directory_path[1] == ':' else directory_path
+        if any(char in path_without_drive for char in invalid_chars):
+            raise ValueError(f"Directory path contains invalid characters: {directory_path}")
+
+    def create_line_subdirectory(self, line_id: str) -> 'RtuOutputDirectory':
+        """Create a subdirectory for a specific line."""
+        line_path = self._path / line_id
+        return RtuOutputDirectory(str(line_path))
+
+    def __str__(self) -> str:
+        return str(self._path)
+
+    def __repr__(self) -> str:
+        return f"RtuOutputDirectory('{self._path}')"
+
+
+class RtuFetchResult(IValueObject):
+    """Value object representing the result of an RTU data fetch operation."""
+
+    def __init__(self, success: bool, message: str, 
+                 lines_processed: int = 0, 
+                 total_files_extracted: int = 0,
+                 extraction_errors: List[str] = None,
+                 missing_dates: List[str] = None):
+        self._success = success
+        self._message = message
+        self._lines_processed = max(0, lines_processed)
+        self._total_files_extracted = max(0, total_files_extracted)
+        self._extraction_errors = extraction_errors or []
+        self._missing_dates = missing_dates or []
+
+    @property
+    def success(self) -> bool:
+        """Check if the fetch operation was successful."""
+        return self._success
+
+    @property
+    def message(self) -> str:
+        """Get the result message."""
+        return self._message
+
+    @property
+    def lines_processed(self) -> int:
+        """Get the number of lines processed."""
+        return self._lines_processed
+
+    @property
+    def total_files_extracted(self) -> int:
+        """Get the total number of files extracted."""
+        return self._total_files_extracted
+
+    @property
+    def extraction_errors(self) -> List[str]:
+        """Get the list of extraction errors."""
+        return self._extraction_errors.copy()
+
+    @property
+    def missing_dates(self) -> List[str]:
+        """Get the list of missing dates."""
+        return self._missing_dates.copy()
+
+    @property
+    def has_errors(self) -> bool:
+        """Check if there were any extraction errors."""
+        return len(self._extraction_errors) > 0
+
+    @property
+    def has_missing_dates(self) -> bool:
+        """Check if there were any missing dates."""
+        return len(self._missing_dates) > 0
+
+    @property
+    def summary_text(self) -> str:
+        """Get a summary text for the result."""
+        if self._success:
+            text = f"Success! {self._total_files_extracted} files extracted for {self._lines_processed} lines"
+            if self.has_errors:
+                text += f" (with {len(self._extraction_errors)} errors)"
+            return text
+        else:
+            return f"Failed: {self._message}"
+
+    @classmethod
+    def create_success(cls, lines_processed: int, total_files_extracted: int, 
+                       extraction_errors: List[str] = None, missing_dates: List[str] = None) -> 'RtuFetchResult':
+        """Create a successful result."""
+        message = f"RTU data extraction completed successfully"
+        return cls(True, message, lines_processed, total_files_extracted, extraction_errors, missing_dates)
+
+    @classmethod
+    def create_failure(cls, message: str) -> 'RtuFetchResult':
+        """Create a failed result."""
+        return cls(False, message)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary format."""
+        return {
+            'success': self._success,
+            'message': self._message,
+            'summary': {
+                'lines_processed': self._lines_processed,
+                'total_files_extracted': self._total_files_extracted
+            },
+            'extraction_errors': self._extraction_errors,
+            'missing_dates': self._missing_dates
+        }
+
+    def __str__(self) -> str:
+        return self.summary_text
+
+    def __repr__(self) -> str:
+        return f"RtuFetchResult(success={self._success}, lines_processed={self._lines_processed}, total_files_extracted={self._total_files_extracted})"
+
+
+@dataclass(frozen=True)
+class RtuFetchConstants:
+    """Constants for RTU data fetching operations."""
+
+    # File patterns
+    ZIP_FILE_PATTERN: str = r'^(.+)_(\d{8})_(\d{4})_(.+)\.zip$'
+    DT_FILE_EXTENSION: str = '.dt'
+    
+    # Default values
+    DEFAULT_MAX_PARALLEL_WORKERS: int = 4
+    MAX_PARALLEL_WORKERS: int = 8
+    MIN_PARALLEL_WORKERS: int = 1
+    
+    # Timeouts
+    DEFAULT_TIMEOUT_SECONDS: int = 300
+    MAX_TIMEOUT_SECONDS: int = 3600
+    
+    # Directory names
+    DEFAULT_OUTPUT_SUBDIR: str = "rtu_data"
+    
+    @classmethod
+    def get_system_info(cls) -> Dict[str, Any]:
+        """Get system information for RTU fetch operations."""
+        return {
+            'zip_file_pattern': cls.ZIP_FILE_PATTERN,
+            'dt_file_extension': cls.DT_FILE_EXTENSION,
+            'default_max_parallel_workers': cls.DEFAULT_MAX_PARALLEL_WORKERS,
+            'max_parallel_workers': cls.MAX_PARALLEL_WORKERS,
+            'default_timeout_seconds': cls.DEFAULT_TIMEOUT_SECONDS,
+            'max_timeout_seconds': cls.MAX_TIMEOUT_SECONDS
+        }

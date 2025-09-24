@@ -1,6 +1,7 @@
 """
-Fetch RTU Data Page for DMC Application.
+Fetch RTU Data Page for DMC Application - Refactored with Clean Architecture.
 Allows users to select date ranges or single dates, pipeline lines, and output directories to fetch RTU data with parallel decompression.
+Uses controller pattern and dependency injection while preserving exact UI layout design.
 """
 
 import dash
@@ -11,14 +12,22 @@ import os
 from logging_config import get_logger
 
 from components.bootstrap_icon import BootstrapIcon
-from components.directory_selector import create_directory_selector, create_directory_selector_callback
-from services.fetch_rtu_data_service import FetchRtuDataService
+from components.directory_selector import create_directory_selector
+from controllers.fetch_rtu_data_controller import RtuUIResponseFormatter
+from core.dependency_injection import get_container
 from services.config_manager import get_config_manager
 
 logger = get_logger(__name__)
 
-# Initialize services
-fetch_rtu_service = FetchRtuDataService()
+# Initialize controller through dependency injection
+container = get_container()
+try:
+    rtu_controller = container.resolve("fetch_rtu_page_controller")
+    logger.info("RTU controller initialized successfully through DI")
+except Exception as e:
+    logger.warning(f"Failed to resolve RTU controller from DI, creating manually: {e}")
+    from controllers.fetch_rtu_data_controller import create_fetch_rtu_data_controller
+    rtu_controller = create_fetch_rtu_data_controller()
 
 # Create directory selector component
 directory_component, directory_ids = create_directory_selector(
@@ -28,7 +37,7 @@ directory_component, directory_ids = create_directory_selector(
     browse_button_text="Browse"
 )
 
-# Layout
+# Layout - PRESERVING EXACT ORIGINAL DESIGN
 layout = dmc.Container([
     # Data stores
     dcc.Store(id='available-lines-store-rtu', data=[]),
@@ -107,7 +116,7 @@ layout = dmc.Container([
 
         dmc.Space(h="sm"),
 
-        # Main Content - Two Column Layout
+        # Main Content - Two Column Layout (EXACT ORIGINAL LAYOUT)
         dmc.Group([
             # Left Column: Date Selection and Output Directory
             dmc.Box([
@@ -382,6 +391,8 @@ layout = dmc.Container([
 ], fluid=True, p="sm")
 
 
+# REFACTORED CALLBACKS USING CONTROLLER PATTERN
+
 # Callback to set initial directory path
 @callback(
     [Output(directory_ids['input'], 'value'),
@@ -402,7 +413,7 @@ def set_initial_directory(_):
         return "", False  # Enable browse button
 
 
-# Callback to toggle date mode
+# Callback to toggle date mode using controller
 @callback(
     [Output('single-date-container-rtu', 'style'),
      Output('date-range-container-rtu', 'style'),
@@ -410,11 +421,24 @@ def set_initial_directory(_):
     Input('date-mode-radio-rtu', 'value')
 )
 def toggle_date_mode(mode):
-    """Toggle between single date and date range modes."""
-    if mode == 'single':
+    """Toggle between single date and date range modes using controller."""
+    try:
+        result = rtu_controller.handle_date_mode_change(mode)
+        
+        if result.success:
+            data = result.data
+            return (
+                data.get('single_date_container_style', {"display": "block"}),
+                data.get('date_range_container_style', {"display": "none"}),
+                {'mode': data.get('date_mode', 'single')}
+            )
+        else:
+            logger.error(f"Date mode change failed: {result.error}")
+            return {"display": "block"}, {"display": "none"}, {'mode': 'single'}
+            
+    except Exception as e:
+        logger.error(f"Error in date mode toggle: {e}")
         return {"display": "block"}, {"display": "none"}, {'mode': 'single'}
-    else:
-        return {"display": "none"}, {"display": "block"}, {'mode': 'range'}
 
 
 # Help modal callback
@@ -429,7 +453,7 @@ def toggle_help_modal(n, opened):
     return not opened
 
 
-# Callback to load available lines on page startup
+# Callback to load available lines using controller
 @callback(
     [Output('available-lines-store-rtu', 'data'),
      Output('lines-checklist-rtu', 'children'),
@@ -437,59 +461,26 @@ def toggle_help_modal(n, opened):
     [Input('available-lines-store-rtu', 'id')]  # Triggers on page load
 )
 def load_available_lines(_):
-    """Load available pipeline lines from FetchRtuDataService."""
+    """Load available pipeline lines using controller."""
     try:
-        # Fetch available lines
-        result = fetch_rtu_service.get_available_lines()
-
-        if result['success']:
-            lines = result['lines']
-            checkbox_children = [
-                dmc.Checkbox(
-                    label=line['label'], 
-                    value=line['value'],
-                    styles={
-                        "input": {"border-radius": "4px"},
-                        "body": {"align-items": "flex-start"},
-                        "labelWrapper": {"margin-left": "8px"}
-                    }
-                ) for line in lines
-            ]
+        result = rtu_controller.get_available_lines()
+        
+        if result.success:
+            lines = result.data
+            checkbox_children = RtuUIResponseFormatter.format_lines_checklist(lines)
             return lines, checkbox_children, ""
         else:
             # Return empty options with error message
-            error_msg = dmc.Alert(
-                children=[
-                    dmc.Group([
-                        BootstrapIcon(icon="exclamation-triangle", width=16),
-                        dmc.Text(
-                            f"UNC path not accessible: {result['message']}", size="sm")
-                    ], gap="xs")
-                ],
-                color="yellow",
-                variant="light",
-                className="mb-3"
-            )
+            error_msg = RtuUIResponseFormatter.format_error_alert(result.error, "warning")
             return [], [], error_msg
 
     except Exception as e:
         logger.error(f"Error loading pipeline lines: {e}")
-        error_msg = dmc.Alert(
-            children=[
-                dmc.Group([
-                    BootstrapIcon(icon="x-circle", width=16),
-                    dmc.Text(
-                        f"Error loading pipeline lines: {str(e)}", size="sm")
-                ], gap="xs")
-            ],
-            color="red",
-            variant="light",
-            className="mb-3"
-        )
+        error_msg = RtuUIResponseFormatter.format_error_alert(f"Error loading pipeline lines: {str(e)}", "error")
         return [], [], error_msg
 
 
-# Callback for select all functionality
+# Callback for select all functionality (unchanged - pure UI logic)
 @callback(
     Output('lines-checklist-rtu', 'value'),
     [Input('select-all-lines-checkbox-rtu', 'value')],
@@ -508,7 +499,7 @@ def toggle_select_all_lines(select_all_value, available_lines, current_selection
         return []
 
 
-# Callback to enable/disable fetch button based on form validation
+# Callback to enable/disable fetch button using controller validation
 @callback(
     Output('fetch-rtu-btn', 'disabled'),
     [Input('single-date-picker-rtu', 'value'),
@@ -521,28 +512,24 @@ def toggle_select_all_lines(select_all_value, available_lines, current_selection
 )
 def validate_fetch_form(single_date, start_date, end_date, selected_lines, output_directory, fetch_status, date_mode):
     """Enable fetch button only when all required fields are filled and not processing."""
-    # Disable if currently processing
-    if fetch_status and fetch_status.get('status') == 'processing':
-        return True
-    
-    # Check if required fields are filled based on date mode
-    mode = date_mode.get('mode', 'single') if date_mode else 'single'
-    
-    # Validate date inputs based on mode
-    date_valid = False
-    if mode == 'single':
-        date_valid = bool(single_date)
-    else:  # range mode
-        date_valid = bool(start_date and end_date)
-    
-    # Disable if any required field is missing
-    if not date_valid or not selected_lines or not output_directory:
-        return True
-    
-    return False
+    try:
+        # Disable if currently processing
+        if fetch_status and fetch_status.get('status') == 'processing':
+            return True
+        
+        # Use controller to validate form
+        mode = date_mode.get('mode', 'single') if date_mode else 'single'
+        result = rtu_controller.validate_fetch_form(mode, single_date, start_date, end_date, selected_lines, output_directory)
+        
+        # Return opposite of validation result (disabled when invalid)
+        return not (result.success and result.data)
+        
+    except Exception as e:
+        logger.error(f"Error validating fetch form: {e}")
+        return True  # Disable on error
 
 
-# Callback for fetch RTU data functionality with notifications
+# Callback for fetch RTU data functionality using controller
 @callback(
     [Output('fetch-rtu-processing-status', 'children'),
      Output('fetch-rtu-status-store', 'data'),
@@ -560,8 +547,9 @@ def validate_fetch_form(single_date, start_date, end_date, selected_lines, outpu
      State('max-parallel-decompress-input', 'value')],
     prevent_initial_call=True
 )
-def fetch_rtu_data(n_clicks, single_date, start_date, end_date, selected_lines, output_directory, server_filter, current_status, date_mode, max_parallel_workers):
-    """Fetch RTU data using FetchRtuDataService with notifications."""
+def fetch_rtu_data(n_clicks, single_date, start_date, end_date, selected_lines, output_directory, 
+                   server_filter, current_status, date_mode, max_parallel_workers):
+    """Fetch RTU data using controller."""
     if not n_clicks:
         return "", {'status': 'idle'}, False, no_update
 
@@ -574,61 +562,46 @@ def fetch_rtu_data(n_clicks, single_date, start_date, end_date, selected_lines, 
         processing_status = dmc.Text("Processing...", c="blue")
         status_data = {'status': 'processing'}
 
-        # Determine date parameters based on mode
+        # Determine mode
         mode = date_mode.get('mode', 'single') if date_mode else 'single'
-        
-        if mode == 'single':
-            fetch_result = fetch_rtu_service.fetch_rtu_data(
-                line_ids=selected_lines,
-                output_directory=output_directory,
-                single_date=single_date,
-                server_filter=server_filter,
-                max_parallel_workers=max_parallel_workers or 4
-            )
-        else:  # range mode
-            fetch_result = fetch_rtu_service.fetch_rtu_data(
-                line_ids=selected_lines,
-                output_directory=output_directory,
-                start_date=start_date,
-                end_date=end_date,
-                server_filter=server_filter,
-                max_parallel_workers=max_parallel_workers or 4
-            )
 
-        if fetch_result['success']:
-            summary = fetch_result['summary']
-            success_status = dmc.Text(f"✓ Success! {summary['total_files_extracted']} files extracted", c="green")
-            
-            # Success notification
-            notification = {
-                'id': f'rtu-fetch-success-{datetime.now().timestamp()}',
-                'message': f"RTU data fetch completed successfully! {summary['total_files_extracted']} files extracted for {summary['lines_processed']} lines.",
-                'color': 'green',
-                'autoClose': 5000,
-                'icon': BootstrapIcon(icon="check-circle", width=20)
-            }
-            
-            return success_status, {'status': 'idle'}, False, [notification]
+        # Use controller to handle fetch request
+        result = rtu_controller.handle_fetch_request(
+            mode=mode,
+            single_date=single_date,
+            start_date=start_date,
+            end_date=end_date,
+            selected_lines=selected_lines,
+            output_directory=output_directory,
+            server_filter=server_filter,
+            max_parallel_workers=max_parallel_workers or 4
+        )
+
+        if result.success:
+            response_data = result.data
+            return (
+                response_data.get('processing_status', ""),
+                {'status': 'idle'},
+                response_data.get('button_disabled', False),
+                [response_data.get('notification')] if response_data.get('notification') else no_update
+            )
         else:
-            error_status = dmc.Text(f"✗ Error: {fetch_result['message']}", c="red")
-            
-            # Error notification
-            notification = {
+            # Handle error
+            error_status = dmc.Text(f"✗ Error: {result.error}", c="red")
+            error_notification = {
                 'id': f'rtu-fetch-error-{datetime.now().timestamp()}',
-                'message': f"RTU data fetch failed: {fetch_result['message']}",
+                'message': f"RTU data fetch failed: {result.error}",
                 'color': 'red',
                 'autoClose': 7000,
                 'icon': BootstrapIcon(icon="x-circle", width=20)
             }
             
-            return error_status, {'status': 'idle'}, False, [notification]
+            return error_status, {'status': 'idle'}, False, [error_notification]
 
     except Exception as e:
         logger.error(f"Error in RTU data fetch callback: {e}")
         error_status = dmc.Text(f"✗ Unexpected error: {str(e)}", c="red")
-        
-        # Error notification
-        notification = {
+        error_notification = {
             'id': f'rtu-fetch-exception-{datetime.now().timestamp()}',
             'message': f"Unexpected error during RTU data fetch: {str(e)}",
             'color': 'red',
@@ -636,10 +609,10 @@ def fetch_rtu_data(n_clicks, single_date, start_date, end_date, selected_lines, 
             'icon': BootstrapIcon(icon="exclamation-triangle", width=20)
         }
         
-        return error_status, {'status': 'idle'}, False, [notification]
+        return error_status, {'status': 'idle'}, False, [error_notification]
 
 
-# Callback to handle directory selection browse button
+# Callback to handle directory selection browse button (unchanged - pure UI logic)
 @callback(
     [Output(directory_ids['input'], 'value', allow_duplicate=True),
      Output(directory_ids['status'], 'children'),

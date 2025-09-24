@@ -381,4 +381,50 @@ def configure_services() -> DIContainer:
     container.register_transient(
         FetchArchivePageController, factory=fetch_archive_controller_factory, name="fetch_archive_page_controller")
 
+    # Register RTU Data Services (following clean architecture)
+    from core.interfaces import IFetchRtuDataService, IFetchRtuDataController, IRtuLineProvider, IRtuDataProcessor
+    from services.fetch_rtu_data_service import FetchRtuDataServiceV2, RtuLineProvider, RtuDataProcessor, LegacyFetchRtuDataService
+    from controllers.fetch_rtu_data_controller import FetchRtuDataPageController
+    from validation.rtu_validators import create_composite_rtu_validator, CompositeRtuValidator
+
+    # Register RTU line provider (singleton - stateless service)
+    container.register_singleton(
+        IRtuLineProvider, RtuLineProvider, name="rtu_line_provider")
+
+    # Register RTU data processor (singleton - stateless service)
+    container.register_singleton(
+        IRtuDataProcessor, RtuDataProcessor, name="rtu_data_processor")
+
+    # Register RTU composite validator (singleton - stateless validator)
+    container.register_singleton(
+        CompositeRtuValidator, factory=create_composite_rtu_validator, name="rtu_composite_validator")
+
+    # Register fetch RTU data service
+    def fetch_rtu_service_factory():
+        line_provider = container.resolve("rtu_line_provider")
+        data_processor = container.resolve("rtu_data_processor")
+        return FetchRtuDataServiceV2(line_provider, data_processor)
+
+    container.register_singleton(
+        IFetchRtuDataService, factory=fetch_rtu_service_factory, name="fetch_rtu_service")
+
+    # Register legacy wrapper for backward compatibility
+    def legacy_rtu_service_factory():
+        new_service = container.resolve("fetch_rtu_service")
+        return LegacyFetchRtuDataService(new_service)
+
+    container.register_singleton(
+        LegacyFetchRtuDataService, factory=legacy_rtu_service_factory, name="legacy_fetch_rtu_service")
+
+    # Register fetch RTU controller (transient - new instance per request)
+    def fetch_rtu_controller_factory():
+        rtu_service = container.resolve("fetch_rtu_service")
+        composite_validator = container.resolve("rtu_composite_validator")
+        return FetchRtuDataPageController(rtu_service, composite_validator)
+
+    container.register_transient(
+        IFetchRtuDataController, factory=fetch_rtu_controller_factory, name="fetch_rtu_controller")
+    container.register_transient(
+        FetchRtuDataPageController, factory=fetch_rtu_controller_factory, name="fetch_rtu_page_controller")
+
     return container

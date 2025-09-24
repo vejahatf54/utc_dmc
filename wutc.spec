@@ -29,9 +29,13 @@ datas = [
     (str(project_root / 'domain'), 'domain'),
     (str(project_root / 'controllers'), 'controllers'),
     (str(project_root / 'core'), 'core'),
+    (str(project_root / 'validation'), 'validation'),
     
     # Include SQL files
     (str(project_root / 'sql'), 'sql'),
+    
+    # Include PyInstaller hooks
+    (str(project_root / 'hooks'), 'hooks'),
     
     # Include requirements.txt for reference
     (str(project_root / 'requirements.txt'), '.'),
@@ -243,6 +247,9 @@ hiddenimports = [
     'pywintypes',
     'pythoncom',
     
+    # Core application modules
+    'logging_config',
+    
     # Your application modules - Components
     'components.bootstrap_icon',
     'components.csv_to_rtu_page',
@@ -314,6 +321,7 @@ hiddenimports = [
     # Clean Architecture - Controllers
     'controllers.csv_to_rtu_controller',
     'controllers.fetch_archive_controller',
+    'controllers.fetch_rtu_data_controller',
     'controllers.fluid_id_controller',
     'controllers.review_to_csv_controller',
     'controllers.rtu_resizer_controller',
@@ -323,10 +331,16 @@ hiddenimports = [
     # Clean Architecture - Core
     'core.interfaces',
     'core.dependency_injection',
+    
+    # Clean Architecture - Validation
+    'validation.archive_validators',
+    'validation.csv_validators',
+    'validation.input_validators',
+    'validation.rtu_validators',
 ]
 
-# Collect all Python files in components and services directories
-for directory in ['components', 'services']:
+# Collect all Python files in project directories
+for directory in ['components', 'services', 'controllers', 'domain', 'core', 'validation']:
     dir_path = project_root / directory
     if dir_path.exists():
         for root, dirs, files in os.walk(dir_path):

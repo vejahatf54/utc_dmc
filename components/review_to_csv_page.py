@@ -123,7 +123,35 @@ def create_review_to_csv_page():
                                         "The peek file can contain one or more lines of SPS recognizable peeks separated by lines", size="sm")
                                 ])
                             ])
-                        ], span=6)
+                        ], span=6),
+
+                        # Processing Information section
+                        dmc.GridCol([
+                            dmc.Stack([
+                                dmc.Group([
+                                    BootstrapIcon(
+                                        icon="info-circle", width=16),
+                                    dmc.Space(w="sm"),
+                                    dmc.Text("Processing Information", fw=500)
+                                ], gap="xs"),
+                                dmc.List([
+                                    dmc.ListItem(
+                                        "All .review files in the selected folder will be processed"),
+                                    dmc.ListItem(
+                                        "CSV files will be automatically merged into MergedReviewData.csv"),
+                                    dmc.ListItem(
+                                        "Processing uses parallel workers for better performance"),
+                                    dmc.ListItem(
+                                        "Peek file filters which variables to extract"),
+                                    dmc.ListItem(
+                                        "For DEFINE variables in SPS, don't use :VAL attribute"),
+                                    dmc.ListItem(
+                                        "For other variables, attributes should be specified"),
+                                    dmc.ListItem(
+                                        "You can cancel processing at any time")
+                                ], size="sm")
+                            ])
+                        ], span=12)
                     ])
                 ],
                 opened=False,
@@ -324,39 +352,6 @@ def create_review_to_csv_page():
                                         ], gap="xs")
                                     ]
                                 )
-
-                            ], gap="sm", p="sm")
-                        ], shadow="sm", radius="md", withBorder=True),
-
-                        # Processing Information
-                        dmc.Paper([
-                            dmc.Stack([
-                                dmc.Group([
-                                    BootstrapIcon(
-                                        icon="info-circle", width=16),
-                                    dmc.Space(w="sm"),
-                                    dmc.Text("Processing Information",
-                                             fw=500, size="md")
-                                ], gap="xs"),
-
-                                dmc.Divider(size="xs"),
-
-                                dmc.List([
-                                    dmc.ListItem(
-                                        "All .review files in the selected folder will be processed"),
-                                    dmc.ListItem(
-                                        "CSV files will be automatically merged into MergedReviewData.csv"),
-                                    dmc.ListItem(
-                                        "Processing uses parallel workers for better performance"),
-                                    dmc.ListItem(
-                                        "Peek file filters which variables to extract"),
-                                    dmc.ListItem(
-                                        "For DEFINE variables in SPS, don't use :VAL attribute"),
-                                    dmc.ListItem(
-                                        "For other variables, attributes should be specified"),
-                                    dmc.ListItem(
-                                        "You can cancel processing at any time")
-                                ], size="sm")
 
                             ], gap="sm", p="sm")
                         ], shadow="sm", radius="md", withBorder=True),

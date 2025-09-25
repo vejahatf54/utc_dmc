@@ -114,6 +114,27 @@ def build_sidebar():
                             ], href="/flowmeter-acceptance", className="nav-link"),
                         ],
                     ),
+                    
+                    # License Information at bottom
+                    html.Div(
+                        className="sidebar-bottom mt-auto",
+                        children=[
+                            html.Div(
+                                style={
+                                    "borderTop": "1px solid rgba(255,255,255,0.1)",
+                                    "margin": "8px 16px",
+                                    "marginBottom": "12px"
+                                }
+                            ),
+                            html.A([
+                                BootstrapIcon(icon="award", width=24,
+                                              height=24, className="nav-icon"),
+                                html.Span(
+                                    "License Information", className="nav-label sb-label"),
+                            ], id="license-info-btn", className="nav-link", style={"cursor": "pointer"}),
+                        ],
+                        style={"marginTop": "auto"}
+                    ),
                 ]
             )
         ],

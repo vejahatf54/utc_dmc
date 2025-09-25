@@ -5,6 +5,7 @@ from datetime import timedelta
 from dash import Dash, Input, Output, State, callback, dcc, html
 from components.sidebar import build_sidebar
 from components.home_page import create_home_page
+from components.license_modal import create_license_modal, get_license_modal_content
 import components.login_page as login_page
 from components.password_change_page import create_password_change_page, create_forced_password_change_page
 from services.auth_middleware import get_protected_content, get_admin_protected_content, get_user_protected_content, check_authentication_status
@@ -24,19 +25,29 @@ import components.fetch_archive_page as fetch_archive_page
 import components.fetch_rtu_data_page as fetch_rtu_data_page
 import components.elevation_page as elevation_page
 import components.linefill_page as linefill_page
+
 from components.custom_theme import theme_controls, theme_name_mapping, size_name_mapping
 from components.user_menu import user_menu
 from services.config_manager import initialize_config_manager
+from services.license_service import license_service
+from services.license_middleware import get_license_banner
 from logging_config import setup_logging
 
 # Set up file-based logging before anything else
 log_filepath = setup_logging()
 
 # Add Mantine figure templates for Plotly
-dmc.add_figure_templates()
+# dmc.add_figure_templates()  # Commented out due to compatibility issues
 
 # Initialize configuration manager on application startup
 config_manager = initialize_config_manager()
+
+# Initialize license service and check license
+license_info = license_service.load_license()
+if not license_info:
+    print("ERROR: No valid license found. The application cannot start without a license.")
+    print("Please contact your administrator or use the License Manager to obtain a valid license.")
+    exit(1)
 
 # Initialize dependency injection container
 container = configure_services()
@@ -72,6 +83,7 @@ app.layout = dmc.MantineProvider(
             dcc.Store(id="plotly-theme-store"),  # Store for Plotly theme state
             dmc.NotificationContainer(
                 position="top-center", id="notification-container"),
+            create_license_modal(),  # Add the license modal
             sidebar,
             html.Div(
                 [
@@ -79,6 +91,7 @@ app.layout = dmc.MantineProvider(
                         theme_controls,
                         user_menu
                     ], className="theme-controls-topright"),
+                    html.Div(id="license-banner"),
                     content
                 ],
                 className="main-content-shell"
@@ -124,6 +137,16 @@ def toggle_customize_modal(n, opened):
     return not opened
 
 
+# Callback for license banner
+@app.callback(
+    Output("license-banner", "children"),
+    Input("url", "pathname")
+)
+def update_license_banner(pathname):
+    """Update the license banner based on current license status"""
+    return get_license_banner()
+
+
 # Server side callback for routing with authentication
 @app.callback(
     Output("page-content", "children"),
@@ -148,6 +171,7 @@ def render_page(pathname: str):
     # Protected routes (authentication required)
     elif pathname in ("/", ""):
         return get_protected_content(pathname, create_home_page)
+
     elif pathname == "/fluid-id-converter":
         return get_protected_content(pathname, create_fluid_id_page)
     elif pathname == "/sps-time-converter":
@@ -201,6 +225,32 @@ def handle_logout(user_menu_clicks):
         auth_service.logout()
         return "/login"
     return "/"
+
+
+# License modal callbacks
+@app.callback(
+    Output("license-modal", "opened"),
+    Input("license-info-btn", "n_clicks"),
+    State("license-modal", "opened"),
+    prevent_initial_call=True
+)
+def toggle_license_modal(n_clicks, opened):
+    """Toggle license modal when license info button is clicked"""
+    if n_clicks:
+        return not opened
+    return opened
+
+
+@app.callback(
+    Output("license-modal-content", "children"),
+    Input("license-modal", "opened"),
+    prevent_initial_call=True
+)
+def update_license_modal_content(opened):
+    """Update license modal content when opened"""
+    if opened:
+        return get_license_modal_content()
+    return html.Div()
 
 
 if __name__ == "__main__":

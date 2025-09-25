@@ -58,10 +58,11 @@ Copy your application files to the target machine:
 When the application starts for the first time:
 
 1. **Automatic Detection**: ConfigManager detects plaintext sensitive values
-2. **Backup Creation**: Creates `config.original.json` backup of original file
-3. **Encryption**: Encrypts sensitive values using machine-specific encryption
-4. **File Update**: Updates `config.json` with encrypted values
-5. **Normal Operation**: Application continues with decrypted values in memory
+2. **Encryption**: Encrypts sensitive values using machine-specific encryption (DPAPI)
+3. **File Update**: Updates `config.json` with encrypted values
+4. **Normal Operation**: Application continues with decrypted values in memory
+
+⚠️ **Important**: The original plaintext values are permanently replaced for security. Make sure you have the configuration values documented elsewhere if needed for license generation or other purposes.
 
 After first run, your `config.json` will look like:
 
@@ -190,10 +191,10 @@ If encryption fails:
 
 If `config.json` gets encrypted during development/build (it shouldn't!):
 
-1. **Check for backup**: Look for `config.original.json`
-2. **Restore plaintext**: Copy `config.original.json` to `config.json`
-3. **Clean build**: Run build process again
-4. **Verify**: Ensure `config.json` contains plaintext passwords before deployment
+1. **Restore from source**: Copy the original plaintext config from your source control or documentation
+2. **Clean build**: Run build process again
+3. **Verify**: Ensure `config.json` contains plaintext passwords before deployment
+4. **Important**: The application no longer creates backup files for security reasons
 
 ### Configuration Stops Working After Hardware/Network Changes
 
@@ -205,17 +206,17 @@ If encrypted config stops working due to hardware changes:
 
 **Solution**:
 
-1. Restore from `config.original.json` backup
-2. Restart application for fresh encryption with new hardware signature
-3. Or manually replace encrypted values with plaintext and restart
+1. **Restore from source**: Use your original plaintext configuration from source control or documentation
+2. **Replace config.json**: Overwrite the encrypted config with the plaintext version
+3. **Restart application**: The app will encrypt the values with the new hardware signature
 
 ### Configuration Not Working After Transfer
 
 If you accidentally copy encrypted config to another machine:
 
-1. Replace with the backed up `config.original.json`
-2. Rename back to `config.json`
-3. Restart application for fresh encryption
+1. **Restore from source**: Use your original plaintext configuration from source control or documentation
+2. **Replace config.json**: Overwrite the encrypted config with the plaintext version
+3. **Restart application**: The app will encrypt the values for the new machine
 
 ### Service Detection Issues
 
@@ -225,11 +226,12 @@ The application attempts to detect if it's running as a Windows service. If dete
 - Review service configuration
 - Check service logs for warnings
 
-## Files Created During Encryption
+## Files Modified During Encryption
 
-- `config.original.json`: Backup of original plaintext configuration
-- `config.json`: Updated with encrypted values
+- `config.json`: Updated with encrypted values (original plaintext values are permanently replaced)
 - Log entries documenting the encryption process
+
+**Security Note**: No backup files are created to prevent exposure of sensitive information.
 
 ## Best Practices
 

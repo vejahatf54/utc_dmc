@@ -1,0 +1,4 @@
+# Requirements for WUTC License Manager
+# This file lists the dependencies needed to run the standalone license manager
+
+cryptography>=3.4.8

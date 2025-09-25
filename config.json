@@ -43,6 +43,6 @@
     "app": {
         "debug": true,
         "port": 8050,
-        "secret_key": "WUTC-2025-production-secret-change-me-for-deployment"
+        "secret_key": "4kzDoWDvwe09wQkh30NgdVWMcyQ3PCrz0tYiixL5uAA="
     }
 }

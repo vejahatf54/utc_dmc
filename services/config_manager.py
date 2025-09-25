@@ -346,14 +346,6 @@ class ConfigManager:
             return False
 
         try:
-            # Create a backup of the original config file
-            backup_path = self.config_file_path.with_suffix('.original.json')
-            if not backup_path.exists():  # Only create backup if it doesn't exist
-                import shutil
-                shutil.copy2(self.config_file_path, backup_path)
-                logger.info(
-                    f"Created backup of original config: {backup_path}")
-
             # Load current config from file (to get the exact format)
             with open(self.config_file_path, 'r', encoding='utf-8') as f:
                 file_config = json.load(f)

@@ -48,6 +48,7 @@ user_menu = dmc.Box(
                                         id="user-menu-user-management"
                                     )
                                 ], gap="sm", className="user-menu-item"),
+
                             ],
                             style={"display": "none"}  # Hidden by default, shown via callback
                         ),
@@ -118,3 +119,5 @@ def update_user_menu_for_auth(pathname):
         return {"display": "none"}
     
     return {"display": "block"}
+
+

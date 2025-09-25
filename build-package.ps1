@@ -432,6 +432,18 @@ print('All clean architecture components imported successfully')
     else {
         throw "Clean architecture validation failed: $archTestResult"
     }
+    
+    # Check license directory (for structure reference)
+    Write-Info "Checking license directory structure..."
+    $licenseDir = Join-Path $ProjectRoot "license"
+    if (-not (Test-Path $licenseDir)) {
+        Write-Warning "License directory not found at $licenseDir"
+        Write-Info "An empty license directory will be created in the deployment package"
+    }
+    else {
+        Write-Success "License directory found (empty license directory will be created in deployment)"
+        Write-Info "Note: License files (.lic) are excluded from the build for security"
+    }
 }
 
 function Remove-BuildArtifacts {
@@ -515,6 +527,13 @@ function New-DeploymentPackage {
     Copy-Item $ConfigFile $packagePath
     Write-Success "Copied: config.json (external configuration)"
     
+    # Create empty license directory in deployment package
+    $licenseDestPath = Join-Path $packagePath "license"
+    if (-not (Test-Path $licenseDestPath)) {
+        New-Item -ItemType Directory -Path $licenseDestPath -Force | Out-Null
+        Write-Success "Created: empty license directory (license files must be provided separately)"
+    }
+    
     # Create README for deployment
     $readmeContent = @"
 WUTC - Water Utilities Test Center
@@ -540,6 +559,7 @@ SYSTEM REQUIREMENTS:
 PACKAGE CONTENTS:
 - WUTC.exe - Main application ($(([math]::Round((Get-Item $exePath).Length / 1MB, 0)))MB)
 - config.json - External configuration file (editable without rebuilding)
+- license/ - Empty directory where license files (.lic) must be placed
 - Launch-WUTC.bat - Simple batch launcher
 - README.txt - This file
 
@@ -592,6 +612,18 @@ Some advanced features require external tools that are loaded dynamically:
 These external dependencies are optional and only required when using
 their specific features. The core application functionality works
 without these tools.
+
+LICENSING:
+- The application requires a valid license file to start
+- License files (.lic) must be placed in the license/ directory
+- License files are NOT included in this deployment package for security
+- Contact your administrator to obtain valid license files
+- The application will not start without a valid license
+
+IMPORTANT NOTES:
+- License files (.lic) are intentionally excluded from the build
+- Users must obtain and place license files separately in license/ directory
+- License Manager tools are not included in this distribution for security
 
 For technical support or questions, refer to the main project documentation.
 "@

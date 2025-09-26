@@ -37,7 +37,7 @@ from logging_config import setup_logging
 log_filepath = setup_logging()
 
 # Add Mantine figure templates for Plotly
-# dmc.add_figure_templates()  # Commented out due to compatibility issues
+dmc.add_figure_templates()
 
 # Initialize configuration manager on application startup
 config_manager = initialize_config_manager()

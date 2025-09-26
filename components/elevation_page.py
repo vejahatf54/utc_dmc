@@ -819,40 +819,9 @@ def handle_line_selection(line_value):
         return True, {'display': 'none'}, {'display': 'none'}, {'display': 'none'}
 
 
-@dash.callback(
-    [Output('results-grid', 'rowData', allow_duplicate=True),
-     Output('graph-data-store', 'data', allow_duplicate=True),
-     Output('unit-store', 'data')],
-    [Input('load-line-btn', 'n_clicks')],
-    [State('line-dropdown', 'value'),
-     State('distance-unit-dd', 'value'),
-     State('elevation-unit-dd', 'value')],
-    prevent_initial_call=True
-)
-def load_elevation_data(load_clicks, line_value, dist_unit, elev_unit):
-    """Load elevation data for the selected pipeline line"""
-    if not load_clicks or not line_value:
-        return dash.no_update, dash.no_update, dash.no_update
-
-    try:
-        onesource_service = get_onesource_service()
-        df = onesource_service.get_elevation_profile(line_value)
-
-        if df is not None and not df.empty:
-            # Prepare data for grid display
-            row_data = df.to_dict('records')
-            unit_data = {'distance': dist_unit or 'mi',
-                         'elevation': elev_unit or 'ft'}
-
-            return row_data, row_data, unit_data
-        else:
-            return [], [], {'distance': dist_unit or 'mi', 'elevation': elev_unit or 'ft'}
-
-    except Exception as e:
-        print(f"ERROR in load_elevation_data: {e}")
-        import traceback
-        traceback.print_exc()
-        return [], [], {'distance': dist_unit or 'mi', 'elevation': elev_unit or 'ft'}
+# REMOVED: Duplicate callback that was causing double AG Grid loading
+# This functionality is handled by update_results_grid callback (line 2218)
+# which is more comprehensive and avoids race conditions
 
 
 # Disabled - functionality moved to main callback to fix Load Data issue
@@ -2218,12 +2187,13 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
 @dash.callback(
     [Output('results-grid', 'rowData'), Output('results-grid', 'columnDefs'),
      Output('results-grid', 'filterModel'), Output('results-grid', 'columnSize'),
-     Output('graph-data-store', 'data')],
+     Output('graph-data-store', 'data'), Output('unit-store', 'data', allow_duplicate=True)],
     [Input('load-line-btn', 'n_clicks'), Input('unit-store', 'data')],
     [State('line-dropdown', 'value'), State('results-grid', 'rowData'), State('graph-data-store', 'data'),
-     State('distance-unit-dd', 'value')]
+     State('distance-unit-dd', 'value'), State('elevation-unit-dd', 'value')],
+    prevent_initial_call=True
 )
-def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_store_rows, dd_dist_unit):
+def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_store_rows, dd_dist_unit, dd_elev_unit):
     try:
         ctx = dash.callback_context
         trig = ctx.triggered[0]['prop_id'].split(
@@ -2233,7 +2203,7 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
         df = pd.DataFrame()
         if trig == 'load-line-btn':
             if not line_value:
-                return [], [], {}, 'sizeToFit', dash.no_update
+                return [], [], {}, 'sizeToFit', dash.no_update, dash.no_update
             # Try in-process cache first
             line_key = str(line_value).strip()
             t0 = time.perf_counter()
@@ -2304,7 +2274,9 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
             df = pd.DataFrame(full_store_rows or [])
 
         if df.empty:
-            return [], [], {}, 'sizeToFit', (df.to_dict('records') if trig == 'load-line-btn' else dash.no_update)
+            unit_data_out = {'distance': dd_dist_unit or 'mi',
+                             'elevation': dd_elev_unit or 'ft'} if trig == 'load-line-btn' else dash.no_update
+            return [], [], {}, 'sizeToFit', (df.to_dict('records') if trig == 'load-line-btn' else dash.no_update), unit_data_out
 
         # Minimize payload to client for graph-data-store to reduce JSON time
         needed_cols = ['DistanceMeters', 'ElevationMeters',
@@ -2422,9 +2394,11 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
         # This preserves the complete original dataset while allowing grid edits
         full_store_out = df_full.to_dict(
             'records') if trig == 'load-line-btn' else dash.no_update
-        return row_data, col_defs, filter_model, 'autoSize', full_store_out
+        unit_data_out = {'distance': dd_dist_unit or 'mi',
+                         'elevation': dd_elev_unit or 'ft'} if trig == 'load-line-btn' else dash.no_update
+        return row_data, col_defs, filter_model, 'autoSize', full_store_out, unit_data_out
     except Exception:
-        return [], [], {}, 'sizeToFit', dash.no_update
+        return [], [], {}, 'sizeToFit', dash.no_update, dash.no_update
 
 
 # --------------------------------

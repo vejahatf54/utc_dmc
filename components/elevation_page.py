@@ -49,6 +49,8 @@ def get_pipe_analysis_service():
     return pipe_analysis_service
 
 # Register the directory selector callback at module level
+
+
 @dash.callback(
     [Output('directory-input-mbs-profile', 'value'),
      Output('directory-store-mbs-profile', 'data')],
@@ -74,7 +76,8 @@ def handle_mbs_directory_selection(browse_clicks):
             root.lift()      # Bring to front
             root.attributes("-topmost", True)
 
-            directory = filedialog.askdirectory(title="Select MBS Profile Directory")
+            directory = filedialog.askdirectory(
+                title="Select MBS Profile Directory")
             root.destroy()
 
             if directory:
@@ -326,372 +329,392 @@ LIGHT_CLASS = "d-flex flex-column bg-light text-dark"
 def create_elevation_page():
     """Create the elevation page layout"""
     layout = dmc.Container(
-    id="page-container",
-    fluid=True,
-    style={
-        'display': 'flex',
-        'flexDirection': 'column',
-        'padding': '8px',
-        'overflowX': 'hidden',
-        'overflowY': 'auto'
-    },
-    children=[
-        dcc.Store(id='init-store', data={'ready': False}),
-        dcc.Store(id='graph-data-store'),
-        dcc.Store(id='mbs-data-store', data={}),
-        dcc.Store(id='unit-store', data={'distance': 'mi', 'elevation': 'ft'}),
-        dcc.Store(id='features-collapse-store', data={'collapsed': False}),
-        dcc.Store(id='directory-store-mbs-profile', data={'path': ''}),
-        # Remove local theme store - use global plotly-theme-store instead
-        dcc.Store(id='valve-state-store', data={'added': False}),
-        html.Div(
-            id='splash-overlay',
-            children=html.Div([
-                html.Img(
-                    src=SPLASH_IMG_URL,
-                    style={
-                        'maxWidth': '1200px', 'width': '100%', 'height': 'auto',
-                        'marginBottom': '16px',
-                        'display': 'block' if SPLASH_IMG_VISIBLE else 'none'
-                    }
-                ),
-                dmc.Loader(color='blue', size='lg'),
-                html.Div("Loading data", style={
-                         'fontSize': '22px', 'marginTop': '12px'})
-            ], style={'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'}),
-            style={
-                'position': 'fixed', 'zIndex': 2000,
-                'top': 0, 'left': 0, 'right': 0, 'bottom': 0,
-                'backgroundColor': 'rgba(0,0,0,0.6)',
-                'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center', 'color': 'white'
-            }
-        ),
-        # Header Section
-        dmc.Stack([
-            dmc.Center([
-                dmc.Stack([
-                    dmc.Group([
-                        dmc.Title("Elevation Point Reduction",
+        id="page-container",
+        fluid=True,
+        style={
+            'display': 'flex',
+            'flexDirection': 'column',
+            'padding': '8px',
+            'overflowX': 'hidden',
+            'overflowY': 'auto'
+        },
+        children=[
+            dcc.Store(id='init-store', data={'ready': False}),
+            dcc.Store(id='graph-data-store'),
+            dcc.Store(id='mbs-data-store', data={}),
+            dcc.Store(id='unit-store',
+                      data={'distance': 'mi', 'elevation': 'ft'}),
+            dcc.Store(id='features-collapse-store', data={'collapsed': False}),
+            dcc.Store(id='directory-store-mbs-profile', data={'path': ''}),
+            # Remove local theme store - use global plotly-theme-store instead
+            dcc.Store(id='valve-state-store', data={'added': False}),
+            html.Div(
+                id='splash-overlay',
+                children=html.Div([
+                    html.Img(
+                        src=SPLASH_IMG_URL,
+                        style={
+                            'maxWidth': '1200px', 'width': '100%', 'height': 'auto',
+                            'marginBottom': '16px',
+                            'display': 'block' if SPLASH_IMG_VISIBLE else 'none'
+                        }
+                    ),
+                    dmc.Loader(color='blue', size='lg'),
+                    html.Div("Loading data", style={
+                        'fontSize': '22px', 'marginTop': '12px'})
+                ], style={'display': 'flex', 'flexDirection': 'column', 'alignItems': 'center'}),
+                style={
+                    'position': 'fixed', 'zIndex': 2000,
+                    'top': 0, 'left': 0, 'right': 0, 'bottom': 0,
+                    'backgroundColor': 'rgba(0,0,0,0.6)',
+                    'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center', 'color': 'white'
+                }
+            ),
+            # Header Section
+            dmc.Stack([
+                dmc.Center([
+                    dmc.Stack([
+                        dmc.Group([
+                            dmc.Title("Elevation Point Reduction",
                                   order=2, ta="center"),
-                        dmc.ActionIcon(
-                            BootstrapIcon(
-                                icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
-                            id="elevation-help-modal-btn",
-                            variant="light",
-                            color="blue",
-                            size="lg"
-                        )
-                    ], justify="center", align="center", gap="md"),
-                    dmc.Text("Ramer–Douglas–Peucker algorithm for pipeline elevation data reduction",
-                             c="dimmed", ta="center", size="md")
-                ], gap="xs")
-            ]),
-
-            dmc.Space(h="md"),
-        ]),  # Close the dmc.Stack
-
-        # Help Modal
-        dmc.Modal(
-            title="How It Works",
-            id="elevation-help-modal",
-            children=[
-                dmc.Stack([
-                    dmc.Group([
-                        BootstrapIcon(icon="info-circle", width=20),
-                        dmc.Text("Ramer-Douglas-Peucker Algorithm", fw=500)
-                    ], gap="xs"),
-                    dmc.Text([
-                        "The Ramer-Douglas-Peucker algorithm is a line simplification algorithm that reduces the number of points ",
-                        "in a curve while preserving its essential shape. It works by recursively finding the point with the ",
-                        "maximum distance from the line segment between the start and end points."
-                    ], size="sm", c="dimmed"),
-                    
-                    dmc.Divider(),
-                    
-                    dmc.Group([
-                        BootstrapIcon(icon="gear", width=20),
-                        dmc.Text("Parameters", fw=500)
-                    ], gap="xs"),
-                    dmc.Text([
-                        "• ", dmc.Text("Max Vertical Deviation (ε):", fw=500, span=True), " The tolerance value that determines how much ",
-                        "deviation from the original line is acceptable. Smaller values preserve more detail, while larger values ",
-                        "result in greater simplification."
-                    ], size="sm", c="dimmed"),
-                    
-                    dmc.Divider(),
-                    
-                    dmc.Group([
-                        BootstrapIcon(icon="graph-up", width=20),
-                        dmc.Text("Features", fw=500)
-                    ], gap="xs"),
-                    dmc.List([
-                        dmc.ListItem("Load elevation data for different pipeline lines"),
-                        dmc.ListItem("Apply point reduction with customizable tolerance"),
-                        dmc.ListItem("Compare original vs reduced profiles"),
-                        dmc.ListItem("Add valve and station markers from grid selection"),
-                        dmc.ListItem("Load external MBS profile data for comparison"),
-                        dmc.ListItem("Export reduced data as CSV"),
-                        dmc.ListItem("Click on graph points to view location in ArcGIS")
-                    ], size="sm", c="dimmed"),
-                    
-                    dmc.Divider(),
-                    
-                    dmc.Group([
-                        BootstrapIcon(icon="lightbulb", width=20),
-                        dmc.Text("Tips", fw=500)
-                    ], gap="xs"),
-                    dmc.List([
-                        dmc.ListItem("Start with a tolerance of 0.1 and adjust based on your needs"),
-                        dmc.ListItem("Check the deviation statistics to understand the quality of reduction"),
-                        dmc.ListItem("Use the grid to select specific points for feature marking"),
-                        dmc.ListItem("Switch between different distance and elevation units as needed")
-                    ], size="sm", c="dimmed")
-                ], gap="md")
-            ],
-            size="lg"
-        ),
-
-        dmc.Grid([
-            # Data selection card (Line only)
-            dmc.GridCol([
-                dmc.Card([
-                    dmc.CardSection([
-                        dmc.Text("Data Selection", fw=600)
-                    ], p="sm", withBorder=True),
-                    dmc.CardSection([
-                        dmc.Stack([
-                            dmc.Stack([
-                                dmc.Text("Line", size="sm", fw=500),
-                                dmc.Autocomplete(
-                                    id='line-dropdown',
-                                    data=LINE_OPTIONS,
-                                    placeholder='Select line…',
-                                    clearable=True,
-                                    disabled=True,
-                                    selectFirstOptionOnChange=True,
-                                    style={'minWidth': '120px',
-                                           'width': '100%'}
-                                ),
-                            ], gap="xs"),
-                            dmc.Button([
-                                BootstrapIcon(icon="cloud-download",
-                                              width=16, height=16),
-                                html.Span("Load Data", style={
-                                          'marginLeft': '8px'})
-                            ], id='load-line-btn', variant="fill", fullWidth=True, size="sm"),
-                        ], gap="xs")
-                    ], p="xs")
-                ], shadow="sm", h="100%")
-            ], span=2),
-            # Units card (Distance and Elevation)
-            dmc.GridCol([
-                dmc.Card([
-                    dmc.CardSection([
-                        dmc.Text("Units", fw=600)
-                    ], p="sm", withBorder=True),
-                    dmc.CardSection([
-                        dmc.Stack([
-                            dmc.Group([
-                                dmc.Stack([
-                                    dmc.Text("Distance", size="sm", fw=500),
-                                    dmc.Select(
-                                        id='distance-unit-dd',
-                                        data=[
-                                            {'label': 'km', 'value': 'km'},
-                                            {'label': 'mi', 'value': 'mi'},
-                                        ],
-                                        value='mi',
-                                        clearable=False,
-                                        style={'width': '100px'}
-                                    ),
-                                ], gap="xs", style={'flex': '1'}),
-                                dmc.Stack([
-                                    dmc.Text("Elevation", size="sm", fw=500),
-                                    dmc.Select(
-                                        id='elevation-unit-dd',
-                                        data=[
-                                            {'label': 'm', 'value': 'm'},
-                                            {'label': 'ft', 'value': 'ft'},
-                                        ],
-                                        value='ft',
-                                        clearable=False,
-                                        style={'width': '100px'}
-                                    ),
-                                ], gap="xs", style={'flex': '1'}),
-                            ], align="flex-start", gap="md", style={'width': '100%'}),
-                        ], gap="xs")
-                    ], p="xs")
-                ], shadow="sm", h="100%")
-            ], span=2),
-            # Reduction settings card (epsilon + reduce)
-            dmc.GridCol([
-                dmc.Card([
-                    dmc.CardSection([
-                        dmc.Text("Reduction", fw=600)
-                    ], p="sm", withBorder=True),
-                    dmc.CardSection([
-                        dmc.Stack([
-                            dmc.Stack([
-                                dmc.Text("Max vertical deviation:", size="sm"),
-                                dmc.NumberInput(
-                                    id='epsilon-input',
-                                    min=0,
-                                    step=0.001,
-                                    value=0.1,
-                                    style={'minWidth': '80px', 'width': '100%'}
-                                ),
-                            ], gap="xs"),
-                            dmc.Button([
+                            dmc.ActionIcon(
                                 BootstrapIcon(
-                                    icon="funnel", width=16, height=16),
-                                html.Span("Reduce Points", style={
-                                          'marginLeft': '8px'})
-                            ], id='reduce-btn', variant="fill", fullWidth=True, size="sm"),
-                        ], gap="xs")
-                    ], p="xs")
-                ], shadow="sm", h="100%")
-            ], id='right-controls-col', span=2, style={'display': 'none'}),
-            # MBS File Upload Card
-            dmc.GridCol([
-                dmc.Card([
-                    dmc.CardSection([
-                        dmc.Text("MBS Profile", fw=600)
-                    ], p="sm", withBorder=True),
-                    dmc.CardSection([
-                        dmc.Stack([
-                            # MBS directory input and browse button (no card wrapper)
+                                    icon="question-circle", width=20, color="var(--mantine-color-blue-6)"),
+                                id="elevation-help-modal-btn",
+                                variant="light",
+                                color="blue",
+                                size="lg"
+                            )
+                        ], justify="center", align="center", gap="md"),
+                        dmc.Text("Ramer–Douglas–Peucker algorithm for pipeline elevation data reduction",
+                                 c="dimmed", ta="center", size="md")
+                    ], gap="xs")
+                ]),
+
+                dmc.Space(h="md"),
+            ]),  # Close the dmc.Stack
+
+            # Help Modal
+            dmc.Modal(
+                title="How It Works",
+                id="elevation-help-modal",
+                children=[
+                    dmc.Stack([
+                        dmc.Group([
+                            BootstrapIcon(icon="info-circle", width=20),
+                            dmc.Text("Ramer-Douglas-Peucker Algorithm", fw=500)
+                        ], gap="xs"),
+                        dmc.Text([
+                            "The Ramer-Douglas-Peucker algorithm is a line simplification algorithm that reduces the number of points ",
+                            "in a curve while preserving its essential shape. It works by recursively finding the point with the ",
+                            "maximum distance from the line segment between the start and end points."
+                        ], size="sm", c="dimmed"),
+
+                        dmc.Divider(),
+
+                        dmc.Group([
+                            BootstrapIcon(icon="gear", width=20),
+                            dmc.Text("Parameters", fw=500)
+                        ], gap="xs"),
+                        dmc.Text([
+                            "• ", dmc.Text("Max Vertical Deviation (ε):", fw=500,
+                                           span=True), " The tolerance value that determines how much ",
+                            "deviation from the original line is acceptable. Smaller values preserve more detail, while larger values ",
+                            "result in greater simplification."
+                        ], size="sm", c="dimmed"),
+
+                        dmc.Divider(),
+
+                        dmc.Group([
+                            BootstrapIcon(icon="graph-up", width=20),
+                            dmc.Text("Features", fw=500)
+                        ], gap="xs"),
+                        dmc.List([
+                            dmc.ListItem(
+                                "Load elevation data for different pipeline lines"),
+                            dmc.ListItem(
+                                "Apply point reduction with customizable tolerance"),
+                            dmc.ListItem(
+                                "Compare original vs reduced profiles"),
+                            dmc.ListItem(
+                                "Add valve and station markers from grid selection"),
+                            dmc.ListItem(
+                                "Load external MBS profile data for comparison"),
+                            dmc.ListItem("Export reduced data as CSV"),
+                            dmc.ListItem(
+                                "Click on graph points to view location in ArcGIS")
+                        ], size="sm", c="dimmed"),
+
+                        dmc.Divider(),
+
+                        dmc.Group([
+                            BootstrapIcon(icon="lightbulb", width=20),
+                            dmc.Text("Tips", fw=500)
+                        ], gap="xs"),
+                        dmc.List([
+                            dmc.ListItem(
+                                "Start with a tolerance of 0.1 and adjust based on your needs"),
+                            dmc.ListItem(
+                                "Check the deviation statistics to understand the quality of reduction"),
+                            dmc.ListItem(
+                                "Use the grid to select specific points for feature marking"),
+                            dmc.ListItem(
+                                "Switch between different distance and elevation units as needed")
+                        ], size="sm", c="dimmed")
+                    ], gap="md")
+                ],
+                size="lg"
+            ),
+
+            dmc.Grid([
+                # Data selection card (Line only)
+                dmc.GridCol([
+                    dmc.Card([
+                        dmc.CardSection([
+                            dmc.Text("Data Selection", fw=600)
+                        ], p="sm", withBorder=True),
+                        dmc.CardSection([
+                            dmc.Stack([
+                                dmc.Stack([
+                                    dmc.Text("Line", size="sm", fw=500),
+                                    dmc.Autocomplete(
+                                        id='line-dropdown',
+                                        data=LINE_OPTIONS,
+                                        placeholder='Select line…',
+                                        clearable=True,
+                                        disabled=True,
+                                        selectFirstOptionOnChange=True,
+                                        style={'minWidth': '120px',
+                                               'width': '100%'}
+                                    ),
+                                ], gap="xs"),
+                                dmc.Button([
+                                    BootstrapIcon(icon="cloud-download",
+                                                  width=16, height=16),
+                                    html.Span("Load Data", style={
+                                        'marginLeft': '8px'})
+                                ], id='load-line-btn', variant="fill", fullWidth=True, size="sm"),
+                            ], gap="xs")
+                        ], p="xs")
+                    ], shadow="sm", h="100%")
+                ], span=2),
+                # Units card (Distance and Elevation)
+                dmc.GridCol([
+                    dmc.Card([
+                        dmc.CardSection([
+                            dmc.Text("Units", fw=600)
+                        ], p="sm", withBorder=True),
+                        dmc.CardSection([
                             dmc.Stack([
                                 dmc.Group([
-                                    dmc.TextInput(
-                                        id='directory-input-mbs-profile',
-                                        placeholder="Select folder containing inprep files...",
-                                        value='',
-                                        readOnly=True,
-                                        leftSection=BootstrapIcon(icon="folder-open", width=16),
-                                        size="md",
-                                        style={"flex": 1}
-                                    ),
-                                    dmc.Button(
-                                        BootstrapIcon(icon="search", width=16),
-                                        id='browse-btn-mbs-profile',
-                                        variant="outline",
-                                        size="md"
-                                    )
-                                ], gap="xs", style={"alignItems": "end"})
-                            ], gap="0"),
-                            dcc.Loading(
-                                id='mbs-loading',
-                                type='default',
-                                children=dmc.Stack([
+                                    dmc.Stack([
+                                        dmc.Text(
+                                            "Distance", size="sm", fw=500),
+                                        dmc.Select(
+                                            id='distance-unit-dd',
+                                            data=[
+                                                {'label': 'km', 'value': 'km'},
+                                                {'label': 'mi', 'value': 'mi'},
+                                            ],
+                                            value='mi',
+                                            clearable=False,
+                                            style={'width': '100px'}
+                                        ),
+                                    ], gap="xs", style={'flex': '1'}),
+                                    dmc.Stack([
+                                        dmc.Text(
+                                            "Elevation", size="sm", fw=500),
+                                        dmc.Select(
+                                            id='elevation-unit-dd',
+                                            data=[
+                                                {'label': 'm', 'value': 'm'},
+                                                {'label': 'ft', 'value': 'ft'},
+                                            ],
+                                            value='ft',
+                                            clearable=False,
+                                            style={'width': '100px'}
+                                        ),
+                                    ], gap="xs", style={'flex': '1'}),
+                                ], align="flex-start", gap="md", style={'width': '100%'}),
+                            ], gap="xs")
+                        ], p="xs")
+                    ], shadow="sm", h="100%")
+                ], span=2),
+                # Reduction settings card (epsilon + reduce)
+                dmc.GridCol([
+                    dmc.Card([
+                        dmc.CardSection([
+                            dmc.Text("Reduction", fw=600)
+                        ], p="sm", withBorder=True),
+                        dmc.CardSection([
+                            dmc.Stack([
+                                dmc.Stack([
                                     dmc.Text(
-                                        id='mbs-file-status',
-                                        size="sm",
-                                        style={'minHeight': '0px'}
+                                        "Max vertical deviation:", size="sm"),
+                                    dmc.NumberInput(
+                                        id='epsilon-input',
+                                        min=0,
+                                        step=0.001,
+                                        value=0.1,
+                                        style={'minWidth': '80px',
+                                               'width': '100%'}
                                     ),
+                                ], gap="xs"),
+                                dmc.Button([
+                                    BootstrapIcon(
+                                        icon="funnel", width=16, height=16),
+                                    html.Span("Reduce Points", style={
+                                        'marginLeft': '8px'})
+                                ], id='reduce-btn', variant="fill", fullWidth=True, size="sm"),
+                            ], gap="xs")
+                        ], p="xs")
+                    ], shadow="sm", h="100%")
+                ], id='right-controls-col', span=2, style={'display': 'none'}),
+                # MBS File Upload Card
+                dmc.GridCol([
+                    dmc.Card([
+                        dmc.CardSection([
+                            dmc.Text("MBS Profile", fw=600)
+                        ], p="sm", withBorder=True),
+                        dmc.CardSection([
+                            dmc.Stack([
+                                # MBS directory input and browse button (no card wrapper)
+                                dmc.Stack([
                                     dmc.Group([
-                                        dmc.Button([
+                                        dmc.TextInput(
+                                            id='directory-input-mbs-profile',
+                                            placeholder="Select folder containing inprep files...",
+                                            value='',
+                                            readOnly=True,
+                                            leftSection=BootstrapIcon(
+                                                icon="folder-open", width=16),
+                                            size="md",
+                                            style={"flex": 1}
+                                        ),
+                                        dmc.Button(
                                             BootstrapIcon(
-                                                icon="upload", width=16, height=16),
-                                            html.Span("Load Profile", style={
-                                                      'marginLeft': '8px'})
-                                        ], id='load-mbs-btn', variant="fill", disabled=True, size="sm", style={'flex': '1'}),
-                                        dmc.Button([
-                                            BootstrapIcon(
-                                                icon="x-circle", width=16, height=16),
-                                            html.Span("Unload", style={
-                                                      'marginLeft': '8px'})
-                                        ], id='unload-mbs-btn', variant="fill", disabled=True, size="sm", style={'flex': '1'})
-                                    ], gap="xs", style={'width': '100%'})
-                                ], gap="0")
+                                                icon="search", width=16),
+                                            id='browse-btn-mbs-profile',
+                                            variant="outline",
+                                            size="md"
+                                        )
+                                    ], gap="xs", style={"alignItems": "end"})
+                                ], gap="0"),
+                                dcc.Loading(
+                                    id='mbs-loading',
+                                    type='default',
+                                    children=dmc.Stack([
+                                        dmc.Text(
+                                            id='mbs-file-status',
+                                            size="sm",
+                                            style={'minHeight': '0px'}
+                                        ),
+                                        dmc.Group([
+                                            dmc.Button([
+                                                BootstrapIcon(
+                                                    icon="upload", width=16, height=16),
+                                                html.Span("Load Profile", style={
+                                                    'marginLeft': '8px'})
+                                            ], id='load-mbs-btn', variant="fill", disabled=True, size="sm", style={'flex': '1'}),
+                                            dmc.Button([
+                                                BootstrapIcon(
+                                                    icon="x-circle", width=16, height=16),
+                                                html.Span("Unload", style={
+                                                    'marginLeft': '8px'})
+                                            ], id='unload-mbs-btn', variant="fill", disabled=True, size="sm", style={'flex': '1'})
+                                        ], gap="xs", style={'width': '100%'})
+                                    ], gap="0")
+                                ),
+                            ], gap="xs")
+                        ], p="xs")
+                    ], shadow="sm", h="100%")
+                ], id='mbs-controls-col', span=3, style={'display': 'none'}),
+                # Actions card (Save + Units combined inline)
+                dmc.GridCol([
+                    dmc.Card([
+                        dmc.CardSection([
+                            dmc.Text("Export Profiles", fw=600)
+                        ], p="sm", withBorder=True),
+                        dmc.CardSection([
+                            dmc.Stack([
+                                dmc.Button([
+                                    BootstrapIcon(icon="download",
+                                                  width=16, height=16),
+                                    html.Span("Save Reduced Data", style={
+                                        'marginLeft': '8px'})
+                                ], id='save-btn', variant="fill", fullWidth=True, size="sm"),
+                                dcc.Download(id="download-reduced-csv"),
+                            ], gap="xs")
+                        ], p="xs")
+                    ], shadow="sm", h="100%")
+                ], id='actions-controls-col', span=2, style={'display': 'none'}),
+            ], gutter="md", align="stretch"),
+
+            dmc.Space(h="lg"),
+
+            html.Div(id='main-content-container', className='main-layout', children=[
+                # Elevation Profile Panel (70%)
+                html.Div(id='elevation-panel', className='elevation-panel', children=[
+                    html.Div(className='panel-header', children=[
+                        html.Span("Elevation Profile"),
+                    ]),
+                    html.Div(className='panel-content', children=[
+                        dcc.Loading(
+                            id='graph-loading', type='default',
+                            children=dmc.Stack([
+                                dmc.Group(
+                                    id='graph-stats', style={'padding': '6px 0', 'fontWeight': '600'}, justify="center"),
+                                dmc.Text("💡 Tip: Click on any point in the elevation profile to open its location in ArcGIS.",
+                                         c="dimmed", size="sm", style={'marginBottom': '8px'}),
+                                dcc.Graph(id='comparison-graph',
+                                          config={'responsive': True})
+                            ], gap="xs", style={'height': '100%', 'minHeight': 0})
+                        )
+                    ])
+                ]),
+
+                # Features Panel (30%, collapsible)
+                html.Div(id='features-panel', className='features-panel', children=[
+                    html.Div(className='panel-header', style={
+                        'display': 'flex !important',
+                        'justifyContent': 'space-between !important',
+                        'alignItems': 'center !important',
+                        'gridTemplateColumns': 'none !important'
+                    }, children=[
+                        dmc.Button([
+                            BootstrapIcon(
+                                icon="plus", width=16, height=16),
+                            html.Span("Add Selected Features", style={
+                                'marginLeft': '6px'})
+                        ], id='add-valves-btn', className='features-panel-button', variant="outline", size="sm", style={'margin': '0', 'padding': '4px 6px', 'width': 'fit-content', 'whiteSpace': 'nowrap'}),
+                        html.Button(
+                            BootstrapIcon(icon="chevron-right",
+                                          width=16, height=16),
+                            id='features-collapse-btn',
+                            className='collapse-toggle',
+                            title='Collapse panel'
+                        )
+                    ]),
+                    html.Div(className='panel-content', children=[
+                        dcc.Loading(
+                            id='results-loading', type='default',
+                            children=dag.AgGrid(
+                                id='results-grid', className='ag-theme-alpine', rowData=[], columnDefs=[],
+                                defaultColDef={
+                                    'sortable': False, 'filter': True, 'resizable': True, 'editable': True},
+                                filterModel={}, columnSize='sizeToFit',
+                                dashGridOptions={'rowHeight': 24, 'headerHeight': 28, 'enableCellTextSelection': True,
+                                                 'ensureDomOrder': True, 'pagination': True, 'paginationPageSize': 40,
+                                                 'rowSelection': 'multiple', 'suppressRowClickSelection': True}
                             ),
-                        ], gap="xs")
-                    ], p="xs")
-                ], shadow="sm", h="100%")
-            ], id='mbs-controls-col', span=3, style={'display': 'none'}),
-            # Actions card (Save + Units combined inline)
-            dmc.GridCol([
-                dmc.Card([
-                    dmc.CardSection([
-                        dmc.Text("Export Profiles", fw=600)
-                    ], p="sm", withBorder=True),
-                    dmc.CardSection([
-                        dmc.Stack([
-                            dmc.Button([
-                                BootstrapIcon(icon="download",
-                                              width=16, height=16),
-                                html.Span("Save Reduced Data", style={
-                                          'marginLeft': '8px'})
-                            ], id='save-btn', variant="fill", fullWidth=True, size="sm"),
-                            dcc.Download(id="download-reduced-csv"),
-                        ], gap="xs")
-                    ], p="xs")
-                ], shadow="sm", h="100%")
-            ], id='actions-controls-col', span=2, style={'display': 'none'}),
-        ], gutter="md", align="stretch"),
-
-        dmc.Space(h="lg"),
-
-        html.Div(id='main-content-container', className='main-layout', children=[
-            # Elevation Profile Panel (70%)
-            html.Div(id='elevation-panel', className='elevation-panel', children=[
-                html.Div(className='panel-header', children=[
-                    html.Span("Elevation Profile"),
-                ]),
-                html.Div(className='panel-content', children=[
-                    dcc.Loading(
-                        id='graph-loading', type='default',
-                        children=dmc.Stack([
-                            dmc.Group(
-                                id='graph-stats', style={'padding': '6px 0', 'fontWeight': '600'}, justify="center"),
-                            dmc.Text("💡 Tip: Click on any point in the elevation profile to open its location in ArcGIS.",
-                                     c="dimmed", size="sm", style={'marginBottom': '8px'}),
-                            dcc.Graph(id='comparison-graph', config={'responsive': True})
-                        ], gap="xs", style={'height': '100%', 'minHeight': 0})
-                    )
-                ])
-            ]),
-            
-            # Features Panel (30%, collapsible)
-            html.Div(id='features-panel', className='features-panel', children=[
-                html.Div(className='panel-header', style={
-                    'display': 'flex !important', 
-                    'justifyContent': 'space-between !important', 
-                    'alignItems': 'center !important', 
-                    'gridTemplateColumns': 'none !important'
-                }, children=[
-                    dmc.Button([
-                        BootstrapIcon(
-                            icon="plus", width=16, height=16),
-                        html.Span("Add Selected Features", style={
-                                  'marginLeft': '6px'})
-                    ], id='add-valves-btn', className='features-panel-button', variant="outline", size="sm", style={'margin': '0', 'padding': '4px 6px', 'width': 'fit-content', 'whiteSpace': 'nowrap'}),
-                    html.Button(
-                        BootstrapIcon(icon="chevron-right", width=16, height=16),
-                        id='features-collapse-btn',
-                        className='collapse-toggle',
-                        title='Collapse panel'
-                    )
-                ]),
-                html.Div(className='panel-content', children=[
-                    dcc.Loading(
-                        id='results-loading', type='default',
-                        children=dag.AgGrid(
-                            id='results-grid', className='ag-theme-alpine', rowData=[], columnDefs=[],
-                            defaultColDef={
-                                'sortable': False, 'filter': True, 'resizable': True, 'editable': True},
-                            filterModel={}, columnSize='sizeToFit',
-                            dashGridOptions={'rowHeight': 24, 'headerHeight': 28, 'enableCellTextSelection': True,
-                                             'ensureDomOrder': True, 'pagination': True, 'paginationPageSize': 40,
-                                             'rowSelection': 'multiple', 'suppressRowClickSelection': True}
-                        ),
-                        style={'height': '100%', 'minHeight': 0}
-                    )
+                            style={'height': '100%', 'minHeight': 0}
+                        )
+                    ])
                 ])
             ])
-        ])
-    ]
-)
-    
+        ]
+    )
+
     return layout
 
 
@@ -723,15 +746,17 @@ def toggle_features_panel(n_clicks, collapse_data):
     """Handle features panel collapse/expand"""
     if not n_clicks:
         return dash.no_update, dash.no_update, dash.no_update
-    
-    current_collapsed = collapse_data.get('collapsed', False) if collapse_data else False
+
+    current_collapsed = collapse_data.get(
+        'collapsed', False) if collapse_data else False
     new_collapsed = not current_collapsed
-    
+
     # Update CSS classes and button icon
     features_class = 'features-panel collapsed' if new_collapsed else 'features-panel'
     elevation_class = 'elevation-panel expanded' if new_collapsed else 'elevation-panel'
     # Chevron points left when collapsed, right when open
-    button_icon = BootstrapIcon(icon='chevron-left' if new_collapsed else 'chevron-right', width=16, height=16)
+    button_icon = BootstrapIcon(
+        icon='chevron-left' if new_collapsed else 'chevron-right', width=16, height=16)
     return features_class, elevation_class, button_icon
 
 
@@ -745,8 +770,9 @@ def update_collapse_store(n_clicks, collapse_data):
     """Update the collapse state in the store"""
     if not n_clicks:
         return dash.no_update
-    
-    current_collapsed = collapse_data.get('collapsed', False) if collapse_data else False
+
+    current_collapsed = collapse_data.get(
+        'collapsed', False) if collapse_data else False
     return {'collapsed': not current_collapsed}
 
 
@@ -815,7 +841,8 @@ def load_elevation_data(load_clicks, line_value, dist_unit, elev_unit):
         if df is not None and not df.empty:
             # Prepare data for grid display
             row_data = df.to_dict('records')
-            unit_data = {'distance': dist_unit or 'mi', 'elevation': elev_unit or 'ft'}
+            unit_data = {'distance': dist_unit or 'mi',
+                         'elevation': elev_unit or 'ft'}
 
             return row_data, row_data, unit_data
         else:
@@ -979,23 +1006,24 @@ def toggle_load_button(line_value):
 
 
 @dash.callback(Output('unit-store', 'data', allow_duplicate=True),
-               [Input('distance-unit-dd', 'value'), Input('elevation-unit-dd', 'value')],
+               [Input('distance-unit-dd', 'value'),
+                Input('elevation-unit-dd', 'value')],
                [State('unit-store', 'data')], prevent_initial_call=True)
 def update_units_on_change(dist_unit, elev_unit, current_units):
     """Update unit store when distance or elevation unit dropdown changes"""
     if dist_unit is None and elev_unit is None:
         raise dash.exceptions.PreventUpdate
-    
+
     # Get current units or use defaults
     current_units = current_units or {'distance': 'mi', 'elevation': 'ft'}
-    
+
     # Update the changed unit(s)
     updated_units = current_units.copy()
     if dist_unit is not None:
         updated_units['distance'] = dist_unit
     if elev_unit is not None:
         updated_units['elevation'] = elev_unit
-        
+
     return updated_units
 
 
@@ -1046,7 +1074,7 @@ def handle_mbs_folder_input(directory_data, load_clicks, unload_clicks, current_
         return True, True, {'display': 'inline-block', 'width': '100%'}, {'display': 'none'}, current_data or {}, dash.no_update
 
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
-    
+
     # Extract folder path from directory selector data
     folder_path = directory_data.get('path', '') if directory_data else ''
 
@@ -1221,7 +1249,8 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
     try:
         ctx = dash.callback_context
         # Get template from theme data, default to mantine_light
-        template = theme_data.get('template', 'mantine_light') if theme_data else 'mantine_light'
+        template = theme_data.get(
+            'template', 'mantine_light') if theme_data else 'mantine_light'
         dark_mode = template == 'mantine_dark'
 
         # Unit helpers
@@ -1239,7 +1268,7 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
             trig_id = ctx.triggered[0]['prop_id'].split('.')[0]
             if trig_id == 'valve-state-store' and not (isinstance(valve_state, dict) and valve_state.get('added')):
                 return dash.no_update, dash.no_update, dash.no_update, (DARK_CLASS if dark_mode else LIGHT_CLASS)
-            
+
             # Guard: ignore MBS data changes when only directory selection changes
             # Only trigger on actual load/unload operations, not directory browsing
             if trig_id == 'mbs-data-store':
@@ -1249,7 +1278,7 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
                     has_folder_path = bool(mbs_data.get('folder_path'))
                     is_ready_to_load = mbs_data.get('ready_to_load', False)
                     is_loaded = mbs_data.get('loaded', False)
-                    
+
                     # If ready_to_load is True but loaded is False, this is just directory selection
                     if is_ready_to_load and not is_loaded and has_folder_path:
                         return dash.no_update, dash.no_update, dash.no_update, (DARK_CLASS if dark_mode else LIGHT_CLASS)
@@ -1521,13 +1550,13 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
 
         fig = go.Figure()
         fig.update_layout(template=template)
-        
+
         # Always add original trace
         fig.add_trace(go.Scatter(
             x=df_current['Milepost'], y=df_current['Elevation'],
             mode='lines', name='Original', line=dict(color='#9333ea', width=1)
         ))
-        
+
         # Show reduced trace if reduce button has been clicked (preserve state when loading new data)
         show_reduced = reduce_clicks and reduce_clicks > 0
         if show_reduced:
@@ -1576,11 +1605,11 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
                 _valve_icon_scale = 1.75
                 _station_icon_scale = 1.8  # Reduce station size (was 2.5)
                 _divider_icon_scale = 1.0   # Make dividers even smaller for subtlety
-                
+
                 # Use more conservative sizing to improve zoom behavior
                 base_sizey = max(y_range * frac_y, 1e-9)
                 base_sizex = max(x_range * frac_x, 1e-9)
-                
+
                 sizey = base_sizey * _valve_icon_scale
                 sizex = base_sizex * _valve_icon_scale
                 # Station sizing - slightly larger than valve icons but not too big
@@ -1814,8 +1843,10 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
 
         # Update stats based on what's being displayed
         output_points = len(reduced_df) if show_reduced else len(df_current)
-        deviation_text = "Top 3 deviations: " + ', '.join(f"{dev:.4f} {elev_label}" for dev, _ in top_devs) if (top_devs and show_reduced) else "Top 3 deviations: —"
-        
+        deviation_text = "Top 3 deviations: " + \
+            ', '.join(f"{dev:.4f} {elev_label}" for dev, _ in top_devs) if (
+                top_devs and show_reduced) else "Top 3 deviations: —"
+
         stats = dmc.Group([
             dmc.Badge(f"Input Points: {len(df_current)}",
                       color="blue", className="mx-1", variant="dot"),
@@ -2172,7 +2203,8 @@ def on_reduce_or_save(reduce_clicks, load_clicks, save_clicks, valve_state, mbs_
         return fig, stats, dash.no_update, page_class
     except Exception as e:
         # Use template from theme data or default to mantine_light
-        template = theme_data.get('template', 'mantine_light') if theme_data else 'mantine_light'
+        template = theme_data.get(
+            'template', 'mantine_light') if theme_data else 'mantine_light'
         page_class = DARK_CLASS if template == 'mantine_dark' else LIGHT_CLASS
         fig = go.Figure()
         fig.update_layout(template=template, margin=dict(
@@ -2302,9 +2334,11 @@ def update_results_grid(load_clicks, unit_data, line_value, current_rows, full_s
 
         df_grid = df_grid.copy()
         if 'Features' in df_grid.columns:
-            df_grid['Features'] = df_grid['Features'].astype(str).str.strip().astype(object)
+            df_grid['Features'] = df_grid['Features'].astype(
+                str).str.strip().astype(object)
         if 'Station' in df_grid.columns:
-            df_grid['Station'] = df_grid['Station'].astype(str).str.strip().astype(object)
+            df_grid['Station'] = df_grid['Station'].astype(
+                str).str.strip().astype(object)
 
         if trig == 'load-line-btn':
             dist_unit = (dd_dist_unit or 'mi')

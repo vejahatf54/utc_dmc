@@ -57,7 +57,7 @@ service_modules = [
     'services.onesource_service',
     'services.pipe_analysis_service',
     'services.pymbsd_service',
-    'services.replace_text_service',
+    'services.text_replacement_service_v2',
     'services.replay_file_poke_service',
 
     'services.rtu_service',

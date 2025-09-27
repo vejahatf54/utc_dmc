@@ -407,7 +407,7 @@ class IArchiveValidator(IValidator):
         pass
 
     @abstractmethod
-    def validate_fetch_request(self, archive_date: Any, pipeline_lines: List[str], 
+    def validate_fetch_request(self, archive_date: Any, pipeline_lines: List[str],
                                output_directory: str) -> Result[bool]:
         """Validate complete fetch archive request."""
         pass
@@ -422,8 +422,8 @@ class IArchiveFileExtractor(ABC):
         pass
 
     @abstractmethod
-    def extract_multiple_archives(self, zip_file_paths: List[str], 
-                                   output_directory: str) -> Result[Dict[str, Any]]:
+    def extract_multiple_archives(self, zip_file_paths: List[str],
+                                  output_directory: str) -> Result[Dict[str, Any]]:
         """Extract multiple archive files to output directory."""
         pass
 
@@ -461,7 +461,7 @@ class IFetchArchiveService(IConverter):
     """Interface for fetch archive operations."""
 
     @abstractmethod
-    def fetch_archive_data(self, archive_date: Any, line_ids: List[str], 
+    def fetch_archive_data(self, archive_date: Any, line_ids: List[str],
                            output_directory: str) -> Result[Dict[str, Any]]:
         """Fetch archive data for specified date and pipeline lines."""
         pass
@@ -472,7 +472,7 @@ class IFetchArchiveService(IConverter):
         pass
 
     @abstractmethod
-    def validate_fetch_parameters(self, archive_date: Any, line_ids: List[str], 
+    def validate_fetch_parameters(self, archive_date: Any, line_ids: List[str],
                                   output_directory: str) -> Result[bool]:
         """Validate parameters for fetch operation."""
         pass
@@ -502,7 +502,7 @@ class IFetchArchiveController(IPageController):
         pass
 
     @abstractmethod
-    def handle_fetch_request(self, archive_date: Any, selected_lines: List[str], 
+    def handle_fetch_request(self, archive_date: Any, selected_lines: List[str],
                              output_directory: str) -> Result[Dict[str, Any]]:
         """Handle fetch archive request execution."""
         pass
@@ -526,26 +526,26 @@ class IFetchRtuDataService(ABC):
     def get_available_lines(self) -> Result[List[Dict[str, str]]]:
         """
         Get list of available pipeline lines from data source.
-        
+
         Returns:
             Result containing list of lines with 'label' and 'value' keys
         """
         pass
 
-    @abstractmethod 
-    def fetch_rtu_data(self, line_selection: Any, date_range: Any, 
+    @abstractmethod
+    def fetch_rtu_data(self, line_selection: Any, date_range: Any,
                        output_directory: Any, server_filter: Any = None,
                        max_parallel_workers: int = 4) -> Result[Any]:
         """
         Fetch RTU data for specified parameters.
-        
+
         Args:
             line_selection: Selected pipeline lines (domain object)
             date_range: Date range for data fetching (domain object)
             output_directory: Output directory (domain object)
             server_filter: Optional server filter (domain object)
             max_parallel_workers: Maximum parallel processing workers
-            
+
         Returns:
             Result containing fetch operation results
         """
@@ -555,7 +555,7 @@ class IFetchRtuDataService(ABC):
     def validate_data_source_availability(self) -> Result[bool]:
         """
         Validate that the RTU data source is accessible.
-        
+
         Returns:
             Result indicating if data source is available
         """
@@ -569,7 +569,7 @@ class IRtuLineProvider(ABC):
     def get_lines(self) -> Result[List[Dict[str, str]]]:
         """
         Get available pipeline lines from data source.
-        
+
         Returns:
             Result containing list of available lines
         """
@@ -579,10 +579,10 @@ class IRtuLineProvider(ABC):
     def validate_line_exists(self, line_id: str) -> Result[bool]:
         """
         Validate that a specific line exists in the data source.
-        
+
         Args:
             line_id: Pipeline line identifier
-            
+
         Returns:
             Result indicating if line exists
         """
@@ -596,10 +596,10 @@ class IRtuDateValidator(ABC):
     def validate_single_date(self, date_value: Any) -> Result[Any]:
         """
         Validate a single date for RTU data fetching.
-        
+
         Args:
             date_value: Date value to validate
-            
+
         Returns:
             Result containing validated domain object
         """
@@ -609,11 +609,11 @@ class IRtuDateValidator(ABC):
     def validate_date_range(self, start_date: Any, end_date: Any) -> Result[Any]:
         """
         Validate a date range for RTU data fetching.
-        
+
         Args:
             start_date: Start date value
             end_date: End date value
-            
+
         Returns:
             Result containing validated domain object
         """
@@ -627,27 +627,27 @@ class IRtuDataProcessor(ABC):
     def process_zip_file(self, file_info: Dict[str, Any], output_dir: str) -> Result[Dict[str, Any]]:
         """
         Process a single RTU zip file.
-        
+
         Args:
             file_info: Information about the zip file to process
             output_dir: Output directory for extracted files
-            
+
         Returns:
             Result containing processing results
         """
         pass
 
     @abstractmethod
-    def process_multiple_files(self, file_list: List[Dict[str, Any]], 
+    def process_multiple_files(self, file_list: List[Dict[str, Any]],
                                output_dir: str, max_workers: int = 4) -> Result[Dict[str, Any]]:
         """
         Process multiple RTU files in parallel.
-        
+
         Args:
             file_list: List of files to process
             output_dir: Output directory for extracted files
             max_workers: Maximum number of parallel workers
-            
+
         Returns:
             Result containing processing results
         """
@@ -689,7 +689,7 @@ class IFetchRtuDataController(IPageController):
 
     @abstractmethod
     def handle_fetch_request(self, mode: str, single_date: Any, start_date: Any, end_date: Any,
-                             selected_lines: List[str], output_directory: str, 
+                             selected_lines: List[str], output_directory: str,
                              server_filter: str = None, max_parallel_workers: int = 4) -> Result[Dict[str, Any]]:
         """Handle RTU data fetch request execution."""
         pass
@@ -708,4 +708,60 @@ class IFetchRtuDataController(IPageController):
     @abstractmethod
     def get_system_info(self) -> Result[Dict[str, Any]]:
         """Get system information for help modal."""
+        pass
+
+
+# Text Replacement Interfaces
+class ITextReplacer(ABC):
+    """Interface for text replacement operations."""
+
+    @abstractmethod
+    def replace_text(self, content: str, old_text: str, new_text: str, match_case: bool = True) -> str:
+        """Replace text in content with specified options."""
+        pass
+
+
+class ISubstitutionLoader(ABC):
+    """Interface for loading text substitution mappings."""
+
+    @abstractmethod
+    def load_substitutions(self, source: str) -> Result[List[tuple[str, str]]]:
+        """Load substitution pairs from a source (file path, content, etc.)."""
+        pass
+
+
+class IFileProcessor(ABC):
+    """Interface for file processing operations."""
+
+    @abstractmethod
+    def find_files(self, directory: str, extensions: List[str]) -> Result[List[str]]:
+        """Find files in directory matching the given extensions."""
+        pass
+
+    @abstractmethod
+    def process_file(self, file_path: str, substitutions: List[tuple[str, str]], replacer: ITextReplacer, match_case: bool = True) -> Result[bool]:
+        """Process a single file with given substitutions."""
+        pass
+
+
+class ITextReplacementService(ABC):
+    """Interface for text replacement service orchestrating the entire process."""
+
+    @abstractmethod
+    def replace_text_in_files(self, directory: str, substitution_source: str, extensions: List[str], match_case: bool = True) -> Result[Dict[str, Any]]:
+        """Replace text in files based on substitution mappings."""
+        pass
+
+
+class ITextReplacementController(ABC):
+    """Interface for text replacement controller handling UI interactions."""
+
+    @abstractmethod
+    def handle_csv_upload(self, contents: str, filename: str) -> Result[Dict[str, Any]]:
+        """Handle CSV file upload and validation."""
+        pass
+
+    @abstractmethod
+    def handle_text_replacement(self, directory: str, csv_data: Dict[str, Any], extensions: str, match_case: bool) -> Result[Dict[str, Any]]:
+        """Handle text replacement request."""
         pass

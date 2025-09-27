@@ -427,4 +427,65 @@ def configure_services() -> DIContainer:
     container.register_transient(
         FetchRtuDataPageController, factory=fetch_rtu_controller_factory, name="fetch_rtu_page_controller")
 
+    # Register text replacement services
+    _register_text_replacement_services(container)
+
     return container
+
+
+def _register_text_replacement_services(container: DIContainer):
+    """Register text replacement services and dependencies."""
+    from services.text_replacement_service_v2 import (
+        create_text_replacer, create_substitution_loader,
+        create_file_processor, create_text_replacement_service
+    )
+    from controllers.text_replacement_controller import create_text_replacement_controller
+    from validation.text_replacement_validators import (
+        create_csv_validator, create_directory_validator,
+        create_extensions_validator, create_substitution_validator
+    )
+    from core.interfaces import (
+        ITextReplacer, ISubstitutionLoader, IFileProcessor,
+        ITextReplacementService, ITextReplacementController
+    )
+
+    # Register text replacement components (singletons for performance)
+    container.register_singleton(
+        ITextReplacer, factory=create_text_replacer, name="text_replacer")
+
+    container.register_singleton(
+        ISubstitutionLoader, factory=create_substitution_loader, name="substitution_loader")
+
+    container.register_singleton(
+        IFileProcessor, factory=create_file_processor, name="file_processor")
+
+    container.register_singleton(
+        ITextReplacementService, factory=create_text_replacement_service, name="text_replacement_service")
+
+    # Register validators (singletons as they're stateless)
+    container.register_singleton(
+        "CsvContentValidator", factory=create_csv_validator, name="csv_validator")
+
+    container.register_singleton(
+        "DirectoryPathValidator", factory=create_directory_validator, name="directory_validator")
+
+    container.register_singleton(
+        "FileExtensionsValidator", factory=create_extensions_validator, name="extensions_validator")
+
+    container.register_singleton(
+        "SubstitutionDataValidator", factory=create_substitution_validator, name="substitution_validator")
+
+    # Register controller (transient - new instance per request)
+    def text_replacement_controller_factory():
+        service = container.resolve("text_replacement_service")
+        return create_text_replacement_controller(service)
+
+    container.register_transient(
+        ITextReplacementController, factory=text_replacement_controller_factory, name="text_replacement_controller")
+
+
+# Convenience functions for getting commonly used services
+def get_text_replacement_controller():
+    """Get the text replacement controller."""
+    container = get_container()
+    return container.resolve("text_replacement_controller")
